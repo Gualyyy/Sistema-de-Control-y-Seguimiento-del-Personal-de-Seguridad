@@ -1,0 +1,185 @@
+{% extends 'Estructura/base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="contenedor_formulario">
+    <div class="contenedor_campos_amplio">
+        <h2>Gestionar Perfiles Asignados</h2>
+
+        <div class="descripcion_modulo">
+            <p> Módulo de administración para consultar y gestionar los perfiles asignados a los empleados. Permite
+                asignar nuevos perfiles, modificar el turno laboral y gestionar su estado, incluyendo el bloqueo,
+                desbloqueo y desvinculación.
+                <br><br>
+                Para actualizar los datos de un perfil, debe seleccionar una fila de la tabla para desplegar el diálogo
+                de actualización correspondiente.
+            </p>
+        </div>
+
+        <div class="modulo_buqueda">
+            <h3>Buscar Empleado</h3>
+
+            <form method="post" id="formulario_busqueda" class="formulario_base">
+                {% csrf_token %}
+
+                <div class="campo_reducido">
+                    <label for="cedula_identidad">Cedula de Identidad:</label>
+                    <div class="grupo_doble">
+                        <select name="nacionalidad" id="nacionalidad" class="campo_select">
+                            <option value="">N</option>
+                            <option value="V">V</option>
+                            <option value="E">E</option>
+                        </select>
+                        <input type="text" name="cedula" id="cedula_identidad" autocomplete="off" required>
+                    </div>
+                </div>
+
+                <div class="contenedor_boton_submit">
+                    <button type="submit" class="btn_primario btn_registro">Buscar Datos</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="modulo_datos">
+            <h3>Datos del Empleado</h3>
+
+            <div class="campos_fila">
+                <div class="campo_formulario">
+                    <label for="nombres_empleado">Nombres:</label>
+                    <input type="text" id="nombres_empleado" placeholder="Nombres del empleado a buscar" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="apellidos_empleado">Apellidos:</label>
+                    <input type="text" id="apellidos_empleado" placeholder="Apellidos del empleado a buscar" readonly>
+                </div>
+            </div>
+
+            <div class="perfiles_registrados">
+                <div class="encabezado_registrados">
+                    <h3>Lista de Perfiles Registrados</h3>
+
+                    <button type="button" id="asignar_perfil" disabled>
+                        + Asignar Perfil
+                    </button>
+                </div>
+
+                <div class="contenedor_tabla">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>PERFIL</th>
+                                <th>TURNO</th>
+                                <th>ESTADO</th>
+                            </tr>
+                        </thead>
+                        <tbody id="contenedor_perfiles_registrados"></tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</section>
+
+<dialog id="dialogo_registro" class="dialogo">
+    <div class="contenedor_info">
+        <button type="button" id="btn_cerrar_registro" class="btn_cerrar">
+            <i class="icon-cancel"></i>
+        </button>
+
+        <h2>Asignar Perfil</h2>
+
+        <div class="descripcion_modulo">
+            <p>
+                Módulo para registrar nuevas asignaciones de perfiles a los empleados,
+                seleccionando el turno laboral y el perfil correspondiente.
+            </p>
+        </div>
+
+        <div class="modelo_datos">
+            <form method="post" id="formulario_registrar" class="formulario_base">
+                {% csrf_token %}
+                <input type="hidden" name="id_usuario" id="usuario_registro">
+
+                <div class="campo_formulario">
+                    <label for="turnos_registro">Turno Laboral:</label>
+                    <select name="turnos_registro" id="turnos_registro" required></select>
+                </div>
+
+                <div id="contenedor_mensaje_turno" style="display: none;">
+                    <span id="contenedor_texto_mensaje_turno">
+                        Seleccione un turno para mostrar los perfiles disponibles.
+                    </span>
+                </div>
+
+                <div id="contenedor_asignacion_perfil">
+                    <p class="contenedor_vacio">
+                        Seleccione un turno para mostrar los perfiles disponibles.
+                    </p>
+                </div>
+
+                <div class="contenedor_boton_submit">
+                    <button type="submit" class="btn_primario btn_registro">Registrar Asignación</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</dialog>
+
+<dialog id="dialogo_gestion" class="dialogo">
+    <div class="contenedor_info">
+        <button type="button" id="btn_cerrar_gestion" class="btn_cerrar">
+            <i class="icon-cancel"></i>
+        </button>
+
+        <h2>Gestión del Perfil</h2>
+
+        <div class="descripcion_modulo">
+            <p>
+                Módulo para gestionar la asignación del perfil del empleado,
+                permitiendo actualizar el turno laboral y el estado de vigencia del perfil.
+            </p>
+        </div>
+
+        <div class="modelo_datos">
+            <form method="post" id="formulario_actualizar" class="formulario_base">
+                {% csrf_token %}
+                <input type="hidden" name="id_perfil_asignado" id="id_perfil_asignado">
+
+                <div class="campo_formulario">
+                    <label for="actualizar_turno">Turno Laboral:</label>
+                    <select name="actualizar_turno" id="actualizar_turno" required></select>
+                </div>
+
+                <div class="campo_formulario estado_perfil">
+                    <label>Estado del Perfil:</label>
+                    <div class="opciones_vigencia">
+                        <label class="opcion_vigencia">
+                            <input type="radio" name="vigencia" id="habilitar_perfil" value="REASIGNAR" required>
+                            <span>Habilitar Perfil</span>
+                        </label>
+
+                        <label class="opcion_vigencia">
+                            <input type="radio" name="vigencia" id="deshabilitar_perfil" value="DESIGNACION" required>
+                            <span>Deshabilitar Perfil</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="contenedor_boton_submit">
+                    <button type="submit" class="btn_primario btn_registro">Actualizar Perfil</button>
+                </div>
+            </form>
+        </div>
+
+    </div>
+</dialog>
+
+<script src="{% static 'Funcionalidades/cedula_identidad.js' %}"></script>
+<script src="{% static 'Funcionalidades_Asincronas/gestionar_perfiles_usuario.js' %}"></script>
+
+{% endblock %}

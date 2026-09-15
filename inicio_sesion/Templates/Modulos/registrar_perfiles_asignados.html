@@ -1,0 +1,48 @@
+{% extends 'Estructura/base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section id="contenedor_formulario">
+    <div class="contenedor_campos">
+        <h2>Registrar Perfil(es) Asignado(s)</h2>
+
+        <div class="descripcion_modulo">
+            <p>
+                Este módulo permite registrar y gestionar la información correspondiente
+                a los empleados, facilitando el ingreso de sus datos de manera organizada,
+                segura y sencilla.
+            </p>
+        </div>
+
+        <div id="busqueda_usuario">
+            <h3>Búsqueda</h3>
+            <form method="post">
+                {% csrf_token %}
+
+                <label for="cedula_identidad">Cedula Identidad:</label>
+                <div class="grupo_cedula">
+                    <select name="nacionalidad" id="nacionalidad" required>
+                        <option value="">N</option>
+                        <option value="V">V</option>
+                        <option value="E">E</option>
+                    </select>
+                    <input type="text" name="cedula_identidad" id="cedula_identidad" autocomplete="off" required>
+                </div>
+            </form>
+        </div>
+
+        <div class="contenedor_registrar_perfil">
+            <form method="post" id="formulario_registrar">
+                {% csrf_token %}
+
+
+            </form>
+        </div>
+    </div>
+</section>
+
+<script src="{% static 'Funcionalidades_Asincronas/registrar_asignaciones_perfiles.js' %}"></script>
+
+{% endblock %}

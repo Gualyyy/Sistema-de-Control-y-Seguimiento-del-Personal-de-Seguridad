@@ -1,0 +1,148 @@
+{% extends 'Estructura/base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="contenedor_formulario">
+    <div class="contenedor_campos_amplio">
+        <h2>Gestión Incidencias Recibidas</h2>
+
+        <div class="modulo_buqueda">
+            <h3>Búsqueda Incidencia(s)</h3>
+
+            <form method="post" class="formulario_base">
+                {% csrf_token %}
+
+                <div class="campos_fila">
+                    <div class="campo_formulario">
+                        <label for="tipos_incidencias">Tipos de Incidencias:</label>
+                        <select name="tipos_incidencias" id="tipos_incidencias"></select>
+                    </div>
+
+                    <div class="campo_formulario">
+                        <label for="turno_laboral">Turno Laboral:</label>
+                        <select name="turno_laboral" id="turno_laboral"></select>
+                    </div>
+                </div>
+            </form>
+
+        </div>
+
+        <div class="modulo_visualizar detalle">
+            <div class="encabezado_registrados">
+                <h3>Lista de Incidencias Recibidas</h3>
+            </div>
+
+            <div class="contenedor_tabla">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>EMPLEADO</th>
+                            <th>TIPO DE INCIDENCIA</th>
+                            <th>ESTADO</th>
+                            <th>ACCIÓN</th>
+                        </tr>
+                    </thead>
+                    <tbody id="contenedor_incidencias"></tbody>
+                </table>
+            </div>
+
+            <div class="botones_navegacion">
+                <button class="btn_secundario btn_retroceder" type="button">Retroceder</button>
+                <button class="btn_primario btn_avanzar" type="button">Avanzar</button>
+            </div>
+        </div>
+
+    </div>
+</section>
+
+<dialog id="dialogo_incidencia" class="dialogo">
+    <div class="contenedor_info">
+        <button type="button" id="btn_cerrar_incidencia" class="btn_cerrar">
+            <i class="icon-cancel"></i>
+        </button>
+
+        <h2>Detalle Incidencia</h2>
+
+        <div class="modelo_datos">
+            <form method="post" class="formulario_base">
+                {% csrf_token %}
+
+                <div class="campo_formulario">
+                    <label for="tipo_incidencia_v">Tipo de Incidencia:</label>
+                    <input type="text" id="tipo_incidencia_v" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="titulo_incidencia_visualizar">Titulo Incidencia:</label>
+                    <input type="text" id="titulo_incidencia_visualizar" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="descripcion_incidencia_v">Descripción Incidencia:</label>
+                    <textarea id="descripcion_incidencia_v" readonly></textarea>
+                </div>
+                <div class="campo_formulario">
+                    <label for="fecha_incidencia_v">Fecha y Hora de la Incidencia:</label>
+                    <input type="text" id="fecha_incidencia_v" readonly>
+                </div>
+                <div class="campo_formulario">
+                    <label for="estado_v">Estado:</label>
+                    <input type="text" id="estado_v" readonly>
+                </div>
+                <div class="campo_formulario">
+                    <label for="solucion_v">Solución:</label>
+                    <textarea id="solucion_v" readonly></textarea>
+                </div>
+                <div class="campo_formulario">
+                    <label for="fecha_resolucion_v">Fecha:</label>
+                    <input type="text" id="fecha_resolucion_v" readonly>
+                </div>
+            </form>
+        </div>
+
+    </div>
+</dialog>
+
+<dialog id="dialogo_solucion" class="dialogo">
+    <div class="contenedor_info">
+        <button type="button" id="btn_cerrar_solucion" class="btn_cerrar">
+            <i class="icon-cancel"></i>
+        </button>
+
+        <h2>Actualizar la Incidencia</h2>
+
+        <div class="modelo_datos">
+            <form method="post" id="formulario_solucion" class="formulario_base">
+                {% csrf_token %}
+                <input type="hidden" name="id_incidencia" id="id_incidencia">
+
+                <div class="campo_formulario">
+                    <label for="estado_incidencia">Estado de la Incidencia:</label>
+                    <select name="estado_incidencia" id="estado_incidencia" required></select>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="solucion_incidencia">Solución de la Incidencia:</label>
+                    <textarea name="solucion_incidencia" id="solucion_incidencia"
+                        placeholder="Ingresa la descripción de la incidencia (400 caracteres máximo)" maxlength="400"
+                        autocomplete="off" required></textarea>
+                    <div class="contador_caracteres">
+                        <span id="contador_solucion_incidencia">0</span> / 400 caracteres
+                    </div>
+                </div>
+
+                <div class="contenedor_boton_submit">
+                    <button type="submit" class="btn_primario">Solucionar</button>
+                </div>
+            </form>
+        </div>
+
+    </div>
+</dialog>
+
+<script src="{% static 'Funcionalidades_Asincronas/gestion_incidencia_admin.js' %}"></script>
+
+{% endblock %}

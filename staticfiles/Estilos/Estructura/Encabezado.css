@@ -1,0 +1,103 @@
+.header-logueado {
+    grid-area: header;
+    position: sticky;
+    top: 0;
+    width: 100%;
+    height: 110px;
+    background: #102f4e;
+    z-index: 1000;
+}
+
+.barra_superior {
+    width: 100%;
+    height: 55px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-bottom: 1px solid rgba(255, 251, 244, 0.25);
+}
+
+.marca {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.marca img {
+    width: 80px;
+    height: auto;
+    object-fit: contain;
+    display: block;
+    margin-right: -8px;
+}
+
+.marca h1 {
+    margin: 0;
+    color: #fffbf4;
+    font-size: 1.7rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.barra_inferior {
+    width: 100%;
+    height: 55px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.titulo_sistema {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 0 10px;
+}
+
+.titulo_sistema h1 {
+    margin: 0;
+    color: #fffbf4;
+    font-size: 1.2rem;
+    font-weight: 300;
+    line-height: 1;
+    white-space: nowrap;
+    text-align: center;
+}
+
+/* BARRA LATERAL (ASIDE) */
+.aside-logueado {
+    grid-area: aside;
+    position: sticky;
+    top: 110px;
+    height: calc(100vh - 110px);
+    background: #102f4e;
+    color: #fffbf4;
+    z-index: 900;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+/* ADAPTATIVO / RESPONSIVE (<= 992px) MOVILES */
+@media (max-width: 992px) {
+
+    .body-logueado {
+        grid-template-columns: 1fr;
+        grid-template-rows: 110px 1fr auto;
+        grid-template-areas:
+            "header"
+            "main"
+            "footer";
+    }
+
+    .marca h1 {
+        font-size: 1.3rem;
+    }
+
+    .titulo_sistema h1 {
+        font-size: 0.95rem;
+        white-space: normal;
+    }
+}

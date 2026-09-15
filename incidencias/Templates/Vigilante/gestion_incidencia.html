@@ -1,0 +1,164 @@
+{% extends 'Estructura/base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="contenedor_formulario">
+    <div class="contenedor_campos_amplio">
+        <h2>Gestión Incidencias</h2>
+
+        <div class="modulo_buqueda">
+            <h3>Búsqueda Incidencia(s)</h3>
+
+            <form method="post" class="formulario_base">
+                {% csrf_token %}
+
+                <div class="campos_fila">
+                    <div class="campo_formulario">
+                        <label for="tipos_incidencias">Tipos de Incidencias:</label>
+                        <select name="tipos_incidencias" id="tipos_incidencias"></select>
+                    </div>
+
+                    <div class="campo_formulario">
+                        <label for="fechas_incidencias">Fechas Incidencias:</label>
+                        <select name="fechas_incidencias" id="fechas_incidencias"></select>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="modulo_visualizar detalle">
+            <div class="encabezado_registrados">
+                <h3>Lista de Incidencias Registrados</h3>
+                <button type="button" class="btn_pdf" id="lista_incidencias_pdf">Generar PDF</button>
+            </div>
+
+            <div class="contenedor_tabla">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>TITULO</th>
+                            <th>TIPO DE INCIDENCIA</th>
+                            <th>FECHA Y HORA</th>
+                            <th>ESTADO</th>
+                        </tr>
+                    </thead>
+                    <tbody id="contenedor_incidencias"></tbody>
+                </table>
+            </div>
+
+            <div class="botones_navegacion">
+                <button class="btn_secundario btn_retroceder" type="button">Retroceder</button>
+                <button class="btn_primario btn_avanzar" type="button">Avanzar</button>
+            </div>
+        </div>
+
+    </div>
+</section>
+
+<dialog id="dialogo_incidencia" class="dialogo">
+    <div class="contenedor_info">
+        <button type="button" id="btn_cerrar_incidencia" class="btn_cerrar">
+            <i class="icon-cancel"></i>
+        </button>
+
+        <h2>Detalle Incidencia</h2>
+
+        <div class="contenedor_btn_pdf">
+            <button type="button" class="btn_pdf_dialog" id="detalle_incidencia_pdf">Generar PDF</button>
+        </div>
+
+        <div class="modelo_datos">
+            <form method="post" class="formulario_base">
+                {% csrf_token %}
+                <input type="hidden" name="id_incidencia_v" id="id_incidencia_v">
+
+                <div class="campo_formulario">
+                    <label for="tipo_incidencia_v">Tipo de Incidencia:</label>
+                    <input type="text" id="tipo_incidencia_v" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="titulo_incidencia_v">Titulo Incidencia:</label>
+                    <input type="text" id="titulo_incidencia_v" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="descripcion_incidencia_v">Descripción Incidencia:</label>
+                    <textarea id="descripcion_incidencia_v" readonly></textarea>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="fecha_incidencia_v">Fecha y Hora de la Incidencia:</label>
+                    <input type="text" id="fecha_incidencia_v" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="estado_incidencia_v">Estado de la Incidencia:</label>
+                    <input type="text" id="estado_incidencia_v" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="solucion_incidencia_v">Solución de la Incidencia:</label>
+                    <textarea id="solucion_incidencia_v" readonly></textarea>
+                </div>
+            </form>
+        </div>
+
+    </div>
+</dialog>
+
+<dialog id="dialogo_actualizar" class="dialogo">
+    <div class="contenedor_info">
+        <button type="button" id="btn_cerrar_actualizar" class="btn_cerrar">
+            <i class="icon-cancel"></i>
+        </button>
+
+        <h2>Actualizar la Incidencia</h2>
+
+        <div class="modelo_datos">
+            <form method="post" id="formulario_actualizar" class="formulario_base">
+                {% csrf_token %}
+                <input type="hidden" name="id" id="id_incidencia_m">
+
+                <div class="campo_formulario">
+                    <label for="tipos_incidencias_m">Tipos de Incidencias:</label>
+                    <select name="tipos" id="tipos_incidencias_m"></select>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="fecha_hora_incidencia_m">Fecha y hora:</label>
+                    <input type="datetime-local" name="fecha_hora" id="fecha_hora_incidencia_m" required>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="titulo_incidencia_m">Titulo de Incidencias:</label>
+                    <input type="text" name="titulo_m" id="titulo_incidencia_m"
+                        placeholder="Ingresa el titulo de la Incidencia (50 caracteres máximo)" minlength="8"
+                        maxlength="50" autocomplete="off" required>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="descripcion_incidencia_m">Descripción de la Incidencias:</label>
+                    <textarea name="descripcion" id="descripcion_incidencia_m"
+                        placeholder="Ingresa la descripción de la incidencia (400 caracteres máximo)" maxlength="400"
+                        autocomplete="off" required></textarea>
+                    <div class="contador_caracteres">
+                        <span id="contador_descripcion_incidencia">0</span> / 400 caracteres
+                    </div>
+                </div>
+
+                <div class="contenedor_boton_submit">
+                    <button type="submit" class="btn_primario">Actualizar</button>
+                </div>
+            </form>
+        </div>
+
+    </div>
+</dialog>
+
+<script src="{% static 'Funcionalidades_Asincronas/gestionar_incidencias.js' %}"></script>
+
+{% endblock %}

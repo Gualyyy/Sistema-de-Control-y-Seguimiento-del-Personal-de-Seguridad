@@ -1,0 +1,171 @@
+.paso {
+    display: none;
+    width: 100%;
+}
+
+.paso.activo {
+    display: block;
+}
+
+/* PROGRESO (COMPACTO Y CON MARGEN EXTERNO)*/
+.progreso {
+    width: 100%;
+    padding: 12px 15px 15px;
+    margin-bottom: 25px;
+    box-sizing: border-box;
+    border: 1px solid #00779e;
+    border-radius: 10px;
+    background: #ffffff;
+}
+
+.linea {
+    position: relative;
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+/* LÍNEA DE FONDO */
+.linea::before {
+    content: "";
+    position: absolute;
+    top: 16px;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: #d9d9d9;
+    border-radius: 10px;
+}
+
+/* LÍNEA DE AVANCE */
+.avance {
+    position: absolute;
+    top: 16px;
+    left: 0;
+    width: 0;
+    height: 4px;
+    background: #00445f;
+    border-radius: 10px;
+    transition: width 0.4s ease;
+    z-index: 1;
+}
+
+/* CONTENEDOR DE LOS CÍRCULOS */
+.pasos {
+    position: relative;
+    display: flex;
+    width: 100%;
+    z-index: 2;
+}
+
+/* CADA INDICADOR */
+.paso_progreso {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    flex: 1;
+    min-width: 0;
+    color: #888;
+}
+
+/* NÚMERO (CÍRCULO COMPACTO) */
+.paso_progreso span {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: white;
+    border: 3px solid #d9d9d9;
+    box-sizing: border-box;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+/* TEXTO */
+.paso_progreso small {
+    margin-top: 5px;
+    text-align: center;
+    font-size: 12px;
+    white-space: nowrap;
+    color: #888;
+}
+
+/* PASO ACTIVO */
+.paso_progreso.activo span {
+    background: #00445f;
+    border-color: #00445f;
+    color: white;
+}
+
+.paso_progreso.activo small {
+    color: #00445f;
+    font-weight: 600;
+}
+
+/* BOTONES */
+.botones {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    margin-top: 15px;
+    gap: 15px;
+}
+
+.btn-atras,
+.btn-siguiente {
+    padding: 8px 16px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.btn-siguiente {
+    background: #00445f;
+    color: white;
+}
+
+.btn-atras {
+    background: #ffffff;
+    color: #00445f;
+    border: 2px solid #00445f;
+}
+
+@media (max-width: 992px) {
+    .progreso {
+        padding: 10px 12px 12px;
+        margin-bottom: 20px;
+    }
+
+    .paso_progreso small {
+        font-size: 11px;
+        white-space: normal;
+        line-height: 1.2;
+    }
+}
+
+@media (max-width: 576px) {
+    .paso_progreso span {
+        width: 28px;
+        height: 28px;
+        font-size: 0.75rem;
+        border-width: 2px;
+    }
+
+    .linea::before,
+    .avance {
+        top: 14px;
+        height: 3px;
+    }
+
+    /* Opcional: Oculta los textos en móviles muy pequeños para no saturar */
+    .paso_progreso small {
+        display: none;
+    }
+}

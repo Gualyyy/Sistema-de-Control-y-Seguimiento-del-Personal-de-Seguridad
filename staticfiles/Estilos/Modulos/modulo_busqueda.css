@@ -1,0 +1,177 @@
+.modulo_buqueda {
+    width: 100%;
+    margin: 20px 0;
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 20px 24px;
+    border: 2px solid #00779e;
+    box-shadow: 0 4px 12px rgba(0, 68, 95, 0.08);
+    box-sizing: border-box;
+    transition: max-width 0.3s ease;
+}
+
+.modulo_buqueda h3 {
+    color: #00445f;
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin: 0 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #00779e;
+    text-align: center;
+}
+
+/* 1. COMPORTAMIENTO BASE DE LA FILA (APLICA BLOCK CUANDO HAY 3 O MÁS CAMPOS) */
+.modulo_buqueda .campos_fila {
+    display: block;
+    width: 100%;
+}
+
+.modulo_buqueda .campos_fila>div {
+    margin-bottom: 16px;
+}
+
+.modulo_buqueda .campos_fila>div:last-child {
+    margin-bottom: 0;
+}
+
+/* CUANDO EXISTE CAMPO_REDUCIDO */
+.modulo_buqueda:has(.campo_reducido) {
+    max-width: 550px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* 3. SI HAY EXACTAMENTE 2 CONTROLES (PAR): CREA UNA SOLA FILA DE 2 COLUMNAS */
+.modulo_buqueda .campos_fila:has(> div:nth-last-child(2):first-child) {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    align-items: start;
+}
+
+.modulo_buqueda .campos_fila:has(> div:nth-last-child(2):first-child)>div {
+    margin-bottom: 0;
+}
+
+/* ESTRUCTURA INDIVIDUAL DE COLUMNAS */
+.modulo_buqueda .campos_reducido,
+.modulo_buqueda .campo_formulario {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+.modulo_buqueda .campo_reducido {
+    display: flex;
+    flex-direction: column;
+    width: 60%;
+    margin: 0 auto;
+    align-items: center;
+}
+
+/* ETIQUETAS */
+.modulo_buqueda label {
+    display: block;
+    width: 100%;
+    margin-bottom: 6px;
+    color: #001d2d;
+    font-size: 0.88rem;
+    font-weight: 600;
+    text-align: left;
+}
+
+/* CONTROLES CÉDULA */
+.modulo_buqueda .grupo_doble {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    gap: 6px;
+}
+
+.modulo_buqueda .grupo_doble .campo_select {
+    width: 52px;
+    height: 40px;
+    padding: 0 2px 0 6px;
+    border: 2px solid #00779e;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #00445f;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-sizing: border-box;
+}
+
+.modulo_buqueda .grupo_doble input {
+    flex: 1;
+    min-width: 0;
+    height: 40px;
+    padding: 0 12px;
+    border: 2px solid #00779e;
+    border-radius: 8px;
+    background: #ffffff;
+    font-size: 0.95rem;
+    box-sizing: border-box;
+}
+
+/* CONTROL SELECT PERFILES */
+.modulo_buqueda .campo_formulario select {
+    width: 100%;
+    height: 40px;
+    padding: 0 12px;
+    border: 2px solid #00779e;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #00445f;
+    font-size: 0.95rem;
+    box-sizing: border-box;
+}
+
+/* ENFOQUE */
+.modulo_buqueda .grupo_doble .campo_select:focus,
+.modulo_buqueda .grupo_doble input:focus,
+.modulo_buqueda .campo_formulario select:focus {
+    outline: none;
+    border-color: #00445f;
+}
+
+/* ESTILOS PARA EL BOTÓN SUBMIT */
+.modulo_buqueda .contenedor_boton_submit {
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+    width: 100%;
+}
+
+.modulo_buqueda .btn_registro {
+    padding: 10px 24px;
+    background-color: #00779e;
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.modulo_buqueda .btn_registro:hover {
+    background-color: #00445f;
+}
+
+.modulo_buqueda .btn_registro:active {
+    transform: scale(0.98);
+}
+
+/* RESPONSIVE ≤ 650px */
+@media (max-width: 650px) {
+    .modulo_buqueda {
+        padding: 16px;
+        max-width: 100%;
+    }
+
+    .modulo_buqueda .campos_fila:has(> div:nth-last-child(2):first-child) {
+        grid-template-columns: 1fr;
+        gap: 14px;
+    }
+}

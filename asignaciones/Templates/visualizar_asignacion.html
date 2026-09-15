@@ -1,0 +1,216 @@
+{% extends 'Estructura/base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="contenedor_formulario">
+    <div class="contenedor_campos_amplio">
+        <h2>Visualizar Equipos Asignados</h2>
+
+        <div class="modulo_buqueda">
+            <h3>Buscar Asignaciones</h3>
+
+            <form method="post" class="formulario_base">
+                {% csrf_token %}
+
+                <div class="campos_fila">
+                    <div class="campos_reducido">
+                        <label for="cedula_identidad">Cedula Identidad:</label>
+                        <div class="grupo_doble">
+                            <select name="nacionalidad" id="nacionalidad" class="campo_select">
+                                <option value="">N</option>
+                                <option value="V">V</option>
+                                <option value="E">E</option>
+                            </select>
+                            <input type="text" name="cedula_identidad" id="cedula_identidad" autocomplete="off">
+                        </div>
+                    </div>
+
+                    <div class="campo_formulario">
+                        <label for="categorias_registradas">Categoría de Equipo:</label>
+                        <select name="categoria" id="categorias_registradas"></select>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="modulo_visualizar detalle">
+            <div class="encabezado_registrados">
+                <h3>Lista de Equipos Asignados</h3>
+                <button type="button" class="btn_pdf" id="lista_asignacion_pdf">Generar PDF</button>
+            </div>
+
+            <div class="contenedor_tabla">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>EMPLEADO</th>
+                            <th>EQUIPO</th>
+                            <th>ACCIÓN</th>
+                        </tr>
+                    </thead>
+                    <tbody id="registros_asignaciones"></tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+</section>
+
+<dialog id="dialogo_asignacion" class="dialogo">
+    <div class="contenedor_info">
+        <button type="button" id="btn_cerrar_asignacion" class="btn_cerrar">
+            <i class="icon-cancel"></i>
+        </button>
+
+        <h2>Datos de la Asignación del Equipo</h2>
+
+        <div class="contenedor_btn_pdf">
+            <button type="button" class="btn_pdf_dialog" id="equipo_asignado_pdf">Generar PDF</button>
+        </div>
+
+        <div class="modelo_datos">
+            <form method="post" class="formulario_base">
+                <input type="hidden" name="id_asignacion" id="id_asignacion_visualizar">
+
+                <div class="campo_formulario">
+                    <label for="empleado_asignado_visualizar">Nombres y Apellidos del Empleado:</label>
+                    <input type="text" id="empleado_asignado_visualizar" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="cedula_empleado_visualizar">Cédula de Identidad del Empleado:</label>
+                    <input type="text" id="cedula_empleado_visualizar" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="nombre_equipo_visualizar">Equipo:</label>
+                    <input type="text" id="nombre_equipo_visualizar" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="codigo_equipo_visualizar">Código del Equipo:</label>
+                    <input type="text" id="codigo_equipo_visualizar" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="categoria_equipo_visualizar">Categoría del Equipo:</label>
+                    <input type="text" id="categoria_equipo_visualizar" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="fecha_entrega_visualizar">Fecha de la Asignación:</label>
+                    <input type="text" id="fecha_entrega_visualizar" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="fecha_devolucion_visualizar">Fecha de Devolución:</label>
+                    <input type="text" id="fecha_devolucion_visualizar" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="cantidad_devuelto_visualizar">Cantidad o Unidad del Equipo Devuelto:</label>
+                    <input type="text" id="cantidad_devuelto_visualizar" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="cantidad_equipo_visualizar">Cantidad de Equipo Asignado:</label>
+                    <input type="text" id="cantidad_equipo_visualizar" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="estado_equipo_visualizar">Estado de la Asignación:</label>
+                    <input type="text" id="estado_equipo_visualizar" readonly>
+                </div>
+            </form>
+        </div>
+
+    </div>
+</dialog>
+
+<dialog id="dialogo_devolucion" class="dialogo">
+    <div class="contenedor_info">
+        <button type="button" id="btn_cerrar_devolucion" class="btn_cerrar">
+            <i class="icon-cancel"></i>
+        </button>
+
+        <h2>Devolución del Equipo Asignado</h2>
+
+        <div class="modelo_datos">
+            <form method="post" id="formulario_devolucion" class="formulario_base">
+                {% csrf_token %}
+                <input type="hidden" name="id_asignacion" id="id_asignacion_devolucion">
+                <input type="hidden" name="ci_usuario" id="ci_usuario_devolucion">
+
+                <div class="campo_formulario">
+                    <label for="empleado_asignado_devolucion">Empleado que se Asigno:</label>
+                    <input type="text" id="empleado_asignado_devolucion" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="equipo_asignado_devolucion">Equipo de Devolver:</label>
+                    <input type="text" id="equipo_asignado_devolucion" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="cantidad_equipo_devuelto">Cantidad o Unidad del Equipo Devuelto:</label>
+                    <input type="text" id="cantidad_equipo_devuelto" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="cantidad_asignada_devolucion">Cantidad o Unidad Asignada:</label>
+                    <input type="text" id="cantidad_asignada_devolucion" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="cantidad_posee">Cantidad o Unidad que Posee:</label>
+                    <input type="text" id="cantidad_posee" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="tipos_devolucion">Tipo de Devolución:</label>
+                    <select name="tipos_devolucion" id="tipos_devolucion" required>
+                        <option value="">Seleccione una opción </option>
+                        <option value="DEVOLUCION">Devolución</option>
+                        <option value="CORRECCION">Corrección</option>
+                    </select>
+                </div>
+
+                <div class="campo_formulario" id="contenedor_estado_devolucion">
+                    <label for="estados_devolucion">Estado de la Devolución:</label>
+                    <select name="estados_devolucion" id="estados_devolucion" required>
+                        <option value="">Seleccione el Estado de la Devolución</option>
+                        <option value="DEVUELTO">Devolución</option>
+                        <option value="DAÑADO">Dañado</option>
+                        <option value="HURTADO">Hurtado</option>
+                        <option value="EXTRAVIADO">Extraviado</option>
+                    </select>
+                </div>
+
+                <div class="campo_formulario" id="contenedor_estado_correccion" hidden>
+                    <label for="estado_correccion">Estado de la Corrección:</label>
+                    <input type="text" id="estado_correccion" value="Error Humano" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="cantidad_devolver">Cantidad de Equipo a Devolver:</label>
+                    <input type="number" name="cantidad" id="cantidad_devolver" min="1"
+                        placeholder="Ingrese la cantidad o pares que va a devolver." required>
+                    <small id="contenedor_msg_cantidad"></small>
+                </div>
+
+                <div class="contenedor_boton_submit">
+                    <button type="submit" class="btn_primario btn_registro">Devolver</button>
+                </div>
+            </form>
+        </div>
+
+    </div>
+</dialog>
+
+<script src="{% static 'Funcionalidades/cedula_identidad.js' %}"></script>
+<script src="{% static 'Funcionalidades_Asincronas/visualizar_asignaciones.js' %}"></script>
+
+{% endblock %}

@@ -1,0 +1,38 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{% static 'Estilos/estilos.css' %}">
+    <link rel="shortcut icon" href="{% static 'Imagenes/icono_nav.png' %}" type="image/x-icon">
+    <title>Hielo Caipe</title>
+</head>
+
+<body data-session-user="{{ request.session.usuario|default:''|escape }}"
+    class="{% if request.session.usuario and request.session.completar_registro %}body-logueado{% endif %} {% if request.resolver_match.url_name == 'pagina_404' %}pagina-404{% endif %}">
+
+    {% include 'Estructura/Encabezado.html' %}
+
+    {% if request.session.usuario %}
+    {% include 'Estructura/Barra_Lateral.html' %}
+    {% endif %}
+
+    <main class="{% if request.session.usuario and request.session.completar_registro %}main-logueado{% endif %}">
+        {% block content %}
+        {% endblock %}
+    </main>
+
+    {% if not request.session.usuario %}
+    {% include 'Estructura/Pie_Pagina.html' %}
+    {% endif %}
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flipclock@^1/dist/FlipClock.umd.js"></script>
+    <script src="{% static 'Funcionalidades/control_pestana.js' %}"></script>
+    <script src="{% static 'Funcionalidades/barra_lateral.js' %}"></script>
+</body>
+
+</html>

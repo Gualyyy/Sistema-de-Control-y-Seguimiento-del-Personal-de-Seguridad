@@ -1,0 +1,143 @@
+dialog.dialogo {
+    border: 2px solid #00445f;
+    border-radius: 14px;
+    padding: 0;
+    max-width: 650px;
+    width: 90%;
+    background: #ffffff;
+    box-shadow: 0 10px 25px rgba(0, 29, 45, 0.3);
+
+    margin: auto;
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+}
+
+dialog.dialogo::backdrop {
+    background: rgba(0, 29, 45, 0.65);
+    backdrop-filter: blur(2px);
+}
+
+/* ================================ */
+
+/* DIÁLOGO PANEL */
+dialog.dialogo_panel {
+    border: 2px solid #00445f;
+    border-radius: 14px;
+
+    padding: 0;
+
+    width: 90%;
+    max-width: 750px;
+    max-height: 90vh;
+
+    background: #ffffff;
+
+    box-shadow: 0 10px 25px rgba(0, 29, 45, 0.3);
+
+    margin: auto;
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+}
+
+/* FONDO */
+dialog.dialogo_panel::backdrop {
+    background: rgba(0, 29, 45, 0.65);
+    backdrop-filter: blur(2px);
+}
+
+/* CONTENIDO */
+dialog.dialogo_panel .contenedor_info {
+    width: 100%;
+    max-height: 90vh;
+    padding: 20px 22px;
+    overflow-y: auto;
+}
+
+dialog.dialogo_panel .contenedor_info h2 {
+    text-align: center;
+    color: #001d2d;
+    font-size: 1.6rem;
+}
+
+/* ================================ */
+
+dialog.dialogo .contenedor_info {
+    padding: 20px 22px;
+    max-height: 85vh;
+    overflow-y: auto;
+}
+
+dialog.dialogo .contenedor_info h2 {
+    text-align: center;
+    color: #001d2d;
+    font-size: 1.6rem;
+    margin-top: 0;
+    margin-bottom: 18px;
+}
+
+.contenedor_btn_pdf {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 15px;
+}
+
+.btn_pdf_dialog {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    background: #00445f;
+    color: #ffffff;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.btn_pdf_dialog:hover {
+    background: #00648b;
+}
+
+/* Estilo para el texto vacío */
+.contenedor_vacio {
+    margin: 0;
+    color: #666666;
+    /* Color sutil para mensajes de estado vacío */
+    font-size: 0.95rem;
+    font-style: italic;
+}
+
+/* ADAPTACIÓN RESPONSIVE MODAL (TELÉFONOS Y TABLETS PEQUEÑAS) */
+@media (max-width: 768px) {
+    dialog#dialogo_contenido {
+        width: 95%;
+        max-height: 90vh;
+    }
+
+    dialog#dialogo_contenido .contenedor_info {
+        padding: 15px 12px;
+    }
+
+    dialog#dialogo_contenido .contenedor_info h2 {
+        font-size: 1.3rem;
+        margin-bottom: 12px;
+    }
+
+    .modulo_datos .bloque_paso {
+        padding: 12px;
+    }
+
+    .contenedor_btn_pdf {
+        justify-content: center;
+    }
+
+    #datos_empleado_pdf {
+        width: 100%;
+        text-align: center;
+    }
+}

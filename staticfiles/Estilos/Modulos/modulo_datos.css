@@ -1,0 +1,508 @@
+.modulo_datos {
+    background: #ffffff;
+    border: 2px solid #00779e;
+    border-radius: 12px;
+    padding: 20px 22px;
+    margin-top: 20px;
+    box-shadow: 0 4px 12px rgba(0, 68, 95, 0.08);
+}
+
+.modulo_datos>h3 {
+    color: #00445f;
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin: 0 0 18px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #00779e;
+}
+
+.modulo_datos .paso {
+    display: none;
+}
+
+.modulo_datos .paso.activo {
+    display: block;
+}
+
+.modulo_datos .bloque_paso {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 16px;
+    border: 1px solid #00779e;
+    margin-bottom: 15px;
+}
+
+.modulo_datos .bloque_paso h3 {
+    color: #00445f;
+    font-size: 1.05rem;
+    margin-top: 0;
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid #00779e;
+}
+
+.modulo_datos label {
+    display: block;
+    margin-top: 6px;
+    margin-bottom: 4px;
+    color: #001d2d;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.modulo_datos input[type="text"],
+.modulo_datos textarea {
+    width: 100%;
+    padding: 9px 12px;
+    border-radius: 8px;
+    border: 2px solid #00779e;
+    background: #ffffff;
+    color: #001d2d;
+    font-size: 0.92rem;
+    outline: none;
+    transition: 0.25s;
+    box-sizing: border-box;
+}
+
+.modulo_datos textarea {
+    min-height: 80px;
+    resize: vertical;
+    font-family: inherit;
+}
+
+.modulo_datos input[readonly],
+.modulo_datos textarea[readonly] {
+    border-color: #00779e;
+    color: #001d2d;
+    cursor: default;
+}
+
+.modulo_datos input:focus,
+.modulo_datos textarea:focus {
+    border-color: #00445f;
+    box-shadow: 0 0 0 2px rgba(0, 119, 158, 0.15);
+}
+
+.perfiles_registrados {
+    margin-top: 25px;
+    padding: 18px;
+
+    background: #f8fbfc;
+    border: 1px solid #00779e;
+    border-radius: 10px;
+}
+
+/* ENCABEZADO DE PERFILES */
+.encabezado_registrados {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+
+    margin-bottom: 15px;
+}
+
+.encabezado_registrados h3 {
+    margin: 0;
+    padding: 0;
+
+    color: #00445f;
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+/* BOTÓN ASIGNAR PERFIL */
+#asignar_perfil {
+    flex-shrink: 0;
+
+    padding: 9px 16px;
+
+    background: #00779e;
+    color: #ffffff;
+
+    border: none;
+    border-radius: 7px;
+
+    font-size: 0.9rem;
+    font-weight: 600;
+
+    cursor: pointer;
+
+    transition:
+        background 0.2s ease,
+        transform 0.2s ease;
+}
+
+#asignar_perfil:hover:not(:disabled) {
+    background: #00445f;
+}
+
+#asignar_perfil:active:not(:disabled) {
+    transform: scale(0.98);
+}
+
+#asignar_perfil:disabled {
+    background: #b8c5ca;
+    color: #ffffff;
+    cursor: not-allowed;
+}
+
+/* CONTENEDOR DE PERFILES REGISTRADOS */
+.perfiles_registrados {
+    width: 100%;
+    margin-top: 20px;
+}
+
+/* ENCABEZADO */
+.perfiles_registrados .encabezado_registrados {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    margin-bottom: 12px;
+}
+
+.perfiles_registrados .encabezado_registrados h3 {
+    margin: 0;
+    color: #00445f;
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+/* BOTÓN ASIGNAR PERFIL */
+.perfiles_registrados #asignar_perfil {
+    padding: 9px 16px;
+    border: none;
+    border-radius: 6px;
+    background: #00779e;
+    color: #ffffff;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.perfiles_registrados #asignar_perfil:hover:not(:disabled) {
+    background: #00445f;
+}
+
+.perfiles_registrados #asignar_perfil:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* TABLA DE PERFILES */
+.perfiles_registrados .contenedor_tabla {
+    width: 100%;
+    overflow-x: auto;
+    /* Permite scroll horizontal cuando el texto no quepa */
+    margin-top: 10px;
+    border-radius: 8px;
+    border: 1px solid #d5e1e5;
+    background: #ffffff;
+}
+
+.perfiles_registrados table {
+    width: 100%;
+    min-width: 100%;
+    /* Fuerza a ocupar todo el ancho disponible */
+    border-collapse: separate;
+    border-spacing: 0;
+    table-layout: auto;
+    /* Permite expansión horizontal según el contenido */
+    border: none;
+}
+
+.perfiles_registrados table th,
+.perfiles_registrados table td {
+    padding: 10px 8px;
+    font-size: 0.85rem;
+    text-align: center;
+    vertical-align: middle;
+    white-space: nowrap;
+    /* Mantiene el texto en una sola línea */
+}
+
+.perfiles_registrados table th {
+    background-color: #00445f;
+    color: #ffffff;
+    font-weight: 700;
+    border-bottom: 2px solid #00779e;
+    text-transform: uppercase;
+}
+
+.perfiles_registrados table td {
+    background-color: #ffffff;
+    color: #00445f;
+    border-bottom: 1px solid #d5e1e5;
+}
+
+/* FILAS SELECCIONABLES */
+.perfiles_registrados table tbody tr {
+    cursor: pointer;
+    transition:
+        background-color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.perfiles_registrados table tbody tr:hover td {
+    background-color: #f8fbfc;
+}
+
+.perfiles_registrados table tbody tr:active td {
+    background-color: #e0f2f7;
+}
+
+.perfiles_registrados table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* FILA SELECCIONADA */
+.perfiles_registrados table tbody tr.seleccionada td {
+    background-color: #e0f2f7;
+}
+
+.perfiles_registrados table tbody tr.seleccionada td:first-child {
+    box-shadow: inset 3px 0 0 #00779e;
+}
+
+/* DISTRIBUCIÓN DE COLUMNAS (Solo en TH para dar flexibilidad) */
+.perfiles_registrados table th:nth-child(1) {
+    width: 12%;
+}
+
+.perfiles_registrados table th:nth-child(2) {
+    width: 44%;
+}
+
+.perfiles_registrados table th:nth-child(3) {
+    width: 24%;
+}
+
+.perfiles_registrados table th:nth-child(4) {
+    width: 20%;
+}
+
+.modelo_datos .formulario_base {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 20px 22px;
+    border: 2px solid #00779e;
+    box-shadow: 0 4px 12px rgba(0, 68, 95, 0.08);
+    margin-top: 32px;
+    box-sizing: border-box;
+}
+
+/* TÍTULO DEL FORMULARIO */
+.modelo_datos .formulario_base h3 {
+    color: #00445f;
+    font-size: 1.15rem;
+    font-weight: 700;
+    margin: 0 0 18px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #00779e;
+}
+
+/* CAMPOS */
+
+.modelo_datos .formulario_base .campo_formulario {
+    width: 100%;
+    margin-bottom: 16px;
+}
+
+/* LABEL */
+
+.modelo_datos .formulario_base .campo_formulario>label {
+    display: block;
+    width: 100%;
+    margin: 0 0 6px;
+    padding: 0;
+    color: #001d2d;
+    font-size: 0.9rem;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+/* SELECT, INPUTS Y TEXTAREA */
+
+.modelo_datos .formulario_base select,
+.modelo_datos .formulario_base input[type="text"],
+.modelo_datos .formulario_base input[type="email"],
+.modelo_datos .formulario_base input[type="number"],
+.modelo_datos .formulario_base input[type="date"],
+.modelo_datos .formulario_base input[type="datetime-local"],
+.modelo_datos .formulario_base textarea {
+    /* <- Agregado aquí */
+    display: block;
+    width: 100%;
+    min-height: 40px;
+    padding: 9px 12px;
+    border-radius: 8px;
+    border: 2px solid #00779e;
+    background-color: #ffffff;
+    color: #001d2d;
+    font-family: inherit;
+    font-size: 0.92rem;
+    line-height: 1.3;
+    outline: none;
+    box-sizing: border-box;
+    transition:
+        border-color 0.25s ease,
+        box-shadow 0.25s ease,
+        background-color 0.25s ease;
+}
+
+/* HOVER */
+.modelo_datos .formulario_base select:hover,
+.modelo_datos .formulario_base input:hover,
+.modelo_datos .formulario_base textarea:hover {
+    /* <- Agregado aquí */
+    border-color: #00b6ea;
+}
+
+/* FOCUS */
+.modelo_datos .formulario_base select:focus,
+.modelo_datos .formulario_base input:focus,
+.modelo_datos .formulario_base textarea:focus {
+    /* <- Agregado aquí */
+    border-color: #00445f;
+    box-shadow: 0 0 0 2px rgba(0, 119, 158, 0.15);
+}
+
+/* SELECT */
+.modelo_datos .formulario_base select {
+    cursor: pointer;
+}
+
+/* ESTILOS ESPECÍFICOS PARA EL TEXTAREA */
+.modelo_datos .formulario_base textarea {
+    min-height: 90px;
+    resize: vertical;
+}
+
+#contenedor_asignacion_perfil {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+    margin-bottom: 18px;
+}
+
+#contenedor_asignacion_perfil .contenedor_vacio {
+    margin: 0;
+    padding: 10px 12px;
+    color: #6c757d;
+    font-size: 0.875rem;
+    text-align: center;
+    border: 1px dashed #00779e;
+    border-radius: 8px;
+    background-color: #f8fbfc;
+}
+
+/* ESTADO DEL PERFIL */
+.modelo_datos .formulario_base .estado_perfil {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 18px;
+}
+
+/* LABEL DEL ESTADO */
+.modelo_datos .formulario_base .estado_perfil>label {
+    width: auto;
+    margin: 0;
+    padding: 0;
+    color: #001d2d;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+/* OPCIONES */
+.modelo_datos .formulario_base .opciones_vigencia {
+    display: flex;
+    gap: 12px;
+    width: 100%;
+    margin: 0;
+}
+
+/* CADA OPCIÓN */
+.modelo_datos .formulario_base .opcion_vigencia {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 42px;
+    width: auto;
+    margin: 0;
+    padding: 9px 14px;
+    border: 1px solid #d5e1e5;
+    border-radius: 8px;
+    background-color: #f8fbfc;
+    color: #00445f;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-sizing: border-box;
+    transition:
+        background-color 0.2s ease,
+        border-color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+/* RADIO */
+.modelo_datos .formulario_base .opcion_vigencia input[type="radio"] {
+    width: 16px;
+    height: 16px;
+    min-height: auto;
+    margin: 0;
+    padding: 0;
+    accent-color: #00779e;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+/* TEXTO DE LA OPCIÓN */
+.modelo_datos .formulario_base .opcion_vigencia span {
+    margin: 0;
+    padding: 0;
+    line-height: 1.2;
+}
+
+/* HOVER */
+.modelo_datos .formulario_base .opcion_vigencia:hover {
+    background-color: #eaf6f9;
+    border-color: #00779e;
+}
+
+/* OPCIÓN SELECCIONADA */
+.modelo_datos .formulario_base .opcion_vigencia:has(input[type="radio"]:checked) {
+    background-color: #e0f2f7;
+    border-color: #00779e;
+    box-shadow: 0 0 0 1px #00779e;
+}
+
+@media (max-width: 650px) {
+
+    .modelo_datos .formulario_base {
+        padding: 16px;
+        margin-top: 24px;
+    }
+
+    .modelo_datos .formulario_base .opciones_vigencia {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .modelo_datos .formulario_base .opcion_vigencia {
+        width: 100%;
+    }
+
+    .modelo_datos .formulario_base .contenedor_boton_submit {
+        justify-content: stretch;
+    }
+
+    .modelo_datos .formulario_base .btn_registro {
+        width: 100%;
+    }
+}

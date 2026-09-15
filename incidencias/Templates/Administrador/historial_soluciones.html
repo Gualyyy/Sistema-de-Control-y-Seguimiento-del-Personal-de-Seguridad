@@ -1,0 +1,41 @@
+{% extends 'Estructura/base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="contenedor_formulario">
+    <div class="contenedor_campos_amplio">
+        <h2>Historial de Soluciones de Incidencia</h2>
+
+        <div class="modulo_visualizar detalle">
+
+            <div class="contenedor_tabla">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>EMPLEADO</th>
+                            <th>TIPO DE INCIDENCIA</th>
+                            <th>TITULO</th>
+                            <th>ESTADO</th>
+                            <th>DESCRIPCIÓN</th>
+                            <th>FECHA Y HORA</th>
+                        </tr>
+                    </thead>
+                    <tbody id="contenedor_soluciones"></tbody>
+                </table>
+            </div>
+
+            <div class="botones_navegacion">
+                <button class="btn_secundario btn_retroceder" type="button">Retroceder</button>
+                <button class="btn_primario btn_avanzar" type="button">Avanzar</button>
+            </div>
+        </div>
+
+    </div>
+</section>
+
+<script src="{% static 'Funcionalidades_Asincronas/historial_solcuiones.js' %}"></script>
+
+{% endblock %}

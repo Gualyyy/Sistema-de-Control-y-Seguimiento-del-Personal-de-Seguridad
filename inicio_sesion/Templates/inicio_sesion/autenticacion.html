@@ -1,0 +1,54 @@
+{% extends 'Estructura/Base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="contenedor_login">
+    <div class="login_imagen">
+        <img src="{% static 'Imagenes/inicio_sesion.png' %}" alt="Imagen de inicio de sesión">
+        <div class="capa_overlay">
+            <div class="mensaje_bienvenida">
+                <h2>Bienvenido</h2>
+                <p>Planta Procesadora y Distribuidora de Hielo</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="formulario_login_seccion">
+        <div class="login_contenido">
+            <div class="titulo_login">
+                <h2>Inicio de Sesión</h2>
+            </div>
+
+            <form method="post" id="formulario_autenticacion">
+                {% csrf_token %}
+                <div class="campo_login">
+                    <label for="id_usuario">Usuario</label>
+                    <input name="nombre_usuario" id="id_usuario" type="text" placeholder="Ingrese su usuario"
+                        autocomplete="off" required>
+                </div>
+
+                <div class="campo_login">
+                    <label for="clave">Contraseña</label>
+                    <div class="password_contenedor">
+                        <input name="contrasenia" id="clave" type="password" placeholder="Ingrese su contraseña"
+                            autocomplete="off" required>
+                        <input type="checkbox" id="evento" class="checkbox_ojo">
+                        <label for="evento" class="icono_ojo" aria-label="Mostrar u ocultar contraseña">
+                            <i class="icon-eye" id="id_mostrar"></i>
+                            <i class="icon-eye-off" id="id_ocultar"></i>
+                        </label>
+                    </div>
+                </div>
+
+                <button type="submit" class="boton_login">Autenticar</button>
+            </form>
+        </div>
+    </div>
+</section>
+
+<script src="{% static 'Funcionalidades/contrasenia.js' %}"></script>
+<script src="{% static 'Funcionalidades_Asincronas/autenticacion.js' %}"></script>
+
+{% endblock %}

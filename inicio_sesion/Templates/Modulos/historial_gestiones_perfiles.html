@@ -1,0 +1,59 @@
+{% extends 'Estructura/base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="contenedor_formulario">
+    <div class="contenedor_campos_amplio">
+        <h2>Historial de Gestiones de Perfiles</h2>
+
+        <div class="modulo_buqueda">
+            <h3>Búsqueda Asignaciones</h3>
+
+            <form method="post" class="formulario_base">
+                {% csrf_token %}
+
+                <div class="campos_fila">
+                    <div class="campos_reducido">
+                        <label for="fecha_asignaciones">Fechas de Asignaciones:</label>
+                        <select name="fecha_asignaciones" id="fecha_asignaciones"></select>
+                    </div>
+
+                    <div class="campo_formulario">
+                        <label for="perfiles_registrados">Perfiles Laborales:</label>
+                        <select name="perfiles_registrados" id="perfiles_registrados"></select>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="modulo_visualizar">
+            <div class="encabezado_registrados">
+                <h3>Asignaciones Registradas</h3>
+                <button type="button" class="btn_pdf" id="lista_historial_pdf">Generar PDF</button>
+            </div>
+
+            <div class="contenedor_tabla">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>EMPLEADO</th>
+                            <th>PERFIL</th>
+                            <th>TURNO</th>
+                            <th>ESTADO</th>
+                            <th>FECHA</th>
+                        </tr>
+                    </thead>
+                    <tbody id="contenedor_asignaciones"></tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+</section>
+
+<script src="{% static 'Funcionalidades_Asincronas/historial_gestion_perfil.js' %}"></script>
+
+{% endblock %}
