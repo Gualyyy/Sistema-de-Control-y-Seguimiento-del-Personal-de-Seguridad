@@ -7,7 +7,7 @@
 <section class="contenedor_formulario">
     <div class="contenedor_campos">
         <button type="button" id="btn_cerrar" class="btn_cerrar">
-            <i class="icon-cancel"></i>
+            <i class="fa-solid fa-square-xmark" style="color: rgb(225, 225, 225);"></i>
         </button>
 
         <h2>Completar Datos Empleado</h2>
@@ -84,6 +84,7 @@
                                 <input type="text" name="numero_principal" id="num_telefono_principal" minlength="7"
                                     maxlength="7" autocomplete="off" required>
                             </div>
+                            <small id="contenedor_mensaje_telefono_principal" class="mensaje-feedback"></small>
                         </div>
 
                         <div class="campo_formulario">
@@ -94,6 +95,7 @@
                                 <input type="text" name="numero_secundaria" id="num_telefono_secundario" minlength="7"
                                     maxlength="7" autocomplete="off" class="campo_opcional">
                             </div>
+                            <small id="contenedor_mensaje_telefono_secundario" class="mensaje-feedback"></small>
                         </div>
 
                         <div class="campo_formulario">
@@ -111,15 +113,15 @@
                         </div>
 
                         <div class="campo_formulario">
-                            <label for="correo_secundario">Correo Electronico Secundaria:</label>
+                            <label for="correo_secundario">Correo Electronico Secundaria (Opcional):</label>
 
                             <div class="grupo_doble">
                                 <input type="text" name="correo_secundaria" id="correo_secundario" minlength="5"
                                     maxlength="20" placeholder="Correo Electronico Secundario (5-20 caracteres máximo)"
-                                    autocomplete="off" required>
+                                    autocomplete="off" class="campo_opcional" required>
 
-                                <select name="dominio_secundaria" id="dominio_secundaria" class="select_dominio"
-                                    required></select>
+                                <select name="dominio_secundaria" id="dominio_secundaria"
+                                    class="campo_opcional select_dominio" required></select>
                             </div>
 
                             <small id="contenedor_mensaje_correo_secundario" class="mensaje-feedback"></small>
@@ -130,24 +132,23 @@
                 <article class="paso">
                     <div class="bloque_paso">
                         <h3>Nacimiento</h3>
-
-                        <div class="campo_formulario">
+                        <div class="campo_nacimiento">
                             <label for="pais_nacimiento">País:</label>
                             <select name="pais_nacimiento" id="pais_nacimiento" required></select>
                         </div>
 
-                        <div class="campo_formulario">
+                        <div class="campo_nacimiento">
                             <label for="estado_nacimiento">Estado:</label>
-                            <select name="estado_nacimiento" id="estado_nacimiento" required></select>
+                            <select name="estado_nacimiento" id="estado_nacimiento"></select>
 
                             <input type="text" name="estado_nacimiento_nvzla" id="estado_novzla"
                                 placeholder="Ingrese el estado (máximo 50 caracteres)" maxlength="50" autocomplete="off"
                                 hidden>
                         </div>
 
-                        <div class="campo_formulario">
+                        <div class="campo_nacimiento">
                             <label for="municipio_nacimiento">Municipio:</label>
-                            <select name="municipio_nacimiento" id="municipio_nacimiento" required>
+                            <select name="municipio_nacimiento" id="municipio_nacimiento">
                                 <option value="">Seleccione el Municipio</option>
                             </select>
 
@@ -156,9 +157,9 @@
                                 autocomplete="off" hidden>
                         </div>
 
-                        <div class="campo_formulario">
+                        <div class="campo_nacimiento">
                             <label for="parroquia_nacimiento">Parroquia:</label>
-                            <select name="parroquia_nacimiento" id="parroquia_nacimiento" required>
+                            <select name="parroquia_nacimiento" id="parroquia_nacimiento">
                                 <option value="">Seleccione el Parroquia</option>
                             </select>
 
@@ -167,7 +168,7 @@
                                 autocomplete="off" hidden>
                         </div>
 
-                        <div class="campo_formulario">
+                        <div class="campo_nacimiento">
                             <label for="direccion_nacimiento">Dirección:</label>
                             <textarea name="direccion_nacimiento" id="direccion_nacimiento" maxlength="250"
                                 placeholder="Ingrese su dirección de nacimiento cuenta con (250 caracteres máximo)."
@@ -178,7 +179,7 @@
                             </div>
                         </div>
 
-                        <div class="campo_formulario">
+                        <div class="campo_nacimiento">
                             <label for="fecha_nacimiento_usuario">Fecha de Nacimiento:</label>
                             <input type="date" name="fecha_nacimiento" id="fecha_nacimiento_usuario" required>
                         </div>
@@ -243,6 +244,6 @@
 <script src="{% static 'Funcionalidades/residencia.js' %}"></script>
 <script src="{% static 'Funcionalidades/nacimiento.js' %}"></script>
 <script src="{% static 'Funcionalidades/desplazamiento_controles.js' %}"></script>
-<script src="{% static 'Funcionalidades_Asincronas/completar_registrar.js' %}"></script>
+<script src="{% static 'Funcionalidades_Asincronas/empleados/administrador/completar_registrar.js' %}"></script>
 
 {% endblock %}

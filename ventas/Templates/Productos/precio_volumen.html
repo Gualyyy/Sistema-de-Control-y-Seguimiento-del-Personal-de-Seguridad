@@ -1,0 +1,78 @@
+{% extends 'Estructura/base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="contenedor_formulario">
+    <div class="contenedor_campos_amplio">
+        <h2>Precio Volumen Producto</h2>
+
+        <div class="descripcion_modulo">
+            <p>
+                El rango de cantidades debe ser diferente y no solaparse con los rangos activos registrados para el
+                mismo producto.
+            </p>
+        </div>
+
+        <div class="modulo_precio_volumen">
+            <form method="post" id="formulario_registro">
+                {% csrf_token %}
+                <input type="hidden" name="id_producto" id="id_producto">
+
+                <div class="campo_formulario">
+                    <label for="productos_registrados">Productos Registrados:</label>
+                    <select name="producto_registrado" id="productos_registrados"></select>
+                </div>
+
+                <div class="campos_precio_volumen">
+                    <div class="campo_formulario">
+                        <label for="cantidad_minima">Cantidad Minima:</label>
+                        <input type="text" name="cantidad_minima" id="cantidad_minima" maxlength="3"
+                            placeholder="Ingresa la Cantidad Minima" autocomplete="off" required>
+                        <small id="contenedor_msg_minimo" class="mensaje-feedback"></small>
+                    </div>
+                    <div class="campo_formulario">
+                        <label for="cantidad_maxima">Cantidad Maxima:</label>
+                        <input type="text" name="cantidad_maxima" id="cantidad_maxima" maxlength="3"
+                            placeholder="Ingresa la Cantidad Maxima" autocomplete="off" required>
+                        <small id="contenedor_msg_maximo" class="mensaje-feedback"></small>
+                    </div>
+                    <div class="campo_formulario">
+                        <label for="precio_unitario">Precio Unitario (USD $):</label>
+                        <input type="text" name="precio_unitario" id="precio_unitario"
+                            placeholder="Ingresa el Precio Unitario" autocomplete="off" required>
+                        <small id="contenedor_msg_precio" class="mensaje-feedback"></small>
+                    </div>
+                </div>
+
+                <div class="contenedor_boton_submit">
+                    <input type="submit" class="btn_primario" id="btn_registrar" value="Registrar">
+                </div>
+            </form>
+        </div>
+
+        <div class="modulo_registros_precios">
+            <div class="encabezado_precio_volumen">
+                <h3>Precios por Volumen Registrado</h3>
+            </div>
+            <div class="contenedor_tabla_precios">
+                <table>
+                    <thead>
+                        <th>ID</th>
+                        <th>PRODUCTO</th>
+                        <th>MINIMA</th>
+                        <th>MAXIMA</th>
+                        <th>PRECIO UNITARIO</th>
+                    </thead>
+                    <tbody id="contenedor_precio_volumen"></tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+</section>
+
+<script src="{% static 'Funcionalidades_Asincronas/ventas/productos/precio_volumen.js' %}"></script>
+
+{% endblock %}

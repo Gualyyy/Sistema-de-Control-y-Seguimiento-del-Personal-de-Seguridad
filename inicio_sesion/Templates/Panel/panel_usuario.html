@@ -1,0 +1,9 @@
+{% if request.session.perfil == "Encargado Administrativo" %}
+
+{% include 'Usuarios/panel_encargado_administrativo.html' %}
+
+{% elif request.session.perfil == "Supervisor Encargado" %}
+
+{% include 'Usuarios/panel_supervisor_encargado.html' %}
+
+{% endif %}

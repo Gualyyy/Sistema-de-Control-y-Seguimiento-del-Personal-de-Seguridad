@@ -1,0 +1,137 @@
+{% extends 'Estructura/base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="contenedor_formulario">
+    <div class="contenedor_campos_amplio">
+        <h2>Visualizar Entrega Equipo</h2>
+
+        <div class="modulo_buqueda">
+            <h3>Búsqueda Entraga Equipos</h3>
+
+            <form method="post" class="formulario_base">
+                {% csrf_token %}
+                <div class="campos_fila">
+                    <div class="campo_formulario">
+                        <label for="supervisores_encargados">Supervisor Encargado:</label>
+                        <select name="supervisores_encargados" id="supervisores_encargados"></select>
+                    </div>
+
+                    <div class="campo_formulario">
+                        <label for="categoria_equipos">Categoria Equipo:</label>
+                        <select name="categoria_equipos" id="categoria_equipos"></select>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="modulo_visualizar detalle">
+            <div class="encabezado_registrados">
+                <button type="button" class="btn_pdf" id="lista_entrega_pdf">
+                    <i class="fa-regular fa-file-pdf"></i>
+                    Reporte
+                </button>
+            </div>
+
+            <!-- Envoltorio para manejar el scroll y recortar bordes -->
+            <div class="contenedor_tabla">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>SUPERVISOR(A)</th>
+                            <th>TURNO</th>
+                            <th>EQUIPO</th>
+                            <th>CANTIDAD</th>
+                            <th>FECHA ENTREGA</th>
+                        </tr>
+                    </thead>
+                    <tbody id="contenedor_entregas_equipos"></tbody>
+                </table>
+            </div>
+
+            <div class="botones_navegacion">
+                <button class="btn_secundario btn_retroceder" type="button">Retroceder</button>
+                <button class="btn_primario btn_avanzar" type="button">Avanzar</button>
+            </div>
+        </div>
+
+    </div>
+</section>
+
+<dialog id="dialogo_entrega" class="dialogo">
+    <div class="contenedor_info_reducido">
+        <button type="button" id="btn_cerrar" class="btn_cerrar">
+            <i class="fa-solid fa-square-xmark"></i>
+        </button>
+
+        <h2>Datos de la Entraga</h2>
+
+        <div class="contenedor_btn_pdf">
+            <button type="button" class="btn_pdf_dialog" id="datos_entrega_pdf">
+                <i class="fa-regular fa-file-pdf"></i>
+                Reporte
+            </button>
+        </div>
+
+        <div class="modelo_dialogo_visualizar">
+            <form method="post" class="formulario_dialogo_visualizar">
+                {% csrf_token %}
+                <input type="hidden" name="id_entrega_equipo" id="id_entrega_equipo">
+
+                <div class="campo_formulario">
+                    <label for="supervisor_encargado">Supervisor(a) Encargado:</label>
+                    <input type="text" id="supervisor_encargado" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="cedula_identidad">Cedula Identidad:</label>
+                    <input type="text" id="cedula_identidad" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="turno_laboral">Turno Laboral:</label>
+                    <input type="text" id="turno_laboral" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="equipo_entregado">Equipos:</label>
+                    <input type="text" id="equipo_entregado" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="categoria_equipo">Categoria Equipo:</label>
+                    <input type="text" id="categoria_equipo" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="codigo_equipo">Código Equipo:</label>
+                    <input type="text" id="codigo_equipo" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="cantidad_equipo">Cantidad de Equipo Entregado:</label>
+                    <input type="text" id="cantidad_equipo" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="fecha_entrega">Fecha Entrega:</label>
+                    <input type="text" id="fecha_entrega" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="observacion_entrega">Observación Entrega:</label>
+                    <textarea id="observacion_entrega" readonly></textarea>
+                </div>
+            </form>
+        </div>
+
+    </div>
+</dialog>
+
+<script
+    src="{% static 'Funcionalidades_Asincronas/entrega_equipos/administrador/visualizar_entrega_equipos.js' %}"></script>
+
+{% endblock %}

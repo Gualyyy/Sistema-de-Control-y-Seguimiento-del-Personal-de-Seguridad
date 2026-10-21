@@ -1,62 +1,225 @@
+{% load static %}
+
 {% if request.session.usuario and request.session.completar_registro %}
 
-<div class="overlay-menu"></div>
-
-<button type="button" class="btn-menu-toggle" aria-label="Abrir menú">
-    <i class="icon-list"></i>
-</button>
-
 <aside class="aside-logueado" id="asideMenu">
-    <h2>Menú</h2>
     <nav class="navegacion_menu">
-        <a href="{% url 'panel_usuario' %}">Inicio</a>
+        <a href="{% url 'panel_usuario' %}">
+            <i class="fa-solid fa-house"></i> Inicio
+        </a>
 
-        {% if "Administrador(a)" in request.session.perfiles %}
+        {% if request.session.perfil == "Encargado Administrativo" %}
         <details>
-            <summary>Gestión de Empleados</summary>
-            <a href="{% url 'registro_usuarios' %}">Registrar</a>
-            <a href="{% url 'actualizacion_datos_usuarios' %}">Actualizar</a>
-            <a href="{% url 'visualizar_empleados' %}">Visualizar</a>
+            <summary>
+                <i class="fa-solid fa-people-group"></i>
+                Gestión de Empleados
+            </summary>
+
+            <div class="submenu-container">
+                <a href="{% url 'registro_usuarios' %}">
+                    <i class="fa-solid fa-user-plus"></i>
+                    Registrar
+                </a>
+
+                <a href="{% url 'actualizacion_datos_usuarios' %}">
+                    <i class="fa-solid fa-user-pen"></i>
+                    Actualizar
+                </a>
+
+                <a href="{% url 'visualizar_empleados' %}">
+                    <i class="fa-solid fa-users-viewfinder"></i>
+                    Visualizar
+                </a>
+
+                <a href="{% url 'gestionar_perfiles_empleado' %}">
+                    <i class="fa-solid fa-user-gear"></i>
+                    Gestionar Perfiles
+                </a>
+            </div>
         </details>
         <details>
-            <summary>Gestión de Perfiles</summary>
-            <a href="{% url 'gestionar_perfiles_empleado' %}">Gestionar</a>
-            <a href="{% url 'historial_perfiles' %}">Historial Asignaciones</a>
+            <summary>
+                <i class="fa-solid fa-people-arrows-left-right"></i> Supervisores Encargados
+            </summary>
+            <div class="submenu-container">
+                <a href="{% url 'supervisores_generales' %}">
+                    <i class="fa-solid fa-helmet-safety"></i> Registrados
+                </a>
+                <a href="{% url 'gestion_incidencia_administrativo' %}">
+                    <i class="fa-solid fa-file-circle-exclamation"></i> Incidencias
+                </a>
+                <a href="{% url 'visualizar_asignaciones_admin' %}">
+                    <i class="fa-solid fa-boxes-stacked"></i> Asignaciones
+                </a>
+            </div>
         </details>
         <details>
-            <summary>Gestión de Equipos</summary>
-            <a href="{% url 'registros_equipos' %}">Registrar</a>
-            <a href="{% url 'actualizacion_equipos' %}">Actualizar</a>
-            <a href="{% url 'visualizacion_equipos' %}">Visualizar</a>
+            <summary>
+                <i class="fa-solid fa-laptop"></i> Gestión de Equipos
+            </summary>
+            <div class="submenu-container">
+                <a href="{% url 'registros_equipos' %}">
+                    <i class="fa-solid fa-square-plus"></i> Registrar
+                </a>
+                <a href="{% url 'actualizacion_equipos' %}">
+                    <i class="fa-solid fa-pen-to-square"></i> Actualizar
+                </a>
+                <a href="{% url 'visualizacion_equipos' %}">
+                    <i class="fa-solid fa-desktop"></i> Visualizar
+                </a>
+            </div>
         </details>
         <details>
-            <summary>Gestión de Asignación Equipo</summary>
-            <a href="{% url 'asignar_equipo_usuario' %}">Registrar</a>
-            <a href="{% url 'visualizar_asignacion_equipo' %}">Visualizar</a>
-            <a href="{% url 'visualizar_devoluciones' %}">Historial Devoluciones</a>
+            <summary>
+                <i class="fa-solid fa-truck-ramp-box"></i> Entrega de Equipos
+            </summary>
+
+            <div class="submenu-container">
+                <a href="{% url 'registrar_entrega_equipos' %}">
+                    <i class="fa-solid fa-file-circle-plus"></i> Registrar
+                </a>
+            </div>
+
+            <div class="submenu-container">
+                <a href="{% url 'visualizar_entrega_equipos' %}">
+                    <i class="fa-solid fa-boxes-stacked"></i> Visualizar
+                </a>
+            </div>
+
+            <div class="submenu-container">
+                <a href="{% url 'correccion_entrega_equipos' %}">
+                    <i class="fa-solid fa-file-pen"></i> Corrección
+                </a>
+            </div>
         </details>
         <details>
-            <summary>Gestión de Incidencias</summary>
-            <a href="{% url 'gestion_incidencia_admin' %}">Gestionar</a>
-            <a href="{% url 'historial_soluciones_admin' %}">Historial Soluciones</a>
+            <summary>
+                <i class="fa-solid fa-truck-ramp-box"></i> Clientes
+            </summary>
+
+            <div class="submenu-container">
+                <a href="{% url 'registrar_clientes_ventas' %}">
+                    <i class="fa-solid fa-file-circle-plus"></i> Registrar
+                </a>
+            </div>
+            <div class="submenu-container">
+                <a href="{% url 'actualizar_clientes_ventas' %}">
+                    <i class="fa-solid fa-file-circle-plus"></i> Actualizar
+                </a>
+            </div>
+            <div class="submenu-container">
+                <a href="{% url 'visualizar_clientes_ventas' %}">
+                    <i class="fa-solid fa-file-circle-plus"></i> Visualizar
+                </a>
+            </div>
         </details>
         <details>
-            <summary>Seguridad del Sistema</summary>
-            <a href="{% url 'visualizar_bitacora' %}">Bitacora</a>
-            <a href="{% url 'visualizar_inicio_sesion' %}">Inicios de Sesiones</a>
-            <a href="{% url 'visualizar_intentos_sesion' %}">Intentos de Sesión</a>
+            <summary>
+                <i class="fa-solid fa-truck-ramp-box"></i> Productos
+            </summary>
+
+            <div class="submenu-container">
+                <a href="{% url 'registrar_productos' %}">
+                    <i class="fa-solid fa-file-circle-plus"></i> Registrar
+                </a>
+            </div>
+            <div class="submenu-container">
+                <a href="{% url 'visualizar_productos' %}">
+                    <i class="fa-solid fa-file-circle-plus"></i> Visualizar
+                </a>
+            </div>
+            <div class="submenu-container">
+                <a href="{% url 'actualizar_producto' %}">
+                    <i class="fa-solid fa-file-circle-plus"></i> Actualizar
+                </a>
+            </div>
+            <div class="submenu-container">
+                <a href="{% url 'actualizar_existencia' %}">
+                    <i class="fa-solid fa-file-circle-plus"></i> Existencia
+                </a>
+            </div>
+            <div class="submenu-container">
+                <a href="{% url 'registrar_precio_volumen' %}">
+                    <i class="fa-solid fa-file-circle-plus"></i> Precio Volumen
+                </a>
+            </div>
+        </details>
+        <details>
+            <summary>
+                <i class="fa-solid fa-truck-ramp-box"></i> Venta
+            </summary>
+
+            <div class="submenu-container">
+                <a href="{% url 'registrar_pago_productos' %}">
+                    <i class="fa-solid fa-file-circle-plus"></i> Registrar
+                </a>
+            </div>
+        </details>
+        <details>
+            <summary>
+                <i class="fa-solid fa-shield-halved"></i> Seguridad del Sistema
+            </summary>
+            <div class="submenu-container">
+                <a href="{% url 'visualizar_bitacora' %}">
+                    <i class="fa-solid fa-clipboard-list"></i> Bitácora
+                </a>
+                <a href="{% url 'visualizar_inicio_sesion' %}">
+                    <i class="fa-solid fa-right-to-bracket"></i> Inicios de Sesión
+                </a>
+                <a href="{% url 'visualizar_intentos_sesion' %}">
+                    <i class="fa-solid fa-user-lock"></i> Intentos de Sesión
+                </a>
+            </div>
         </details>
         {% endif %}
 
-        {% if "Vigilante" in request.session.perfiles %}
+        {% if request.session.perfil == "Supervisor Encargado" %}
+        <a href="{% url 'visualizar_empleado_supervisor' %}">
+            <i class="fa-solid fa-user-tie"></i>
+            Empleados
+        </a>
+        <a href="{% url 'visualizar_equipos_supervisor' %}">
+            <i class="fa-solid fa-toolbox"></i>
+            Equipos
+        </a>
         <details>
-            <summary>Gestión de Incidencia</summary>
-            <a href="{% url 'registrar_incidencias' %}">Registrar</a>
-            <a href="{% url 'gestionar_incidencias' %}">Gestionar</a>
+            <summary>
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                Gestión de Incidencias
+            </summary>
+            <div class="submenu-container">
+                <a href="{% url 'registrar_incidencias' %}">
+                    <i class="fa-solid fa-pen-to-square"></i>
+                    Registrar
+                </a>
+            </div>
+            <div class="submenu-container">
+                <a href="{% url 'gestionar_incidencias' %}">
+                    <i class="fa-solid fa-table-list"></i>
+                    Visualizar y Actualizar
+                </a>
+            </div>
+        </details>
+        <details>
+            <summary>
+                <i class="fa-solid fa-dolly"></i>
+                Gestión de Asignaciones
+            </summary>
+            <div class="submenu-container">
+                <a href="{% url 'asignar_equipo_usuario' %}">
+                    <i class="fa-solid fa-box-open"></i>
+                    Registrar Asignación
+                </a>
+            </div>
+            <div class="submenu-container">
+                <a href="{% url 'gestionar_asignaciones_equipos' %}">
+                    <i class="fa-solid fa-list-check"></i>
+                    Gestión de Asignaciones
+                </a>
+            </div>
         </details>
         {% endif %}
 
-        <a href="{% url 'cerrar_sesion' %}">Cerrar Sesión</a>
     </nav>
 </aside>
 

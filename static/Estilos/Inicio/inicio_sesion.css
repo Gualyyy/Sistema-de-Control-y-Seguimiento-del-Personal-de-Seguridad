@@ -103,7 +103,6 @@ main:not(.main-logueado) {
     border: 1px solid #d1d5db;
     border-radius: 6px;
     outline: none;
-    box-sizing: border-box;
     transition: border-color 0.2s ease;
 }
 
@@ -130,19 +129,68 @@ main:not(.main-logueado) {
     background-color: #1a4977;
 }
 
+.boton_login:disabled {
+    cursor: wait;
+    opacity: 0.7;
+}
+
 @media (max-width: 992px) {
+
+    .contenedor_login {
+        flex-direction: column;
+        width: 92%;
+        max-width: 500px;
+        margin: 20px auto;
+    }
+
     .login_imagen {
-        display: none;
+        display: flex;
+        width: 100%;
+        height: 240px;
+        flex: none;
+    }
+
+    .login_imagen img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .capa_overlay {
+        padding: 25px;
+        align-items: flex-end;
+    }
+
+    .mensaje_bienvenida h2 {
+        font-size: 1.7rem;
+    }
+
+    .mensaje_bienvenida p {
+        font-size: 0.95rem;
     }
 
     .formulario_login_seccion {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 30px 20px;
         background-color: #f4f6f9;
     }
 
     .login_contenido {
+        width: 100%;
+        max-width: none;
+        box-sizing: border-box;
         background: #ffffff;
-        padding: 35px 25px;
+        padding: 30px 25px;
         border-radius: 12px;
         box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    }
+
+    .titulo_login {
+        margin-bottom: 25px;
+    }
+
+    .titulo_login h2 {
+        font-size: 1.6rem;
     }
 }

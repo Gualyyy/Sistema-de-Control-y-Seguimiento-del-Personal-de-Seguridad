@@ -1,0 +1,32 @@
+{% extends 'Estructura/base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+
+<section class="contenedor_foro">
+    <div class="banner-modulo">
+        <img src="{% static 'Imagenes/imagen_foro.png' %}" alt="Imagen de la Empresa Hielo Caipe C.A">
+    </div>
+
+    <div class="contenedor_descripcion_foro">
+        <div class="card-modulo">
+            <h2>Productos Disponibles</h2>
+
+            <div class="en-desarrollo-card">
+                <h3>Próximamente</h3>
+
+                <p id="contenedor_produtos">
+                    Estamos trabajando para mostrar todos los productos
+                    en venta. ¡En desarrollo!
+                </p>
+            </div>
+        </div>
+
+    </div>
+</section>
+
+<script src="{% static 'Funcionalidades_Asincronas/foro/productos.js' %}"></script>
+
+{% endblock %}

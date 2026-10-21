@@ -1,0 +1,474 @@
+.panel_usuario {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+.encabezado_panel_usuario {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+.encabezado_panel_usuario h2 {
+    margin: 0;
+    color: #102f4e;
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+
+.contenedor_panel_usuario {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+/* ESTADISTICA GENERAL */
+.contenedor_estadisticas {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 20px;
+    width: 100%;
+    min-width: 0;
+}
+
+.tarjeta_estadistica {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-width: 0;
+    padding: 22px 20px;
+    background: #ffffff;
+    border: 1px solid #e5eaf0;
+    border-radius: 14px;
+    box-shadow: 0 4px 14px rgba(16, 47, 78, 0.06);
+    box-sizing: border-box;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.tarjeta_estadistica:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(16, 47, 78, 0.11);
+}
+
+.icono_estadistica {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 52px;
+    width: 52px;
+    height: 52px;
+    border-radius: 12px;
+    font-size: 22px;
+}
+
+.empleados .icono_estadistica {
+    color: #00779e;
+    background: #e5f4fa;
+}
+
+.equipos .icono_estadistica {
+    color: #16835d;
+    background: #e5f5ec;
+}
+
+.incidencias .icono_estadistica {
+    color: #d97706;
+    background: #fff2dc;
+}
+
+.asignaciones .icono_estadistica {
+    color: #6854b8;
+    background: #eee9fc;
+}
+
+.informacion_estadistica {
+    flex: 1;
+    min-width: 0;
+}
+
+.informacion_estadistica h3 {
+    margin: 0 0 8px;
+    color: #64748b;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.numero_contador {
+    margin: 0;
+    color: #102f4e;
+    font-size: 30px;
+    font-weight: 800;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+}
+
+/* GRÁFICA DEL PANEL */
+
+.contenedor_graficas_panel {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px;
+    width: 100%;
+    min-width: 0;
+    align-items: stretch;
+}
+
+.estadistica_perfiles_registrados,
+.estadistica_equipos_entregados,
+.estadistica_tipos_incidencias,
+.estadistica_equipos_asignados {
+    width: 100%;
+    min-width: 0;
+    padding: 24px;
+    background: #ffffff;
+    border: 1px solid #e5eaf0;
+    border-radius: 14px;
+    box-shadow: 0 4px 14px rgba(16, 47, 78, 0.06);
+    box-sizing: border-box;
+}
+
+.estadistica_perfiles_registrados h3,
+.estadistica_equipos_entregados h3,
+.estadistica_tipos_incidencias h3,
+.estadistica_equipos_asignados h3 {
+    margin: 0 0 22px;
+    color: #102f4e;
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+/* CONTENEDOR DEL GRUPO DE GRÁFICAS */
+
+.contenedor_grafica_perfiles,
+.contenedor_grafica_entregado,
+.contenedor_grafica_incidencias,
+.contenedor_grafica_asignados {
+    position: relative;
+    width: 100%;
+    height: 300px;
+    min-width: 0;
+}
+
+.contenedor_grafica_perfiles canvas,
+.contenedor_grafica_entregado canvas,
+.contenedor_grafica_incidencias canvas,
+.contenedor_grafica_asignados canvas {
+    display: block;
+    max-width: 100%;
+}
+
+/* ÚLTIMO INICIO DE SESIÓN */
+
+.estadistica_ultimo_inicio {
+    width: 100%;
+    min-width: 0;
+    padding: 24px;
+    background: #ffffff;
+    border: 1px solid #e1e8ee;
+    border-radius: 14px;
+    box-shadow: 0 4px 14px rgba(16, 47, 78, 0.05);
+    box-sizing: border-box;
+}
+
+.estadistica_ultimo_inicio>h3 {
+    margin: 0 0 24px;
+    color: #102f4e;
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.5;
+}
+
+.contenedor_ultimo_inicio {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    min-width: 0;
+}
+
+.ultimo_inicio_encabezado {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    min-width: 0;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #edf1f5;
+}
+
+.ultimo_inicio_icono {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 54px;
+    height: 54px;
+    color: #00779e;
+    background: #eaf6fa;
+    border-radius: 15px;
+    font-size: 23px;
+}
+
+.ultimo_inicio_titulo {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    min-width: 0;
+}
+
+.ultimo_inicio_titulo h4 {
+    margin: 0;
+    color: #102f4e;
+    font-size: 15px;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+
+.ultimo_inicio_estado {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    padding: 5px 11px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.sesion_activa {
+    color: #166534;
+    background: #dcfce7;
+}
+
+.sesion_cerrada {
+    color: #475569;
+    background: #eef2f6;
+}
+
+.sesion_sin_registro {
+    color: #9a3412;
+    background: #ffedd5;
+}
+
+.ultimo_inicio_resumen {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    min-width: 0;
+}
+
+.ultimo_inicio_dato {
+    display: flex;
+    align-items: flex-start;
+    gap: 13px;
+    min-width: 0;
+    padding: 17px;
+    background: #f8fafc;
+    border: 1px solid #edf1f5;
+    border-radius: 11px;
+    box-sizing: border-box;
+}
+
+.ultimo_inicio_dato_icono {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 38px;
+    width: 38px;
+    height: 38px;
+    color: #00779e;
+    background: #e7f3f7;
+    border-radius: 10px;
+    font-size: 15px;
+}
+
+.ultimo_inicio_dato_contenido {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+}
+
+.ultimo_inicio_dato_contenido span {
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.ultimo_inicio_dato_contenido strong {
+    color: #102f4e;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.ultimo_inicio_mensaje {
+    padding: 13px 15px;
+    color: #64748b;
+    background: #f8fafc;
+    border: 1px solid #edf1f5;
+    border-radius: 9px;
+    font-size: 13px;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+
+.ultimo_inicio_mensaje[hidden] {
+    display: none;
+}
+
+@media (max-width: 1100px) {
+    .contenedor_estadisticas {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 18px;
+    }
+
+    .contenedor_graficas_panel {
+        gap: 18px;
+    }
+
+    .tarjeta_estadistica {
+        padding: 20px;
+    }
+
+    .numero_contador {
+        font-size: 28px;
+    }
+}
+
+/* Tabletas y móviles */
+
+@media (max-width: 700px) {
+
+    .panel_usuario,
+    .contenedor_panel_usuario {
+        gap: 18px;
+    }
+
+    .encabezado_panel_usuario h2 {
+        font-size: 21px;
+    }
+
+    .contenedor_graficas_panel {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 18px;
+    }
+
+    .estadistica_perfiles_registrados,
+    .estadistica_equipos_entregados,
+    .estadistica_tipos_incidencias,
+    .estadistica_equipos_asignados,
+    .estadistica_ultimo_inicio {
+        padding: 20px;
+    }
+
+    .contenedor_grafica_perfiles,
+    .contenedor_grafica_entregado,
+    .contenedor_grafica_incidencias,
+    .contenedor_grafica_asignados {
+        height: 280px;
+    }
+
+    .ultimo_inicio_resumen {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* Móviles pequeños */
+
+@media (max-width: 480px) {
+    .contenedor_estadisticas {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 14px;
+    }
+
+    .tarjeta_estadistica {
+        gap: 14px;
+        padding: 18px;
+    }
+
+    .icono_estadistica {
+        flex-basis: 46px;
+        width: 46px;
+        height: 46px;
+        font-size: 20px;
+    }
+
+    .informacion_estadistica h3 {
+        font-size: 13px;
+    }
+
+    .numero_contador {
+        font-size: 26px;
+    }
+
+    .estadistica_perfiles_registrados,
+    .estadistica_equipos_entregados,
+    .estadistica_tipos_incidencias,
+    .estadistica_equipos_asignados,
+    .estadistica_ultimo_inicio {
+        padding: 16px;
+        border-radius: 12px;
+    }
+
+    .estadistica_perfiles_registrados h3,
+    .estadistica_equipos_entregados h3,
+    .estadistica_tipos_incidencias h3,
+    .estadistica_equipos_asignados h3 {
+        margin-bottom: 18px;
+        font-size: 15px;
+    }
+
+    .estadistica_ultimo_inicio>h3 {
+        margin-bottom: 18px;
+        font-size: 16px;
+    }
+
+    .contenedor_grafica_perfiles,
+    .contenedor_grafica_entregado,
+    .contenedor_grafica_incidencias,
+    .contenedor_grafica_asignados {
+        height: 250px;
+    }
+
+    .ultimo_inicio_encabezado {
+        gap: 12px;
+    }
+
+    .ultimo_inicio_icono {
+        width: 46px;
+        height: 46px;
+        font-size: 20px;
+    }
+
+    .ultimo_inicio_dato {
+        gap: 11px;
+        padding: 14px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tarjeta_estadistica {
+        transition: none;
+    }
+
+    .tarjeta_estadistica:hover {
+        transform: none;
+    }
+}

@@ -1,0 +1,64 @@
+{% extends 'Estructura/base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="contenedor_formulario">
+    <div class="contenedor_campos_amplio">
+        <h2>Entrega de Equipos</h2>
+
+        <div class="modulo_equipo">
+            <form method="post" id="formulario_registrar" class="formulario_equipo">
+                {% csrf_token %}
+                <div class="campo_formulario">
+                    <label for="supervisores_encargados">Supervisor Encargado:</label>
+                    <select name="supervisores_encargados" id="supervisores_encargados"></select>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="categoria_equipos">Categoria Equipo:</label>
+                    <select name="categoria_equipos" id="categoria_equipos"></select>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="equipos_entregar">Equipos Entregar:</label>
+                    <select name="equipos_entregar" id="equipos_entregar"></select>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="cantidad_disponible">Cantidad Disponible del Equipo:</label>
+                    <input type="text" name="cantidad_disponible" id="cantidad_disponible"
+                        placeholder="Cantidad disponible del equipo" autocomplete="off" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="cantidad_equipo">Cantidad de Equipo a Entregar:</label>
+                    <input type="text" name="cantidad_equipo" id="cantidad_equipo"
+                        placeholder="Ingrese la cantidad de equipo a entregar" autocomplete="off" required>
+                    <small id="contenedor_msg_cantidad" class="mensaje-feedback"></small>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="observacion_entrega">Observación de la Entrega:</label>
+                    <textarea name="observacion_entrega" id="observacion_entrega"
+                        placeholder="Observación de la entrega de equipo" autocomplete="off" maxlength="200"
+                        required></textarea>
+                    <div class="contador_caracteres">
+                        <span id="contador_observacion">0</span> / 200 caracteres
+                    </div>
+                </div>
+
+                <div class="contenedor_boton_submit">
+                    <button type="submit" class="btn_primario" id="btn_registrar">Registrar</button>
+                </div>
+            </form>
+        </div>
+
+    </div>
+</section>
+
+<script
+    src="{% static 'Funcionalidades_Asincronas/entrega_equipos/administrador/registrar_entrega_equipos.js' %}"></script>
+
+{% endblock %}

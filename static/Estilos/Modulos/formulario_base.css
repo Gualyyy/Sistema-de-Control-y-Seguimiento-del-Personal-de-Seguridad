@@ -2,7 +2,14 @@
 @import url('modulo_visualizar.css');
 @import url('modulo_datos.css');
 @import url('modulo_busqueda.css');
-@import url('modulo_asistencia.css');
+@import url('modulo_supervisores.css');
+@import url('modulo_equipo.css');
+@import url('modulo_ventas.css');
+@import url('modulo_perfil.css');
+@import url('modulo_incidencia.css');
+@import url('modulo_existencia.css');
+@import url('modulo_precio_volumen.css');
+@import url('modulo_compra.css');
 
 .contenedor_formulario {
     width: 100%;
@@ -11,7 +18,6 @@
     padding: 10px;
 }
 
-/* Contenedor normal */
 .contenedor_formulario .contenedor_campos {
     width: 100%;
     max-width: 650px;
@@ -22,7 +28,6 @@
     box-sizing: border-box;
 }
 
-/* Contenedor amplio */
 .contenedor_formulario .contenedor_campos_amplio {
     width: 100%;
     max-width: 780px;
@@ -32,8 +37,6 @@
     border: 2px solid #00445f;
     box-sizing: border-box;
 }
-
-/* Contenedor extra amplio */
 
 .contenedor_formulario .contenedor_campos_extra_amplio {
     width: 90%;
@@ -48,6 +51,20 @@
     box-sizing: border-box;
 }
 
+.contenedor_formulario .contenedor_campos_demasiado_amplio {
+    width: 90%;
+    max-width: 1950px;
+
+    background: #ffffff;
+    border-radius: 14px;
+    padding: 20px 22px;
+
+    border: 2px solid #00445f;
+
+    box-sizing: border-box;
+}
+
+.contenedor_formulario .contenedor_campos_demasiado_amplio h2,
 .contenedor_formulario .contenedor_campos_extra_amplio h2,
 .contenedor_formulario .contenedor_campos_amplio h2,
 .contenedor_formulario .contenedor_campos h2 {
@@ -65,9 +82,6 @@
     margin-bottom: 20px;
 }
 
-/* PASOS Y BLOQUES INTERNOS (.bloque_paso)*/
-
-/* Oculta los pasos por defecto, solo muestra el paso activo */
 .formulario_base .paso {
     display: none;
 }
@@ -95,8 +109,14 @@
 }
 
 /* ETIQUETAS Y CAMPOS DE ENTRADA (INPUTS, SELECTS, TEXTAREAS) */
+
+.contenedor_formulario .campo_nacimiento,
 .contenedor_formulario .campo_formulario {
     margin-bottom: 14px;
+}
+
+.contenedor_formulario [hidden] {
+    display: none !important;
 }
 
 .contenedor_formulario label {
@@ -117,7 +137,6 @@
     width: 100%;
     padding: 9px 12px;
     border-radius: 8px;
-    border: 2px solid #00779e;
     background: #ffffff;
     color: #001d2d;
     font-size: 0.92rem;
@@ -131,7 +150,6 @@
     min-height: 100px;
     padding: 9px 12px;
     border-radius: 8px;
-    border: 2px solid #00779e;
     background: #ffffff;
     color: #001d2d;
     font-size: 0.92rem;
@@ -166,7 +184,6 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    margin-top: 15px;
 }
 
 .botones_navegacion {
@@ -218,30 +235,19 @@
 }
 
 .btn_cerrar {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-left: auto;
+    position: absolute;
+    top: 10px;
+    right: 30px;
 
-    background-color: transparent;
-    border: 1px solid #000;
-    border-radius: 4px;
-
-    background-color: #00779e;
-    color: #ffffff;
-    cursor: pointer;
     padding: 8px 12px;
+    border: none;
+    border-radius: 4px;
+    background-color: #00779e;
+    color: #fff;
+    cursor: pointer;
     font-size: 16px;
-
-    transition: all 0.3s ease;
 }
 
 .btn_cerrar:hover {
     background-color: #dc3545;
-    border-color: #dc3545;
-    color: #ffffff;
-}
-
-.btn_cerrar:active {
-    background-color: #bd2130;
 }

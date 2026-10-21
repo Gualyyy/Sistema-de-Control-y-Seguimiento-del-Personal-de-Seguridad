@@ -1,58 +1,16 @@
-from functools import wraps
 from django.core.signing import TimestampSigner, BadSignature, SignatureExpired
-from django.contrib.sessions.models import Session
 from django.shortcuts import render, redirect
 from django.urls import reverse
 from django.http import JsonResponse
 from django.contrib.auth.hashers import check_password
+from django.contrib.sessions.models import Session
 from django.utils import timezone
 from datetime import timedelta
 from math import ceil
-from django.db import IntegrityError
 
-from inicio_sesion.models import usuarios, credenciales, nacimiento, perfil_usuario, sesiones_usuario, intentos_inicio_sesion, bloqueo_inicio_sesion
+from inicio_sesion.models import directiva_nacional, encargados_administrativos, supervisores_encargados, credenciales, nacimiento, sesiones_usuario, intentos_inicio_sesion, bloqueo_inicio_sesion
 
-def autenticado_required(view_func):
-    @wraps(view_func)
-    def _wrapped_view(request, *args, **kwargs):
-        return view_func(request, *args, **kwargs)
-
-    return _wrapped_view
-
-def registrar_intento(usuario, nombre_usuario, ip, exitoso):
-    intentos_inicio_sesion.objects.create(usuario=usuario, nombre_usuario=nombre_usuario, direccion_ip=ip, exitoso=exitoso)
-
-def invalidar_sesiones_anteriores(usuario, session_key_actual):
-    sesiones_anteriores = sesiones_usuario.objects.filter(
-        usuario=usuario,
-        activa=True,
-    ).exclude(session_key=session_key_actual)
-    claves_sesion = list(sesiones_anteriores.values_list("session_key", flat=True))
-
-    sesiones_anteriores.update(
-        activa=False,
-        fecha_fin=timezone.now(),
-    )
-    Session.objects.filter(session_key__in=claves_sesion).delete()
-
-def registrar_sesion_usuario(request, usuario, direccion_ip, tab_id):
-    session_key = request.session.session_key
-
-    if not session_key:
-        request.session.save()
-        session_key = request.session.session_key
-
-    return sesiones_usuario.objects.create(
-        usuario=usuario,
-        session_key=session_key,
-        tab_id=tab_id,
-        activa=True,
-        info_general=request.META.get(
-            "HTTP_USER_AGENT",
-            ""
-        ),
-        direccion_ip=direccion_ip
-    )
+DURACION_SENAL_SESION = timedelta(minutes=2)
 
 def crear_token_panel():
     signer = TimestampSigner(salt="panel-route")
@@ -66,19 +24,60 @@ def validar_token_panel(token):
     except (BadSignature, SignatureExpired):
         return False
 
+def cerrar_sesion(request):
+    session_key = request.session.session_key
+    sesion = sesiones_usuario.objects.filter(session_key=session_key, activa=True).first()
+
+    if sesion:
+        sesion.fecha_fin = timezone.now()
+        sesion.activa = False
+        sesion.save()
+
+    for key in list(request.session.keys()):
+        del request.session[key]
+
+    request.session.flush()
+    return redirect("inicio_sesion")
+
+def modo_incognito(request):
+    return render(request, "inicio_sesion/incognito.html")
+
+def obtener_rol(usuario):
+
+    if directiva_nacional.objects.filter(
+        id_usuario=usuario
+    ).exists():
+        return {
+            "rol": "Directiva Nacional"
+        }
+
+    if encargados_administrativos.objects.filter(
+        id_usuario=usuario,
+        vigencia=True
+    ).exists():
+        return {
+            "rol": "Encargado Administrativo"
+        }
+
+    supervisor = supervisores_encargados.objects.filter(
+        id_usuario=usuario,
+        vigencia=True
+    ).select_related("id_turno").first()
+
+    if supervisor:
+        return {
+            "rol": "Supervisor Encargado",
+            "turno": supervisor.id_turno.nombre
+        }
+
+    return None
+
 def inicio_sesion(request):
     if request.method == "POST":
-        if request.session.get("usuario"):
-            return JsonResponse({
-                "estado": "fallo",
-                "title": "Sesión ya iniciada",
-                "descripcion": "Este navegador ya tiene una sesión activa para un usuario.",
-                "icon": "warning"
-            })
-
         nombre_usuario = request.POST.get("nombre_usuario")
         contrasenia = request.POST.get("contrasenia")
         tab_id = request.POST.get("tab_id")
+        
         direccion_ip = request.META.get("REMOTE_ADDR")
 
         # Validar campos vacíos
@@ -115,7 +114,12 @@ def inicio_sesion(request):
             # Verificar bloqueo
             bloqueo, creado = bloqueo_inicio_sesion.objects.get_or_create(usuario=usuario)
         except credenciales.DoesNotExist:
-            registrar_intento(None, nombre_usuario, direccion_ip, False)
+            intentos_inicio_sesion.objects.create(
+                usuario=None,
+                nombre_usuario=nombre_usuario,
+                direccion_ip=direccion_ip,
+                exitoso=False,
+            )
 
             return JsonResponse({
                 "estado": "fallo",
@@ -124,8 +128,13 @@ def inicio_sesion(request):
                 "icon": "error"
             })
 
-        if not credencial.bloqueado:
-            registrar_intento(usuario, nombre_usuario, direccion_ip, False)
+        if credencial.bloqueado:
+            intentos_inicio_sesion.objects.create(
+                usuario=usuario,
+                nombre_usuario=nombre_usuario,
+                direccion_ip=direccion_ip,
+                exitoso=False,
+            )
 
             return JsonResponse({
                 "estado": "bloqueado",
@@ -138,20 +147,26 @@ def inicio_sesion(request):
             })
 
         # Verificar que el usuario cuenta con al menos un perfil activo
-        perfiles_usuario = perfil_usuario.objects.filter(
-            id_usuario=usuario,
-            vigencia=True
-        ).select_related("id_perfil")
-        if not perfiles_usuario.exists():
-            registrar_intento(usuario, nombre_usuario, direccion_ip, False)
+        perfil = obtener_rol(usuario)
+
+        if not perfil:
+            intentos_inicio_sesion.objects.create(
+                usuario=usuario,
+                nombre_usuario=nombre_usuario,
+                direccion_ip=direccion_ip,
+                exitoso=False,
+            )
 
             return JsonResponse({
                 "estado": "fallo",
-                "title": "Usuario inhabilitado",
-                "descripcion": "El empleado no cuenta con un perfil vigente para iniciar sesión.",
+                "title": "Usuario sin perfil",
+                "descripcion": "El usuario no tiene un perfil vigente para acceder al sistema.",
                 "icon": "warning"
             })
-
+        
+        request.session["perfil"] = perfil["rol"]
+        request.session["turno"] = perfil.get("turno")
+        
         # Verificar si está bloqueado
         if bloqueo.bloqueado and bloqueo.bloqueado_hasta > timezone.now():
             tiempo_restante = (bloqueo.bloqueado_hasta - timezone.now())
@@ -169,7 +184,6 @@ def inicio_sesion(request):
 
         # Desbloquear si ya expiró el tiempo
         if bloqueo.bloqueado and bloqueo.bloqueado_hasta <= timezone.now():
-
             bloqueo.bloqueado = False
             bloqueo.intentos = 0
             bloqueo.bloqueado_hasta = None
@@ -179,8 +193,47 @@ def inicio_sesion(request):
         resultado = check_password(contrasenia, credencial.clave)
 
         if resultado:
+            ahora = timezone.now()
+            sesiones_vigentes = sesiones_usuario.objects.filter(
+                usuario=usuario,
+                activa=True,
+                ultima_actividad__gte=ahora - DURACION_SENAL_SESION,
+                session_key__in=Session.objects.filter(
+                    expire_date__gt=ahora
+                ).values("session_key"),
+            )
+            if request.session.session_key:
+                sesiones_vigentes = sesiones_vigentes.exclude(
+                    session_key=request.session.session_key
+                )
+            sesiones_expiradas = sesiones_usuario.objects.filter(
+                usuario=usuario,
+                activa=True,
+            ).exclude(
+                session_key__in=sesiones_vigentes.values("session_key")
+            )
+            sesiones_expiradas.update(activa=False, fecha_fin=ahora)
+
+            if sesiones_vigentes.exists():
+                return JsonResponse({
+                    "estado": "sesion_activa",
+                    "title": "Sesión ya iniciada",
+                    "descripcion": (
+                        "Este usuario ya tiene una sesión activa en otro navegador "
+                        "o pestaña. Cierre sesión desde allí o, si ya cerró el "
+                        "navegador con Alt+F4, espere hasta 2 minutos para "
+                        "volver a intentarlo."
+                    ),
+                    "icon": "warning",
+                })
+
             # Registrar inicio de sesión
-            registrar_intento(usuario, nombre_usuario, direccion_ip, resultado)
+            intentos_inicio_sesion.objects.create(
+                usuario=usuario,
+                nombre_usuario=nombre_usuario,
+                direccion_ip=direccion_ip,
+                exitoso=True,
+            )
 
             bloqueo.intentos = 0
             bloqueo.bloqueado = False
@@ -188,27 +241,12 @@ def inicio_sesion(request):
             bloqueo.ultima_direccion_ip = direccion_ip
             bloqueo.save()
 
-            invalidar_sesiones_anteriores(usuario, request.session.session_key)
-
             # Variables de sesión
             request.session["usuario"] = (f"{usuario.nombres} {usuario.apellidos}")
 
-            request.session["panel_token"] = crear_token_panel()
-
-            # Perfiles activos
-            request.session["perfiles"] = list(
-                perfiles_usuario.values_list(
-                    "id_perfil__perfil",
-                    flat=True
-                )
-            )
-
-            request.session["id_perfiles_usuario"] = list(
-                perfiles_usuario.values_list(
-                    "id_perfil_usuario",
-                    flat=True
-                )
-            )
+            request.session["panel_token"] = TimestampSigner(
+                salt="panel-route"
+            ).sign("panel")
 
             # Cédula
             request.session["cedula_identidad"] = (usuario.cedula_identidad)
@@ -219,16 +257,20 @@ def inicio_sesion(request):
             request.session["completar_registro"] = resultado
 
             request.session.save()
+            sesiones_usuario.objects.update_or_create(
+                session_key=request.session.session_key,
+                defaults={
+                    "usuario": usuario,
+                    "tab_id": tab_id,
+                    "activa": True,
+                    "fecha_fin": None,
+                    "info_general": request.META.get("HTTP_USER_AGENT", ""),
+                    "direccion_ip": direccion_ip,
+                },
+            )
 
             # Registro incompleto
             if not resultado:
-                registrar_sesion_usuario(
-                    request,
-                    usuario,
-                    direccion_ip,
-                    tab_id
-                )
-
                 return JsonResponse({
                     "estado": "incompleto",
                     "title": "Registro incompleto",
@@ -237,20 +279,17 @@ def inicio_sesion(request):
                     "url": reverse("completar_registro")
                 })
 
-            # Registrar sesión
-            registrar_sesion_usuario(
-                request,
-                usuario,
-                direccion_ip,
-                tab_id
-            )
-
             return JsonResponse({
                 "estado": "exito",
                 "url": reverse("panel_usuario")
             })
         else:
-            registrar_intento(usuario, nombre_usuario, direccion_ip, resultado)
+            intentos_inicio_sesion.objects.create(
+                usuario=usuario,
+                nombre_usuario=nombre_usuario,
+                direccion_ip=direccion_ip,
+                exitoso=False,
+            )
 
             LIMITE_INTENTOS = 3
 
@@ -281,20 +320,7 @@ def inicio_sesion(request):
                 "icon": "error"
             })
 
+    if request.session.get("usuario"):
+        return redirect("panel_usuario")
+
     return render(request, "inicio_sesion/autenticacion.html")
-
-def cerrar_sesion(request):
-    session_key = request.session.session_key
-    sesion = sesiones_usuario.objects.filter(session_key=session_key, activa=True).first()
-
-    if sesion:
-        sesion.fecha_fin = timezone.now()
-        sesion.activa = False
-        sesion.save()
-
-    for key in list(request.session.keys()):
-        del request.session[key]
-
-    request.session.flush()
-    return redirect("inicio_sesion")
-

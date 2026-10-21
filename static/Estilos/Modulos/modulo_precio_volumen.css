@@ -1,0 +1,287 @@
+.modulo_precio_volumen,
+.modulo_registros_precios {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    padding: 24px;
+    box-sizing: border-box;
+    background: #ffffff;
+    border: 2px solid #00779e;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 68, 95, 0.08);
+    overflow-wrap: anywhere;
+}
+
+.modulo_precio_volumen {
+    margin-bottom: 22px;
+}
+
+.modulo_precio_volumen form {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+.campo_formulario {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+.campo_formulario label {
+    margin: 0;
+    color: #102f4e;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.campo_formulario input,
+.campo_formulario select {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    height: 40px;
+    padding: 8px 11px;
+    box-sizing: border-box;
+    border: 1px solid #cbd8e2;
+    border-radius: 7px;
+    background: #ffffff;
+    color: #102f4e;
+    font-family: inherit;
+    font-size: 14px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.campo_formulario input::placeholder {
+    color: #8495a3;
+    opacity: 1;
+    font-size: 13px;
+}
+
+.campo_formulario input:focus,
+.campo_formulario select:focus {
+    outline: none;
+    border-color: #00779e;
+    box-shadow: 0 0 0 2px rgba(0, 119, 158, 0.12);
+}
+
+.campos_precio_volumen {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Registros de precios */
+
+.modulo_registros_precios {
+    overflow: hidden;
+}
+
+.modulo_registros_precios .encabezado_precio_volumen {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: none;
+}
+
+.modulo_registros_precios .encabezado_precio_volumen h3 {
+    margin: 0;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #00779e;
+    color: #00445f;
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.modulo_registros_precios .contenedor_tabla_precios {
+    width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    margin-top: 10px;
+    border-radius: 8px;
+    border: 1px solid #d5e1e5;
+    background: #ffffff;
+}
+
+.modulo_registros_precios .contenedor_tabla_precios table {
+    width: 100%;
+    min-width: 600px;
+    border-collapse: separate;
+    border-spacing: 0;
+    table-layout: auto;
+    border: none;
+}
+
+.modulo_registros_precios .contenedor_tabla_precios th,
+.modulo_registros_precios .contenedor_tabla_precios td {
+    padding: 10px 8px;
+    box-sizing: border-box;
+    font-size: 0.85rem;
+    text-align: center;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+.modulo_registros_precios .contenedor_tabla_precios th {
+    background-color: #00445f;
+    color: #ffffff;
+    font-weight: 700;
+    border-bottom: 2px solid #00779e;
+    text-transform: uppercase;
+}
+
+.modulo_registros_precios .contenedor_tabla_precios td {
+    background-color: #ffffff;
+    color: #00445f;
+    border-bottom: 1px solid #d5e1e5;
+}
+
+.modulo_registros_precios .contenedor_tabla_precios tbody tr:hover td {
+    background-color: #f8fbfc;
+}
+
+.modulo_registros_precios .contenedor_tabla_precios tbody tr:active td {
+    background-color: #e0f2f7;
+}
+
+.modulo_registros_precios .contenedor_tabla_precios tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.contenedor_tabla_precios tbody td:nth-child(2),
+.contenedor_tabla_precios tbody td:nth-child(3),
+.contenedor_tabla_precios tbody td:nth-child(4) {
+    font-variant-numeric: tabular-nums;
+}
+
+/* Pantallas medianas */
+
+@media (max-width: 800px) {
+
+    .modulo_precio_volumen,
+    .modulo_registros_precios {
+        padding: 16px;
+    }
+
+    .campos_precio_volumen {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+    }
+
+    .campos_precio_volumen .campo_formulario:last-child {
+        grid-column: 1 / -1;
+    }
+
+    .contenedor_tabla_precios table {
+        min-width: 620px;
+    }
+
+    .encabezado_precio_volumen h3 {
+        font-size: 18px;
+    }
+}
+
+/* Teléfonos */
+
+@media (max-width: 600px) {
+
+    .modulo_precio_volumen,
+    .modulo_registros_precios {
+        padding: 12px;
+        border-radius: 10px;
+    }
+
+    .modulo_precio_volumen {
+        margin-bottom: 14px;
+    }
+
+    .modulo_precio_volumen form {
+        gap: 14px;
+    }
+
+    .campos_precio_volumen {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 13px;
+    }
+
+    .campos_precio_volumen .campo_formulario:last-child {
+        grid-column: auto;
+    }
+
+    .campo_formulario label {
+        font-size: 13px;
+    }
+
+    .campo_formulario input,
+    .campo_formulario select {
+        height: 40px;
+        font-size: 13px;
+    }
+
+    .encabezado_precio_volumen {
+        margin-bottom: 13px;
+        padding-bottom: 12px;
+    }
+
+    .encabezado_precio_volumen h3 {
+        font-size: 16px;
+    }
+
+    .contenedor_tabla_precios table {
+        min-width: 600px;
+    }
+
+    .contenedor_tabla_precios thead th,
+    .contenedor_tabla_precios tbody td {
+        padding: 11px 9px;
+    }
+}
+
+/* Teléfonos pequeños */
+
+@media (max-width: 380px) {
+
+    .modulo_precio_volumen,
+    .modulo_registros_precios {
+        padding: 9px;
+        border-width: 1px;
+        border-radius: 9px;
+    }
+
+    .campos_precio_volumen {
+        gap: 11px;
+    }
+
+    .encabezado_precio_volumen h3 {
+        font-size: 15px;
+    }
+
+    .campo_formulario label {
+        font-size: 12px;
+    }
+
+    .campo_formulario input,
+    .campo_formulario select {
+        font-size: 13px;
+    }
+}

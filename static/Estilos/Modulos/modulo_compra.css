@@ -1,0 +1,265 @@
+.modulo_compra {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+.modulo_compra form {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+/* Contenedores principales */
+.contenedor_detalle_venta,
+.contenedor_detalle_pago,
+.contenedor_venta {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: 100%;
+    min-width: 0;
+    padding: 20px 22px;
+    margin: 0;
+    background: #ffffff;
+    border: 1px solid #d5e1e5;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 68, 95, 0.08);
+    box-sizing: border-box;
+}
+
+/* Cuadrícula de controles */
+.contenedor_controles_detalle,
+.contenedor_controles_pago {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: end;
+    gap: 18px;
+    width: 100%;
+    min-width: 0;
+    padding: 18px;
+    background: #f8fbfc;
+    border: 1px solid #00779e;
+    border-radius: 10px;
+    box-sizing: border-box;
+}
+
+/* Campos */
+.modulo_compra .campo_formulario {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 5px;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+.modulo_compra .campo_formulario>label {
+    display: block;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    color: #001d2d;
+    font-size: 0.9rem;
+    font-weight: 600;
+    line-height: 1.4;
+    box-sizing: border-box;
+}
+
+/* Entradas y selectores */
+.modulo_compra .campo_formulario input[type="text"],
+.modulo_compra .campo_formulario input[type="number"],
+.modulo_compra .campo_formulario select {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    min-height: 40px;
+    margin: 0;
+    padding: 9px 12px;
+    background-color: #ffffff;
+    color: #001d2d;
+    border: 1.5px solid #00779e;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.92rem;
+    line-height: 1.4;
+    outline: none;
+    box-shadow: none;
+    box-sizing: border-box;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.modulo_compra .campo_formulario input[readonly] {
+    background-color: #ffffff;
+    color: #001d2d;
+    border-color: #00779e;
+    opacity: 1;
+    cursor: default;
+    -webkit-text-fill-color: #001d2d;
+}
+
+.modulo_compra .campo_formulario input:hover:not(:disabled),
+.modulo_compra .campo_formulario select:hover:not(:disabled) {
+    border-color: #00779e;
+}
+
+.modulo_compra .campo_formulario input:focus,
+.modulo_compra .campo_formulario select:focus {
+    background-color: #ffffff;
+    border-color: #00445f;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(0, 119, 158, 0.15);
+}
+
+/* Tablas: siempre debajo de los controles */
+.contenedor_tabla_detalle,
+.contenedor_tabla_pago {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+}
+
+/* Encabezados */
+.encabezado_detalle,
+.encabezado_pago {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    margin: 0;
+    padding: 0 0 8px;
+    border-bottom: 2px solid #00779e;
+    box-sizing: border-box;
+}
+
+.encabezado_detalle h3,
+.encabezado_pago h3 {
+    margin: 0;
+    color: #00445f;
+    font-size: 1.05rem;
+    font-weight: 700;
+}
+
+/* Contenedor desplazable */
+.tabla_detalle_venta {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    overflow-x: auto;
+    border: 1px solid #d5e1e5;
+    border-radius: 8px;
+    background: #ffffff;
+    box-sizing: border-box;
+}
+
+.tabla_detalle_venta table {
+    width: 100%;
+    min-width: 800px;
+    border: none;
+    border-collapse: separate;
+    border-spacing: 0;
+    table-layout: auto;
+}
+
+.tabla_detalle_venta table th,
+.tabla_detalle_venta table td {
+    padding: 10px 8px;
+    font-size: 0.85rem;
+    text-align: center;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+.tabla_detalle_venta table th {
+    background-color: #00445f;
+    color: #ffffff;
+    font-weight: 700;
+    border-bottom: 2px solid #00779e;
+    text-transform: uppercase;
+}
+
+.tabla_detalle_venta table td {
+    background-color: #ffffff;
+    color: #00445f;
+    border-bottom: 1px solid #d5e1e5;
+}
+
+.tabla_detalle_venta table tbody tr {
+    transition: background-color 0.2s ease;
+}
+
+.tabla_detalle_venta table tbody tr:hover td {
+    background-color: #f8fbfc;
+}
+
+.tabla_detalle_venta table tbody tr:active td {
+    background-color: #e0f2f7;
+}
+
+.tabla_detalle_venta table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* Resumen de compra */
+.contenedor_venta {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    align-items: end;
+    gap: 18px;
+    background: #f8fbfc;
+    border-color: #00779e;
+}
+
+#total_venta {
+    font-weight: 700;
+    color: #00445f;
+}
+
+/* Adaptación a pantallas medianas */
+@media (max-width: 900px) {
+
+    .contenedor_controles_detalle,
+    .contenedor_controles_pago {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .contenedor_venta {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+/* Adaptación a móviles */
+@media (max-width: 650px) {
+
+    .contenedor_detalle_venta,
+    .contenedor_detalle_pago,
+    .contenedor_venta {
+        padding: 15px;
+        gap: 16px;
+    }
+
+    .contenedor_controles_detalle,
+    .contenedor_controles_pago {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 15px;
+        padding: 14px;
+    }
+
+    .contenedor_venta {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 15px;
+    }
+
+}

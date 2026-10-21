@@ -7,7 +7,6 @@
     display: block;
 }
 
-/* PROGRESO (COMPACTO Y CON MARGEN EXTERNO)*/
 .progreso {
     width: 100%;
     padding: 12px 15px 15px;
@@ -25,7 +24,6 @@
     margin: 0 auto;
 }
 
-/* LÍNEA DE FONDO */
 .linea::before {
     content: "";
     position: absolute;
@@ -37,7 +35,6 @@
     border-radius: 10px;
 }
 
-/* LÍNEA DE AVANCE */
 .avance {
     position: absolute;
     top: 16px;
@@ -50,7 +47,6 @@
     z-index: 1;
 }
 
-/* CONTENEDOR DE LOS CÍRCULOS */
 .pasos {
     position: relative;
     display: flex;
@@ -58,7 +54,6 @@
     z-index: 2;
 }
 
-/* CADA INDICADOR */
 .paso_progreso {
     display: flex;
     flex-direction: column;
@@ -69,7 +64,6 @@
     color: #888;
 }
 
-/* NÚMERO (CÍRCULO COMPACTO) */
 .paso_progreso span {
     display: flex;
     justify-content: center;
@@ -85,7 +79,6 @@
     transition: all 0.3s ease;
 }
 
-/* TEXTO */
 .paso_progreso small {
     margin-top: 5px;
     text-align: center;
@@ -94,7 +87,6 @@
     color: #888;
 }
 
-/* PASO ACTIVO */
 .paso_progreso.activo span {
     background: #00445f;
     border-color: #00445f;
@@ -106,7 +98,6 @@
     font-weight: 600;
 }
 
-/* BOTONES */
 .botones {
     display: flex;
     justify-content: space-between;

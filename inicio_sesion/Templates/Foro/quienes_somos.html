@@ -1,0 +1,51 @@
+{% extends 'Estructura/base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="contenedor_foro">
+    <div class="contenedor_descripcion_foro">
+        <h2>¿Quiénes Somos?</h2>
+
+        <div class="contenedor_texto">
+            <p>
+                Hielo Caipe C.A. es una empresa ubicada en el estado Barinas, dedicada a la producción y
+                comercialización de
+                hielo, orientada a satisfacer las necesidades de conservación y refrigeración de familias, comercios,
+                establecimientos de alimentos y diferentes sectores que requieren este producto como parte de sus
+                actividades diarias. Desde el desarrollo de sus operaciones, la empresa ha mantenido el compromiso de
+                ofrecer un producto confiable, procurando que cada etapa de su proceso se realice bajo criterios de
+                calidad,
+                higiene y responsabilidad.
+            </p>
+            <img src="{% static 'Imagenes/imagen_foro5.png' %}"
+                alt="Maquina que traslada varias bolsas hielos a otro lugar">
+        </div>
+        <div class="contenedor_texto">
+            <p>
+                Nuestra empresa está conformada por un equipo de trabajo comprometido con el cumplimiento de sus
+                funciones y con la atención de las necesidades de nuestros clientes. Entendemos que ofrecer un buen
+                producto también implica brindar un servicio responsable, mantener una comunicación adecuada y responder
+                de manera oportuna a los requerimientos de quienes confían en Hielo Caipe C.A. Por esta razón,
+                trabajamos continuamente en el fortalecimiento de nuestros procesos y en la mejora de la atención que
+                ofrecemos.
+            </p>
+        </div>
+        <div class="contenedor_texto">
+            <img src="{% static 'Imagenes/imagen_foro6.png' %}"
+                alt="Empleado trasladando varias bolsas de hielos de un lugar a otro">
+            <p>En Hielo Caipe C.A. nos proyectamos como una empresa en constante crecimiento, comprometida con el
+                desarrollo de nuestras actividades y con la generación de relaciones duraderas con nuestros clientes.
+                Nuestro trabajo se fundamenta en valores como la responsabilidad, calidad, compromiso, respeto y
+                atención al
+                cliente, principios que orientan nuestras acciones y nos permiten continuar avanzando. Con nuestra
+                presencia
+                en Barinas, buscamos seguir consolidándonos y contribuir al desarrollo comercial de la región mediante
+                un
+                servicio confiable y productos que respondan a las necesidades de nuestro entorno.</p>
+        </div>
+    </div>
+</section>
+
+{% endblock %}

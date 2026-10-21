@@ -1,147 +1,127 @@
+
 function configurarPasos() {
 
-    const contenedor = document.querySelector(".modulo_datos");
+    const contenedores = document.querySelectorAll(
+        ".modulo_datos, .modulo_dialogo_detallado"
+    );
 
-    if (!contenedor) {
+    if (!contenedores.length) {
         return;
     }
 
-    const pasos = contenedor.querySelectorAll(".paso");
+    contenedores.forEach(function (contenedor) {
 
-    const btnSiguiente = document.querySelector(".btn_avanzar");
-    const btnAtras = document.querySelector(".btn_retroceder");
+        if (contenedor.dataset.pasosConfigurados === "true") {
+            return;
+        }
 
-    const formulario = contenedor.querySelector("form");
+        contenedor.dataset.pasosConfigurados = "true";
 
-    let pasoActual = 0;
-
-
-    function actualizarPaso() {
+        const pasos = contenedor.querySelectorAll(".paso");
 
         if (!pasos.length) {
             return;
         }
 
-        pasoActual = Math.max(
-            0,
-            Math.min(pasoActual, pasos.length - 1)
-        );
+        const contexto = contenedor.closest("dialog") || contenedor;
 
+        const btnSiguiente = contexto.querySelector(".btn_avanzar");
+        const btnAtras = contexto.querySelector(".btn_retroceder");
 
-        pasos.forEach((paso, indice) => {
+        let pasoActual = 0;
 
-            paso.classList.toggle(
-                "activo",
-                indice === pasoActual
+        function actualizarPaso() {
+
+            pasoActual = Math.max(
+                0,
+                Math.min(pasoActual, pasos.length - 1)
             );
 
-        });
+            pasos.forEach(function (paso, indice) {
 
-
-        // Mostrar / ocultar Retroceder
-        if (btnAtras) {
-
-            btnAtras.style.visibility =
-                pasoActual === 0
-                    ? "hidden"
-                    : "visible";
-        }
-
-
-        // Mostrar / ocultar Avanzar
-        if (btnSiguiente) {
-
-            btnSiguiente.style.visibility =
-                pasoActual === pasos.length - 1
-                    ? "hidden"
-                    : "visible";
-        }
-    }
-
-
-    function validarPasoActual() {
-
-        const paso = pasos[pasoActual];
-
-        if (!paso) {
-            return false;
-        }
-
-
-        /*
-         * VALIDACIÓN ESPECIAL DE CÉDULA
-         */
-
-        const campoCedula = paso.querySelector(
-            "#input_actualizar_cedula"
-        );
-
-        if (campoCedula) {
-
-            if (!cedulaValida) {
-
-                campoCedula.setCustomValidity(
-                    "Debe ingresar una cédula válida y disponible."
+                paso.classList.toggle(
+                    "activo",
+                    indice === pasoActual
                 );
 
-                campoCedula.reportValidity();
+            });
 
-                return false;
+            if (btnAtras) {
+
+                btnAtras.style.visibility =
+                    pasoActual === 0 ? "hidden" : "visible";
             }
 
-            campoCedula.setCustomValidity("");
-        }
+            if (btnSiguiente) {
 
-
-        /*
-         * VALIDACIÓN HTML
-         */
-
-        const campos = paso.querySelectorAll(
-            "input, select, textarea"
-        );
-
-
-        for (const campo of campos) {
-
-            if (!campo.checkValidity()) {
-
-                campo.reportValidity();
-
-                return false;
+                btnSiguiente.style.visibility =
+                    pasoActual === pasos.length - 1
+                        ? "hidden"
+                        : "visible";
             }
         }
 
+        function validarPasoActual() {
 
-        return true;
-    }
+            const paso = pasos[pasoActual];
 
+            if (!paso) {
+                return false;
+            }
 
-    function reiniciarPasos() {
+            const campoCedula = paso.querySelector(
+                "#input_actualizar_cedula"
+            );
 
-        pasoActual = 0;
+            if (campoCedula) {
 
-        actualizarPaso();
-    }
+                if (typeof cedulaValida !== "undefined" && !cedulaValida) {
 
+                    campoCedula.setCustomValidity(
+                        "Debe ingresar una cédula válida y disponible."
+                    );
 
-    /*
-     * AVANZAR
-     */
+                    campoCedula.reportValidity();
 
-    if (btnSiguiente) {
+                    return false;
+                }
 
-        btnSiguiente.addEventListener(
-            "click",
-            function (e) {
+                campoCedula.setCustomValidity("");
+            }
+
+            const campos = paso.querySelectorAll(
+                "input, select, textarea"
+            );
+
+            for (const campo of campos) {
+
+                if (!campo.checkValidity()) {
+
+                    campo.reportValidity();
+
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        function reiniciarPasos() {
+
+            pasoActual = 0;
+
+            actualizarPaso();
+        }
+
+        if (btnSiguiente) {
+
+            btnSiguiente.addEventListener("click", function (e) {
 
                 e.preventDefault();
-
 
                 if (!validarPasoActual()) {
                     return;
                 }
-
 
                 if (pasoActual < pasos.length - 1) {
 
@@ -150,23 +130,14 @@ function configurarPasos() {
                     actualizarPaso();
                 }
 
-            }
-        );
-    }
+            });
+        }
 
+        if (btnAtras) {
 
-    /*
-     * RETROCEDER
-     */
-
-    if (btnAtras) {
-
-        btnAtras.addEventListener(
-            "click",
-            function (e) {
+            btnAtras.addEventListener("click", function (e) {
 
                 e.preventDefault();
-
 
                 if (pasoActual > 0) {
 
@@ -175,18 +146,18 @@ function configurarPasos() {
                     actualizarPaso();
                 }
 
-            }
-        );
-    }
+            });
+        }
 
+        const dialogo = contenedor.closest("dialog");
 
-    /*
-     * INICIAR EN EL PRIMER PASO
-     */
+        if (dialogo) {
+            dialogo.addEventListener("close", reiniciarPasos);
+        }
 
-    actualizarPaso();
+        actualizarPaso();
+
+    });
 }
 
-
 configurarPasos();
-

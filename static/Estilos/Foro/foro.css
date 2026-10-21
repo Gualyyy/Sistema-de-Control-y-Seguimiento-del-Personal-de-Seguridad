@@ -1,0 +1,269 @@
+@import url('contactanos.css');
+
+main:not(.main-logueado) {
+    grid-area: main;
+    width: 100%;
+    min-height: calc(100vh - 110px - 75px);
+    margin: 0;
+    padding: 0;
+    background: #f3f7f9;
+}
+
+.contenedor_foro {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.banner-modulo {
+    width: 100%;
+    height: 400px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    overflow: hidden;
+}
+
+.banner-modulo img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    object-fit: cover;
+    object-position: center;
+}
+
+/* CONTENEDOR DESCRIPCIÓN */
+.contenedor_descripcion_foro {
+    width: calc(100% - 2rem);
+    max-width: 1200px;
+    margin: 1.5rem auto;
+    padding: 2rem;
+    background: #ffffff;
+    border: 1px solid #d5e1e6;
+    border-radius: 12px;
+    box-sizing: border-box;
+    box-shadow: 0 3px 12px rgba(0, 68, 95, 0.06);
+}
+
+.contenedor_descripcion_foro h2 {
+    margin: 0 0 1.7rem;
+    padding-bottom: 0.7rem;
+    color: #001d2d;
+    font-size: 1.6rem;
+    font-weight: 700;
+    border-bottom: 2px solid #d9e5e9;
+}
+
+/* CONTENIDO DE TEXTO */
+.contenedor_texto {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    margin-bottom: 1.5rem;
+}
+
+.contenedor_texto:last-child {
+    margin-bottom: 0;
+}
+
+.contenedor_texto p {
+    flex: 1;
+    width: 100%;
+    margin: 0;
+    padding: 1.3rem 1.5rem;
+    background: #f8fafb;
+    border: 1px solid #dce6ea;
+    border-radius: 9px;
+    color: #263f4a;
+    font-size: 0.95rem;
+    line-height: 1.65;
+    text-align: justify;
+    box-sizing: border-box;
+}
+
+.contenedor_texto:not(:has(img)) {
+    display: block;
+}
+
+.contenedor_texto:not(:has(img)) p {
+    width: 100%;
+}
+
+.contenedor_texto img {
+    width: 320px;
+    max-width: 38%;
+    height: 215px;
+    padding: 4px;
+    background: #ffffff;
+    border: 2px solid #00779e;
+    border-radius: 9px;
+    object-fit: cover;
+    object-position: center;
+    flex-shrink: 0;
+    box-sizing: border-box;
+    box-shadow: 0 2px 8px rgba(0, 68, 95, 0.08);
+    transition: box-shadow 0.2s ease;
+}
+
+.contenedor_texto img:hover {
+    box-shadow: 0 4px 12px rgba(0, 68, 95, 0.13);
+}
+
+/* CARD PRODUCTOS */
+.card-modulo {
+    width: 100%;
+    padding: 0;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+}
+
+.card-modulo h2 {
+    margin: 0 0 1.7rem;
+    padding-bottom: 0.7rem;
+    color: #001d2d;
+    font-size: 1.6rem;
+    font-weight: 700;
+    border-bottom: 2px solid #d9e5e9;
+}
+
+.en-desarrollo-card {
+    width: 100%;
+    padding: 1.8rem;
+    background: #f5fafc;
+    border: 1px solid #b9d8e1;
+    border-radius: 9px;
+    text-align: center;
+}
+
+.en-desarrollo-card h3 {
+    margin: 0 0 0.5rem;
+    color: #00445f;
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.en-desarrollo-card p {
+    margin: 0;
+    color: #536c76;
+    font-size: 0.93rem;
+    line-height: 1.5;
+}
+
+/* TABLET */
+@media (max-width: 900px) {
+
+    .banner-modulo {
+        height: 240px;
+    }
+
+    .contenedor_descripcion_foro {
+        width: calc(100% - 1.5rem);
+        padding: 1.7rem;
+    }
+
+    .contenedor_texto {
+        gap: 1.3rem;
+    }
+
+    .contenedor_texto img {
+        width: 280px;
+        height: 200px;
+    }
+}
+
+/* MÓVIL */
+@media (max-width: 768px) {
+
+    .banner-modulo {
+        height: 210px;
+    }
+
+    .contenedor_descripcion_foro {
+        width: calc(100% - 1rem);
+        padding: 1.4rem;
+        border-radius: 10px;
+    }
+
+    .contenedor_descripcion_foro h2,
+    .card-modulo h2 {
+        font-size: 1.4rem;
+        margin-bottom: 1.3rem;
+    }
+
+    .contenedor_texto,
+    .contenedor_texto:not(:has(img)) {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1rem;
+        margin-bottom: 1.2rem;
+    }
+
+    .contenedor_texto img {
+        width: 100%;
+        max-width: 100%;
+        height: 230px;
+        order: -1;
+    }
+
+    .contenedor_texto p,
+    .contenedor_texto:not(:has(img)) p {
+        width: 100%;
+        padding: 1.2rem;
+        font-size: 0.93rem;
+        line-height: 1.6;
+    }
+
+    .en-desarrollo-card {
+        padding: 1.5rem;
+    }
+}
+
+/* TELÉFONOS PEQUEÑOS */
+@media (max-width: 480px) {
+
+    .banner-modulo {
+        height: 180px;
+    }
+
+    .contenedor_descripcion_foro {
+        padding: 1.2rem;
+    }
+
+    .contenedor_descripcion_foro h2,
+    .card-modulo h2 {
+        font-size: 1.25rem;
+    }
+
+    .contenedor_texto img {
+        height: 190px;
+    }
+
+    .contenedor_texto p,
+    .contenedor_texto:not(:has(img)) p {
+        padding: 1.1rem;
+        line-height: 1.55;
+    }
+
+    .en-desarrollo-card {
+        padding: 1.3rem 1rem;
+    }
+
+    .en-desarrollo-card h3 {
+        font-size: 1.1rem;
+    }
+
+    .en-desarrollo-card p {
+        font-size: 0.9rem;
+    }
+}

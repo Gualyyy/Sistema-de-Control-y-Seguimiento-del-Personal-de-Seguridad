@@ -16,7 +16,6 @@
     align-items: center;
     margin-bottom: 16px;
     padding-bottom: 10px;
-    border-bottom: 2px solid #00779e;
 }
 
 .modulo_visualizar .encabezado_registrados h3 {
@@ -26,22 +25,34 @@
     margin: 0;
 }
 
-.btn_pdf {
-    padding: 8px 18px;
-    border: 1px solid #00779e;
-    border-radius: 6px;
+.modulo_visualizar .encabezado_registrados .btn_pdf {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    margin-left: auto;
+
+    padding: 8px 15px;
+    border: none;
+    border-radius: 5px;
+
     background: #00445f;
     color: #ffffff;
+
     font-size: 0.88rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s ease;
+
+    transition: background-color 0.2s ease,
+        transform 0.15s ease;
 }
 
 .btn_pdf:hover {
     background: #00648b;
-    border-color: #00648b;
-    box-shadow: 0 2px 6px rgba(0, 68, 95, 0.2);
+}
+
+.btn_pdf:active {
+    transform: scale(0.97);
 }
 
 .modulo_visualizar .btn_bloquear_tabla {

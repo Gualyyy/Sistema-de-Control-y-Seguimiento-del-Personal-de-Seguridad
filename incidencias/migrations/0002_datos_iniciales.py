@@ -2,16 +2,13 @@ from django.db import migrations
 
 TIPOS_INCIDENCIA = (
     ("Daño", "Daño"),
+    ("Accidente", "Accidente"),
     ("Mantenimiento", "Mantenimiento"),
     ("Falla de Hardware", "Falla de Hardware"),
     ("Falla de Software", "Falla de Software"),
     ("Conectividad", "Conectividad"),
     ("Seguridad", "Seguridad"),
-    ("Pérdida", "Pérdida"),
     ("Robo", "Robo"),
-    ("Préstamo", "Préstamo"),
-    ("Devolución", "Devolución"),
-    ("Otro", "Otro"),
 )
 
 def crear_datos(apps, schema_editor):

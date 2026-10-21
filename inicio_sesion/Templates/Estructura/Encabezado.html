@@ -1,16 +1,96 @@
 {% load static %}
 
 <header class="header-logueado">
-    <nav class="barra_superior">
-        <div class="marca">
-            <img src="{% static 'Imagenes/logo.png' %}" alt="Logo de Hielo Caipe C.A">
-            <h1>Hielo Caipe C.A</h1>
-        </div>
-    </nav>
+    <nav class="nav-header">
+        <div class="contenedor-logueado">
+            <div class="bloque-logueado">
+                <img src="{% static 'Imagenes/logo.png' %}" alt="Logo de la Empresa Hielo Caipe">
+                <h1>Hielo Caipe C.A.</h1>
+                <span class="separador">|</span>
+            </div>
 
-    <nav class="barra_inferior">
-        <div class="titulo_sistema">
-            <h1>Sistema de Control y Seguimiento del Personal de Seguridad</h1>
+            <div class="bloque-logueado">
+                <h1>Sistema de Administración de la Empresa Hielo Caipe C.A.</h1>
+            </div>
+        </div>
+
+        <div class="nav-foro">
+            {% if not request.session.usuario %}
+
+            <div class="nav-publico">
+                <button type="button" class="boton-menu" id="boton-menu" aria-label="Abrir menú" aria-expanded="false">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
+
+                <ul class="list-foro">
+                    <li class="item-foro">
+                        <a href="{% url 'foro' %}">
+                            <i class="fa-solid fa-bag-shopping"></i>
+                            <span>Inicio</span>
+                        </a>
+                    </li>
+                    <li class="item-foro">
+                        <a href="{% url 'historia' %}">
+                            <i class="fa-solid fa-scroll"></i>
+                            <span>Historia</span>
+                        </a>
+                    </li>
+                    <li class="item-foro">
+                        <a href="{% url 'quienes_somos' %}">
+                            <i class="fa-solid fa-users"></i>
+                            <span>Quiénes Somos</span>
+                        </a>
+                    </li>
+                    <li class="item-foro">
+                        <a href="{% url 'contactanos' %}">
+                            <i class="fa-solid fa-map-location-dot"></i>
+                            <span>Contáctanos</span>
+                        </a>
+                    </li>
+                    <li class="item-foro">
+                        <a href="{% url 'inicio_sesion' %}">
+                            <i class="fa-solid fa-user-lock"></i>
+                            <span>Acceder</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            {% else %}
+            <div class="nav-logueado">
+                <button type="button" class="btn-menu-toggle" id="btnMenuLateral" aria-label="Abrir menú lateral"
+                    aria-expanded="false">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
+
+                <details class="menu-usuario">
+                    <summary class="boton-usuario">
+                        <i class="fa-solid fa-circle-user"></i>
+                        <span>
+                            {{ request.session.usuario }}
+                        </span>
+                        <i class="fa-solid fa-chevron-down flecha-usuario"></i>
+                    </summary>
+
+                    <ul class="opciones-usuario">
+                        <li>
+                            <a href="{% url 'actualizar_datos_sistema' %}">
+                                <i class="fa-solid fa-user"></i>
+                                <span>Mi perfil</span>
+                            </a>
+                        </li>
+                        <li class="separador-usuario" aria-hidden="true"></li>
+                        <li>
+                            <a href="{% url 'cerrar_sesion' %}" class="opcion-cerrar">
+                                <i class="fa-solid fa-right-from-bracket"></i>
+                                <span>Cerrar sesión</span>
+                            </a>
+                        </li>
+                    </ul>
+                </details>
+            </div>
+            {% endif %}
+
         </div>
     </nav>
 </header>

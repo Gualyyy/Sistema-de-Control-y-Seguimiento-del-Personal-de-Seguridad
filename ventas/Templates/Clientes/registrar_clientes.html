@@ -1,0 +1,97 @@
+{% extends 'Estructura/base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="contenedor_formulario">
+    <div class="contenedor_campos_amplio">
+        <h2>Registrar Clientes</h2>
+
+        <div class="modulo_ventas">
+            <form method="post" id="formulario_registrar" class="formulario_venta">
+                {% csrf_token %}
+
+                <div class="campo_formulario">
+                    <label for="tipo_cliente">Tipo de Cliente:</label>
+                    <select name="tipo_cliente" id="tipo_cliente">
+                        <option value="">Seleccione una opción</option>
+                        <option value="NATURAL">Persona Natural</option>
+                        <option value="EMPRESA">Empresa</option>
+                    </select>
+                </div>
+
+                <div id="controles_individuo">
+                    <div class="campo_formulario">
+                        <label for="nombre_cliente">Nombres:</label>
+                        <input type="text" name="nombre_cliente" id="nombre_cliente" minlength="3" maxlength="50"
+                            placeholder="Ingresa los nombres del cliente (3 - 50 caracteres)" autocomplete="off"
+                            required>
+                    </div>
+
+                    <div class="campo_formulario">
+                        <label for="apellido_cliente">Apellidos:</label>
+                        <input type="text" name="apellido_cliente" id="apellido_cliente" minlength="3" maxlength="50"
+                            placeholder="Ingresa los apellidos del cliente (3 - 50 caracteres)" autocomplete="off"
+                            required>
+                    </div>
+                </div>
+
+                <div id="control_empresa">
+                    <div class="campo_formulario">
+                        <label for="nombre_empresa">Nombre de la Empresa:</label>
+                        <input type="text" name="nombre_empresa" id="nombre_empresa" minlength="3" maxlength="50"
+                            placeholder="Ingresa el nombre de la empresa (3 - 50 caracteres)" autocomplete="off"
+                            required>
+                    </div>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="identificador">Identificador Cliente:</label>
+                    <div class="grupo_doble">
+                        <select name="tipo_identificador" id="tipo_identificador" class="select_prefijo"
+                            required></select>
+
+                        <input type="text" name="identificador" id="identificador" autocomplete="off" required>
+                    </div>
+                    <small id="contenedor_mensaje_identificador" class="mensaje-feedback"></small>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="num_telefono">Telefono:</label>
+                    <div class="grupo_doble">
+                        <select name="prefijo" id="prefijo" class="select_prefijo" required></select>
+
+                        <input type="text" name="num_telefono" id="num_telefono" minlength="7" maxlength="7"
+                            autocomplete="off" required>
+                    </div>
+                    <small id="contenedor_mensaje_telefono" class="mensaje-feedback"></small>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="correo">Correo Electronico:</label>
+                    <div class="grupo_doble">
+                        <input type="text" name="correo" id="correo" minlength="5" maxlength="20"
+                            placeholder="Correo Electronico Principal (5-20 caracteres máximo)" autocomplete="off"
+                            required>
+
+                        <select name="dominio" id="dominio" class="select_dominio"></select>
+                    </div>
+                    <small id="contenedor_mensaje_correo" class="mensaje-feedback"></small>
+                </div>
+
+                <div class="contenedor_boton_submit">
+                    <input type="submit" class="btn_primario" id="btn_registro" value="Registrar">
+                </div>
+            </form>
+        </div>
+
+    </div>
+</section>
+
+<script src="{% static 'Funcionalidades/identificador.js' %}"></script>
+<script src="{% static 'Funcionalidades/correo_electronico.js' %}"></script>
+<script src="{% static 'Funcionalidades/telefono.js' %}"></script>
+<script src="{% static 'Funcionalidades_Asincronas/ventas/clientes/registrar_clientes.js' %}"></script>
+
+{% endblock %}

@@ -7,12 +7,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="{% static 'Estilos/estilos.css' %}">
-    <link rel="shortcut icon" href="{% static 'Imagenes/icono_nav.png' %}" type="image/x-icon">
+    <link rel="shortcut icon" href="{% static 'Imagenes/logo.png' %}" type="image/x-icon">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <title>Hielo Caipe</title>
 </head>
 
 <body data-session-user="{{ request.session.usuario|default:''|escape }}"
-    class="{% if request.session.usuario and request.session.completar_registro %}body-logueado{% endif %} {% if request.resolver_match.url_name == 'pagina_404' %}pagina-404{% endif %}">
+    data-tab-id="{{ request.tab_id|default:''|escape }}" class="
+        {% if es_404 %}
+            body-404
+        {% elif request.session.usuario and request.session.completar_registro %}
+            body-logueado
+        {% endif %}
+    " data-incognito-url="{% url 'modo_incognito' %}"
+    data-incognito-page="{% if request.resolver_match.url_name == 'modo_incognito' %}true{% else %}false{% endif %}">
+
+    {% if not es_404 %}
 
     {% include 'Estructura/Encabezado.html' %}
 
@@ -20,19 +31,36 @@
     {% include 'Estructura/Barra_Lateral.html' %}
     {% endif %}
 
-    <main class="{% if request.session.usuario and request.session.completar_registro %}main-logueado{% endif %}">
-        {% block content %}
-        {% endblock %}
-    </main>
-
-    {% if not request.session.usuario %}
-    {% include 'Estructura/Pie_Pagina.html' %}
     {% endif %}
 
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="https://cdn.jsdelivr.net/npm/flipclock@^1/dist/FlipClock.umd.js"></script>
+
+    <main class="
+        {% if es_404 %}
+            main-404
+        {% elif request.session.usuario and request.session.completar_registro %}
+            main-logueado
+        {% endif %}
+    ">
+
+        {% block content %}
+        {% endblock %}
+
+    </main>
+
+
+    {% if not request.session.usuario %}
+    {% if not es_404 %}
+    {% include 'Estructura/Pie_Pagina.html' %}
+    {% endif %}
+    {% endif %}
+
+    {% load static %}
+
+    <!-- Biblioteca Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="{% static 'Librerias/sweetalert2/dist/sweetalert2.all.min.js' %}"></script>
     <script src="{% static 'Funcionalidades/control_pestana.js' %}"></script>
-    <script src="{% static 'Funcionalidades/barra_lateral.js' %}"></script>
+    <script src="{% static 'Funcionalidades/menu_responsive.js' %}"></script>
 </body>
 
 </html>

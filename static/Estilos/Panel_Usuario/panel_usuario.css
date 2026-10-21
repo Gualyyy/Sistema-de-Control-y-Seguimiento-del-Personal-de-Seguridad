@@ -1,0 +1,39 @@
+@import url('estilos_graficas.css');
+
+.main-logueado {
+    grid-area: main;
+    width: 100%;
+    min-width: 0;
+    background: #f4f6f9;
+}
+
+.panel_usuario {
+    width: 100%;
+    padding: 22px 24px 35px;
+    box-sizing: border-box;
+}
+
+.encabezado_panel_usuario {
+    width: 100%;
+    margin: 0 0 24px;
+    padding: 22px 26px;
+    box-sizing: border-box;
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 3px 12px rgba(16, 47, 78, 0.07);
+}
+
+.encabezado_panel_usuario h2 {
+    margin: 0;
+    color: #102f4e;
+    font-size: 23px;
+    font-weight: 700;
+}
+
+.contenedor_panel_usuario {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    width: 100%;
+    min-width: 0;
+}

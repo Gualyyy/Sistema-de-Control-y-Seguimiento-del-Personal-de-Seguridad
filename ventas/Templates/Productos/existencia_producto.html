@@ -1,0 +1,99 @@
+{% extends 'Estructura/base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="contenedor_formulario">
+    <div class="contenedor_campos_extra_amplio">
+        <h2>Existencia Producto</h2>
+
+        <div class="modulo_existencia">
+
+            <div class="contenedor_detalle_existencia">
+
+                <div class="contenedor_imagen_producto">
+                    <img src="{% static 'Imagenes/producto_vacio.png' %}" alt="Imagen del producto" id="imagen_producto"
+                        data-default="{% static 'Imagenes/producto_vacio.png' %}">
+                </div>
+
+                <div class="campo_seleccionar_producto">
+                    <label for="producto_existencia">Seleccionar producto:</label>
+                    <select id="producto_existencia" name="producto_existencia"></select>
+                </div>
+
+                <div class="contenido_existencia">
+                    <form method="post">
+                        <h3 id="nombre_producto">Nombre del producto</h3>
+
+                        <div class="descripcion_producto">
+                            <label for="codigo_producto">Código:</label>
+                            <input type="text" id="codigo_producto" readonly>
+                        </div>
+
+                        <div class="descripcion_producto">
+                            <label for="categoria_producto">Categoría:</label>
+                            <input type="text" id="categoria_producto" readonly>
+                        </div>
+
+                        <div class="descripcion_producto">
+                            <label for="unidad_producto">Unidad de medida:</label>
+                            <input type="text" id="unidad_producto" readonly>
+                        </div>
+
+                        <div class="fila_dato_producto">
+                            <label for="precio_base">Precio Base (USD $):</label>
+                            <input type="text" id="precio_base" readonly>
+                        </div>
+
+                        <div class="descripcion_producto">
+                            <label for="costo_base">Costo Base (USD $):</label>
+                            <input type="text" id="costo_base" readonly>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="control_cantidad_existencia">
+                    <form method="post" id="formulario_actualizar">
+                        {% csrf_token %}
+                        <input type="hidden" id="id_producto_existencia" name="id_producto_existencia">
+
+                        <div class="existencia_producto">
+                            <label for="cantidad_actual">Cantidad actual:</label>
+                            <input type="text" id="cantidad_actual" readonly>
+                        </div>
+
+                        <div class="existencia_producto">
+                            <label for="nueva_cantidad">Nueva cantidad:</label>
+                            <input type="text" id="nueva_cantidad" name="nueva_cantidad" autocomplete="off"
+                                placeholder="Ingresa la cantidad del producto" maxlength="3" required>
+                            <small id="contenedor_msg_cantidad" class="mensaje-feedback"></small>
+                        </div>
+
+                        <div class="existencia_producto">
+                            <label for="motivo_existencia">Motivo del ajuste:</label>
+                            <textarea id="motivo_existencia" name="motivo" autocomplete="off" maxlength="200"
+                                placeholder="Describe el motivo del ajuste" required></textarea>
+                            <div class="contador_caracteres">
+                                <span id="contador_motivo">0</span> / 200 caracteres
+                            </div>
+                        </div>
+
+                        <div class="contenedor_boton_submit">
+                            <button type="submit" class="btn_primario" id="btn_actualizar" disabled>
+                                Actualizar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+</section>
+
+<script src="{% static 'Funcionalidades_Asincronas/ventas/productos/existencia_producto.js' %}"></script>
+
+{% endblock %}

@@ -26,7 +26,7 @@ SECRET_KEY = 'django-insecure-v45i=v@(wook^mj(po^e7xwd8ubaik63&6&%z&qzf&jj2$p$=-
 DEBUG = True
 
 ALLOWED_HOSTS = [
-    
+
 ]
 
 # Application definition
@@ -40,8 +40,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'inicio_sesion',
     'asignaciones',
-    'asistencias',
     'incidencias',
+    'ventas',
 ]
 
 JAZZMIN_SETTINGS = {
@@ -61,17 +61,12 @@ JAZZMIN_SETTINGS = {
         "inicio_sesion.nacimiento": "fas fa-birthday-cake",
         "inicio_sesion.residencia": "fas fa-home",
 
-        "inicio_sesion.perfiles": "fas fa-user-shield",
-        "inicio_sesion.perfil_usuario": "fas fa-user-cog",
-
-        "inicio_sesion.categoria_equipo": "fas fa-tags",
-        "inicio_sesion.equipos": "fas fa-desktop",
-        "inicio_sesion.asignacion_equipo": "fas fa-laptop",
-
-        "inicio_sesion.asistencia": "fas fa-calendar-check",
-
-        "inicio_sesion.tipo_incidencia": "fas fa-list",
-        "inicio_sesion.incidencia": "fas fa-exclamation-triangle",
+        "inicio_sesion.directiva_nacional": "fas fa-user-tie",
+        "inicio_sesion.encargados_administrativos": "fas fa-user-cog",
+        "inicio_sesion.supervisores_encargados": "fas fa-user-shield",
+        "inicio_sesion.personal_limpieza": "fas fa-broom",
+        "inicio_sesion.despachadores": "fas fa-truck",
+        "inicio_sesion.vigilantes": "fas fa-shield-alt",
 
         "inicio_sesion.credenciales": "fas fa-key",
     },
@@ -82,6 +77,7 @@ MIDDLEWARE = [
     "whitenoise.middleware.WhiteNoiseMiddleware",
 
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "inicio_sesion.middleware.RequerirSesionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -89,14 +85,18 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-# La sesión expira al cerrar completamente el navegador
+APPEND_SLASH = True
+
+# La cookie de sesión desaparece al cerrar completamente el navegador
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 
-# Asegura que la cookie de sesión se elimine al cerrar el navegador
-SESSION_COOKIE_AGE = 1800
-SESSION_COOKIE_SAMESITE = 'Lax'
+# Duración máxima de la sesión: 1 hora
+SESSION_COOKIE_AGE = 3600
 
-# Renueva el tiempo de expiración con cada petición del usuario
+# Protección SameSite
+SESSION_COOKIE_SAMESITE = "Lax"
+
+# Permite que Django actualice la sesión en cada petición
 SESSION_SAVE_EVERY_REQUEST = True
 
 ROOT_URLCONF = 'vigilancia.urls'
@@ -124,7 +124,7 @@ WSGI_APPLICATION = 'vigilancia.wsgi.application'
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": "vigilancia",
+        "NAME": "SAHC",
         "USER": "postgres",
         "PASSWORD": "31438140",
         "HOST": "localhost",
@@ -164,7 +164,7 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
 
 STATICFILES_DIRS = [
     BASE_DIR / "static",
@@ -172,8 +172,14 @@ STATICFILES_DIRS = [
 
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
 STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
     },
 }

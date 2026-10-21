@@ -15,13 +15,20 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, include, re_path
+from inicio_sesion.views import pagina_error_404
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('inicio_sesion.urls')),
     path('asignaciones/', include('asignaciones.urls')),
-    path('asistencias/', include('asistencias.urls')),
     path('incidencias/', include('incidencias.urls')),
+    path('ventas/', include('ventas.urls')),
+    re_path(
+        r'^(?P<ruta_inexistente>.+)/$',
+        pagina_error_404,
+        name='ruta_no_encontrada',
+    ),
 ]
 
 handler404 = "inicio_sesion.views.pagina_error_404"

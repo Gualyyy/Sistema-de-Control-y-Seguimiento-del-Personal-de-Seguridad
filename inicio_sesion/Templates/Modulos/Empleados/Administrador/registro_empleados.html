@@ -1,0 +1,301 @@
+{% extends 'Estructura/base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="contenedor_formulario">
+    <div class="contenedor_campos">
+        <h2>Registrar Empleado</h2>
+
+        <!-- Barra de Progreso Multi-paso -->
+        <div class="progreso">
+            <div class="linea">
+                <div class="avance"></div>
+                <div class="pasos">
+                    <div class="paso_progreso activo">
+                        <span>1</span>
+                        <small>Datos Básicos</small>
+                    </div>
+                    <div class="paso_progreso">
+                        <span>2</span>
+                        <small>Contacto</small>
+                    </div>
+                    <div class="paso_progreso">
+                        <span>3</span>
+                        <small>Nacimiento</small>
+                    </div>
+                    <div class="paso_progreso">
+                        <span>4</span>
+                        <small>Residencia</small>
+                    </div>
+                    <div class="paso_progreso">
+                        <span>5</span>
+                        <small>Perfiles</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- DIV Wrapper cubriendo el Formulario -->
+        <div class="wrapper_formulario">
+            <form method="post" id="formulario_registrar" class="formulario_base">
+                {% csrf_token %}
+
+                <!-- PASO 1 -->
+                <article class="paso activo">
+                    <div class="bloque_paso">
+                        <h3>Datos Básicos</h3>
+
+                        <div class="campo_formulario">
+                            <label for="nombres_usuario">Nombres:</label>
+                            <input type="text" name="nombres" id="nombres_usuario" minlength="3" maxlength="50"
+                                placeholder="Ingresa sus nombres (3 - 50 caracteres)" autocomplete="off" required>
+                        </div>
+
+                        <div class="campo_formulario">
+                            <label for="apellidos_usuario">Apellidos:</label>
+                            <input type="text" name="apellidos" id="apellidos_usuario" minlength="3" maxlength="50"
+                                placeholder="Ingresa sus apellidos (3 - 50 caracteres)" autocomplete="off" required>
+                        </div>
+
+                        <div class="campo_formulario">
+                            <label for="cedula_identidad">Cédula de Identidad:</label>
+                            <div class="grupo_doble">
+                                <select name="nacionalidad" id="nacionalidad" class="select_prefijo" required>
+                                    <option value="">N</option>
+                                    <option value="V">V</option>
+                                    <option value="E">E</option>
+                                </select>
+                                <input type="text" name="cedula_identidad" id="cedula_identidad" autocomplete="off"
+                                    required>
+                            </div>
+                            <small id="contenedor_mensaje_ci" class="mensaje-feedback"></small>
+                        </div>
+
+                        <div class="campo_formulario">
+                            <label for="genero_usuario">Género:</label>
+                            <select name="genero" id="genero_usuario" required>
+                                <option value="">Selecciona el género</option>
+                                <option value="Masculino">Masculino</option>
+                                <option value="Femenino">Femenino</option>
+                            </select>
+                        </div>
+
+                        <div class="campo_formulario">
+                            <label for="estado_civil_usuario">Estado Civil:</label>
+                            <select name="estado_civil" id="estado_civil_usuario" required>
+                                <option value="">Selecciona el estado civil</option>
+                                <option value="Casado/a">Casado/a</option>
+                                <option value="Divorciado/a">Divorciado/a</option>
+                                <option value="Soltero/a">Soltero/a</option>
+                                <option value="Viudo/a">Viudo/a</option>
+                            </select>
+                        </div>
+                    </div>
+                </article>
+
+                <!-- PASO 2 -->
+                <article class="paso">
+                    <div class="bloque_paso">
+                        <h3>Contacto</h3>
+
+                        <div class="campo_formulario">
+                            <label for="num_telefono_principal">Telefono Principal:</label>
+                            <div class="grupo_doble">
+                                <select name="prefijo_principal" id="prefijo_principal" class="select_prefijo"
+                                    required></select>
+                                <input type="text" name="numero_principal" id="num_telefono_principal" minlength="7"
+                                    maxlength="7" autocomplete="off" required>
+                            </div>
+                            <small id="contenedor_mensaje_telefono_principal" class="mensaje-feedback"></small>
+                        </div>
+
+                        <div class="campo_formulario">
+                            <label for="num_telefono_secundario">Teléfono Secundario (Opcional):</label>
+                            <div class="grupo_doble">
+                                <select name="prefijo_secundaria" id="prefijo_secundario"
+                                    class="campo_opcional select_prefijo" required></select>
+                                <input type="text" name="numero_secundaria" id="num_telefono_secundario" minlength="7"
+                                    maxlength="7" autocomplete="off" placeholder="7 dígitos" class="campo_opcional">
+                            </div>
+                            <small id="contenedor_mensaje_telefono_secundario" class="mensaje-feedback"></small>
+                        </div>
+
+                        <div class="campo_formulario">
+                            <label for="correo_principal">Correo Electronico Principal:</label>
+
+                            <div class="grupo_doble">
+                                <input type="text" name="correo_principal" id="correo_principal" minlength="5"
+                                    maxlength="20" placeholder="Correo Electronico Principal (5-20 caracteres máximo)"
+                                    autocomplete="off" required>
+
+                                <select name="dominio_principal" id="dominio_principal" class="select_dominio"></select>
+                            </div>
+                            <small id="contenedor_mensaje_correo_principal" class="mensaje-feedback"></small>
+                        </div>
+
+                        <div class="campo_formulario">
+                            <label for="correo_secundario">Correo Electronico Secundaria (Opcional):</label>
+
+                            <div class="grupo_doble">
+                                <input type="text" name="correo_secundaria" id="correo_secundario" minlength="5"
+                                    maxlength="20" placeholder="Correo Electronico Secundario (5-20 caracteres máximo)"
+                                    autocomplete="off" class="campo_opcional" required>
+
+                                <select name="dominio_secundaria" id="dominio_secundaria"
+                                    class="campo_opcional select_dominio" required></select>
+                            </div>
+
+                            <small id="contenedor_mensaje_correo_secundario" class="mensaje-feedback"></small>
+                        </div>
+                    </div>
+                </article>
+
+                <!-- PASO 3 -->
+                <article class="paso">
+                    <div class="bloque_paso">
+                        <h3>Nacimiento</h3>
+
+                        <div class="campo_formulario">
+                            <label for="pais_nacimiento">País:</label>
+                            <select name="pais_nacimiento" id="pais_nacimiento" required></select>
+                        </div>
+
+                        <div class="campo_formulario">
+                            <label for="estado_nacimiento">Estado:</label>
+                            <select name="estado_nacimiento" id="estado_nacimiento" required>
+                                <option value="">Seleccione el Estado</option>
+                            </select>
+
+                            <input type="text" name="estado_nacimiento_nvzla" id="estado_novzla"
+                                placeholder="Ingrese el estado (máximo 50 caracteres)" maxlength="50" autocomplete="off"
+                                hidden>
+                        </div>
+
+                        <div class="campo_formulario">
+                            <label for="municipio_nacimiento">Municipio:</label>
+                            <select name="municipio_nacimiento" id="municipio_nacimiento" required>
+                                <option value="">Seleccione el Municipio</option>
+                            </select>
+
+                            <input type="text" name="municipio_nacimiento_nvzla" id="municipio_novzla"
+                                placeholder="Ingrese el municipio (máximo 50 caracteres)" maxlength="50"
+                                autocomplete="off" hidden>
+                        </div>
+
+                        <div class="campo_formulario">
+                            <label for="parroquia_nacimiento">Parroquia:</label>
+                            <select name="parroquia_nacimiento" id="parroquia_nacimiento" required>
+                                <option value="">Seleccione el Parroquia</option>
+                            </select>
+
+                            <input type="text" name="parroquia_nacimiento_nvzla" id="parroquia_novzla"
+                                placeholder="Ingrese el parroquia (máximo 50 caracteres)" maxlength="50"
+                                autocomplete="off" hidden>
+                        </div>
+
+                        <div class="campo_formulario">
+                            <label for="direccion_nacimiento">Dirección:</label>
+                            <textarea name="direccion_nacimiento" id="direccion_nacimiento" maxlength="250"
+                                placeholder="Ingrese su dirección de nacimiento cuenta con (250 caracteres máximo)."
+                                required></textarea>
+
+                            <div class="contador_caracteres">
+                                <span id="contador_nacimiento">0</span> / 250 caracteres
+                            </div>
+                        </div>
+
+                        <div class="campo_formulario">
+                            <label for="fecha_nacimiento_usuario">Fecha de Nacimiento:</label>
+                            <input type="date" name="fecha_nacimiento" id="fecha_nacimiento_usuario" required>
+                        </div>
+                    </div>
+                </article>
+
+                <!-- PASO 4 -->
+                <article class="paso">
+                    <div class="bloque_paso">
+                        <h3>Residencia</h3>
+
+                        <div class="campo_formulario">
+                            <label for="condicion_residencia_usuario">Condición de Residencia:</label>
+                            <select name="condicion_residencia" id="condicion_residencia_usuario" required>
+                                <option value="">Selecciona la condición de residencia</option>
+                                <option value="Propietario">Propietario</option>
+                                <option value="Alquilado">Alquilado</option>
+                                <option value="Familiar">Familiar</option>
+                                <option value="Prestado">Prestado</option>
+                                <option value="Compartido">Compartido</option>
+                            </select>
+                        </div>
+
+                        <div class="campo_formulario">
+                            <label for="municipio_residencia">Municipio:</label>
+                            <select name="municipio_residencia" id="municipio_residencia" required></select>
+                        </div>
+
+                        <div class="campo_formulario">
+                            <label for="parroquia_residencia">Parroquia:</label>
+                            <select name="parroquia_residencia" id="parroquia_residencia" required></select>
+                        </div>
+
+                        <div class="campo_formulario">
+                            <label for="direccion_domicilio">Dirección:</label>
+                            <textarea name="direccion_residencia" id="direccion_domicilio" maxlength="250"
+                                placeholder="Ingrese su dirección de residencia cuenta con (250 caracteres máximo)."
+                                required></textarea>
+                            <div class="contador_caracteres">
+                                <span id="contador_residencia">0</span> / 250 caracteres
+                            </div>
+                        </div>
+                    </div>
+                </article>
+
+                <!-- PASO 5 -->
+                <article class="paso">
+                    <div class="bloque_paso">
+                        <h3>Perfiles</h3>
+
+                        <div class="campo_formulario">
+                            <label for="turno_laboral">Turno Laboral:</label>
+                            <select name="turno_laboral" id="turno_laboral" class="select_prefijo" required></select>
+                        </div>
+
+                        <div class="campo_formulario">
+                            <label>Perfiles:</label>
+                            <div id="contenedor_perfiles"></div>
+
+                            <div id="contenedor_mensaje_turno" style="display: none;">
+                                <span id="contenedor_texto_mensaje_turno">
+                                    Seleccione un turno para mostrar los perfiles disponibles.
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="contenedor_boton_submit">
+                        <button type="submit" class="btn_primario">Registrar Usuario</button>
+                    </div>
+                </article>
+            </form>
+        </div>
+
+        <!-- Controles de Navegación -->
+        <div class="botones_navegacion">
+            <button class="btn_secundario btn_retroceder" type="button">Retroceder</button>
+            <button class="btn_primario btn_avanzar" type="button">Avanzar</button>
+        </div>
+    </div>
+</section>
+
+<script src="{% static 'Funcionalidades/desplazamiento_controles.js' %}"></script>
+<script src="{% static 'Funcionalidades/cedula_identidad.js' %}"></script>
+<script src="{% static 'Funcionalidades/residencia.js' %}"></script>
+<script src="{% static 'Funcionalidades/nacimiento.js' %}"></script>
+<script src="{% static 'Funcionalidades/fecha_nacimiento.js' %}"></script>
+<script src="{% static 'Funcionalidades/correo_electronico.js' %}"></script>
+<script src="{% static 'Funcionalidades/telefono.js' %}"></script>
+<script src="{% static 'Funcionalidades_Asincronas/empleados/administrador/registrar_empleado.js' %}"></script>
+
+{% endblock %}

@@ -1,0 +1,135 @@
+{% extends 'Estructura/base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="contenedor_formulario">
+    <div class="contenedor_campos_amplio">
+        <h2>Visualizar Productos</h2>
+
+        <div class="modulo_buqueda">
+            <h3>Búsqueda Producto(s)</h3>
+
+            <form method="post" class="formulario_base">
+                {% csrf_token %}
+
+                <div class="campos_fila">
+                    <div class="campo_formulario">
+                        <label for="categoria_producto_b">Categoria Producto:</label>
+                        <select name="categoria_producto" id="categoria_producto_b"></select>
+                    </div>
+
+                    <div class="campo_formulario">
+                        <label for="unidad_medida_b">Unidad de Medida:</label>
+                        <select name="unidad_medida" id="unidad_medida_b"></select>
+                    </div>
+
+                </div>
+            </form>
+        </div>
+
+        <div class="modulo_visualizar detalle">
+            <div class="encabezado_registrados">
+                <button type="button" class="btn_pdf" id="lista_productos_pdf">
+                    <i class="fa-regular fa-file-pdf"></i>
+                    Reporte
+                </button>
+            </div>
+
+            <!-- Envoltorio para manejar el scroll y recortar bordes -->
+            <div class="contenedor_tabla">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>PRODUCTO</th>
+                            <th>CÓDIGO</th>
+                            <th>FECHA Y HORA</th>
+                        </tr>
+                    </thead>
+                    <tbody id="contenedor_productos"></tbody>
+                </table>
+            </div>
+
+            <div class="botones_navegacion">
+                <button class="btn_secundario btn_ret" type="button">Retroceder</button>
+                <button class="btn_primario btn_av" type="button">Avanzar</button>
+            </div>
+        </div>
+
+    </div>
+</section>
+
+<dialog id="dialogo_detalle" class="dialogo">
+    <div class="contenedor_info_reducido">
+        <button type="button" id="btn_cerrar_detalle" class="btn_cerrar">
+            <i class="fa-solid fa-square-xmark"></i>
+        </button>
+
+        <h2>Detalle del Cliente</h2>
+
+        <div id="contenedor_mensajes_reporte" class="contenedor_mensajes">
+            <i class="fa-solid fa-hourglass-half" reloj_procesamiento></i>
+            <p>Presione el botón para generar el reporte PDF.</p>
+        </div>
+
+        <div class="contenedor_btn_pdf">
+            <button type="button" class="btn_pdf_dialog" id="detalle_producto_pdf">
+                <i class="fa-regular fa-file-pdf"></i>
+                Reporte
+            </button>
+        </div>
+
+        <div class="modelo_dialogo_visualizar">
+            <form method="post" class="formulario_dialogo_visualizar">
+                <input type="hidden" name="id_producto" id="id_producto">
+
+                <div class="contenedor_imagen_producto">
+                    <img src="" alt="Imagen del producto" id="imagen_producto">
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="nombre_producto">Nombre Producto:</label>
+                    <input type="text" id="nombre_producto" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="codigo_producto">Código:</label>
+                    <input type="text" id="codigo_producto" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="precio_base">Precio Base:</label>
+                    <input type="text" id="precio_base" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="costo_base">Costo Base:</label>
+                    <input type="text" id="costo_base" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="fecha_producto">Fecha y Hora:</label>
+                    <input type="text" id="fecha_producto" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="unidad_medida">Unidad Medida:</label>
+                    <input type="text" id="unidad_medida" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="categoria_producto">Categoria Producto:</label>
+                    <input type="text" id="categoria_producto" readonly>
+                </div>
+
+            </form>
+        </div>
+
+    </div>
+</dialog>
+
+<script src="{% static 'Funcionalidades_Asincronas/ventas/productos/visualizar_productos.js' %}"></script>
+
+{% endblock %}

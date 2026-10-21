@@ -1,0 +1,80 @@
+{% extends 'Estructura/base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="contenedor_formulario">
+    <div class="contenedor_campos_amplio">
+        <h2>Actualizar Producto</h2>
+
+        <div class="modulo_buqueda">
+            <h3>Búsqueda Producto</h3>
+
+            <form method="post" id="formulario_busqueda" class="formulario_base">
+                {% csrf_token %}
+
+                <div class="campo_reducido">
+                    <div class="campo_formulario">
+                        <label for="codigo_producto">Código Producto:</label>
+                        <input type="text" name="codigo_producto" id="codigo_producto"
+                            placeholder="Ingrese el código (6 caracteres)" autocomplete="off" required>
+                    </div>
+                </div>
+
+                <div class="contenedor_boton_submit">
+                    <button type="submit" class="btn_primario btn_registro">Buscar Datos</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="modulo_ventas">
+            <form method="post" id="formulario_actualizar" class="formulario_venta">
+                {% csrf_token %}
+                <input type="hidden" name="id_codigo" id="id_codigo">
+
+                <div class="campo_formulario">
+                    <label for="nombre_producto">Nombres:</label>
+                    <input type="text" name="nombre_producto" id="nombre_producto" minlength="3" maxlength="20"
+                        placeholder="Ingresa el nombre del producto (3 - 20 caracteres)" autocomplete="off" required>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="precio_base">Precio Base (USD $):</label>
+                    <input type="text" name="precio_base" id="precio_base" placeholder="Ingresa el precio en dólares"
+                        autocomplete="off" inputmode="decimal" required>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="costo_base">Costo Base (USD $):</label>
+                    <input type="text" name="costo_base" id="costo_base" placeholder="Ingresa el costo en dólares"
+                        autocomplete="off" inputmode="decimal" required>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="imagen_producto">Imagen (Debe seleccionar nueva imagen):</label>
+                    <input type="file" name="imagen_producto" id="imagen_producto">
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="categoria_producto">Categoria:</label>
+                    <select name="categoria_producto" id="categoria_producto"></select>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="unidad_producto">Unidad:</label>
+                    <select name="unidad_producto" id="unidad_producto"></select>
+                </div>
+
+                <div class="contenedor_boton_submit">
+                    <input type="submit" class="btn_primario" id="btn_actualizar" value="Actualizar">
+                </div>
+            </form>
+        </div>
+
+    </div>
+</section>
+
+<script src="{% static 'Funcionalidades_Asincronas/ventas/productos/actualizar_producto.js' %}"></script>
+
+{% endblock %}

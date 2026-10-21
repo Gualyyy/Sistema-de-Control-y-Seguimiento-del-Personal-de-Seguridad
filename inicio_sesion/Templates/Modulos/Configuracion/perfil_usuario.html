@@ -1,0 +1,178 @@
+{% extends 'Estructura/base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="contenedor_formulario">
+    <div class="contenedor_campos_demasiado_amplio">
+        <h2>Datos del Usuario del Sistema</h2>
+
+        <div class="modulo_perfil">
+            <form method="post" enctype="multipart/form-data" id="formulario_actualizar" class="formulario_base">
+                {% csrf_token %}
+
+                <div class="contenedor_basico tarjeta_perfil">
+                    <h3>Datos personales</h3>
+
+                    <div class="contenido_basico">
+                        <div class="contenedor_foto_perfil">
+                            <img src="{% static 'Imagenes/foto_perfil.png' %}" alt="Foto de perfil" id="imagen_perfil"
+                                data-foto-predeterminada="{% static 'Imagenes/foto_perfil.png' %}">
+
+                            <label for="foto_perfil" class="boton_foto">Cambiar fotografía</label>
+                            <input type="file" name="foto_perfil" id="foto_perfil"
+                                accept=".png,.jpg,.jpeg,image/png,image/jpeg">
+                        </div>
+
+                        <div class="campos_basicos">
+                            <input type="hidden" name="id_usuario" id="id_usuario">
+
+                            <div class="campo_formulario">
+                                <label for="nombres_usuario">Nombres</label>
+                                <input type="text" id="nombres_usuario" autocomplete="off" readonly>
+                            </div>
+
+                            <div class="campo_formulario">
+                                <label for="apellidos_usuario">Apellidos</label>
+                                <input type="text" id="apellidos_usuario" autocomplete="off" readonly>
+                            </div>
+
+                            <div class="campo_formulario">
+                                <label for="ci_usuario">Cédula de identidad</label>
+                                <input type="text" id="ci_usuario" autocomplete="off" readonly>
+                            </div>
+
+                            <div class="campo_formulario">
+                                <label for="genero_usuario">Género</label>
+                                <input type="text" id="genero_usuario" autocomplete="off" readonly>
+                            </div>
+
+                            <div class="campo_formulario">
+                                <label for="estado_civil_usuario">Estado civil</label>
+                                <input type="text" id="estado_civil_usuario" autocomplete="off" readonly>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- CONTACTO Y RESIDENCIA -->
+                <div class="contenedores_fila">
+
+                    <!-- DATOS DE CONTACTO -->
+                    <div class="contenedor_contacto tarjeta_perfil">
+                        <h3>Datos de contacto</h3>
+
+                        <div class="campo_formulario">
+                            <label for="num_telefono_principal">Teléfono principal</label>
+
+                            <div class="grupo_doble">
+                                <select name="prefijo_principal" id="prefijo_principal" class="select_prefijo"
+                                    required></select>
+
+                                <input type="text" name="numero_principal" id="num_telefono_principal" minlength="7"
+                                    maxlength="7" inputmode="numeric" autocomplete="off" placeholder="Número telefónico"
+                                    required>
+                            </div>
+                            <small id="contenedor_mensaje_telefono_principal" class="mensaje-feedback"></small>
+                        </div>
+
+                        <div class="campo_formulario">
+                            <label for="num_telefono_secundario">Teléfono secundario (Opcional)</label>
+
+                            <div class="grupo_doble">
+                                <select name="prefijo_secundaria" id="prefijo_secundario"
+                                    class="select_prefijo campo_opcional"></select>
+
+                                <input type="text" name="numero_secundaria" id="num_telefono_secundario" minlength="7"
+                                    maxlength="7" inputmode="numeric" autocomplete="off" placeholder="7 dígitos"
+                                    class="campo_opcional">
+                            </div>
+                            <small id="contenedor_mensaje_telefono_secundario" class="mensaje-feedback"></small>
+                        </div>
+
+                        <div class="campo_formulario">
+                            <label for="correo_principal">Correo electrónico principal</label>
+
+                            <div class="grupo_doble">
+                                <input type="text" name="correo_principal" id="correo_principal" minlength="5"
+                                    maxlength="20" placeholder="Nombre de usuario" autocomplete="off" required>
+
+                                <select name="dominio_principal" id="dominio_principal" class="select_dominio"
+                                    required></select>
+                            </div>
+                            <small id="contenedor_mensaje_correo_principal" class="mensaje-feedback"></small>
+                        </div>
+
+                        <div class="campo_formulario">
+                            <label for="correo_secundario">Correo electrónico secundario (Opcional)</label>
+
+                            <div class="grupo_doble">
+                                <input type="text" name="correo_secundaria" id="correo_secundario" minlength="5"
+                                    maxlength="20" placeholder="Nombre de usuario" autocomplete="off"
+                                    class="campo_opcional">
+
+                                <select name="dominio_secundaria" id="dominio_secundaria"
+                                    class="campo_opcional select_dominio"></select>
+                            </div>
+                            <small id="contenedor_mensaje_correo_secundario" class="mensaje-feedback"></small>
+                        </div>
+                    </div>
+
+                    <!-- DATOS DE RESIDENCIA -->
+                    <div class="contenedor_residencia tarjeta_perfil">
+                        <h3>Datos de residencia</h3>
+
+                        <div class="campo_formulario">
+                            <label for="condicion_residencia_usuario">Condición de residencia</label>
+                            <select name="condicion_residencia" id="condicion_residencia_usuario" required>
+                                <option value="Propietario">Propietario</option>
+                                <option value="Alquilado">Alquilado</option>
+                                <option value="Familiar">Familiar</option>
+                                <option value="Prestado">Prestado</option>
+                                <option value="Compartido">Compartido</option>
+                            </select>
+                        </div>
+
+                        <div class="campo_formulario">
+                            <label for="municipio_residencia">Municipio</label>
+                            <select name="municipio_residencia" id="municipio_residencia" required></select>
+                        </div>
+
+                        <div class="campo_formulario">
+                            <label for="parroquia_residencia">Parroquia</label>
+                            <select name="parroquia_residencia" id="parroquia_residencia" required></select>
+                        </div>
+
+                        <div class="campo_formulario">
+                            <label for="direccion_domicilio">Dirección de domicilio</label>
+
+                            <textarea name="direccion_residencia" id="direccion_domicilio" maxlength="250"
+                                placeholder="Ingrese la dirección completa de su domicilio" required></textarea>
+
+                            <div class="contador_caracteres">
+                                <span id="contador_residencia">0</span>
+                                <span>/ 250 caracteres</span>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- ACCIONES DEL FORMULARIO -->
+                <div class="contenedor_boton_submit">
+                    <button type="submit" class="btn_primario" id="btn_actualizar">Actualizar Datos</button>
+                </div>
+
+            </form>
+        </div>
+
+    </div>
+</section>
+
+<script src="{% static 'Funcionalidades/correo_electronico.js' %}"></script>
+<script src="{% static 'Funcionalidades/telefono.js' %}"></script>
+<script src="{% static 'Funcionalidades_Asincronas/configuracion/perfil_usuario.js' %}"></script>
+
+{% endblock %}

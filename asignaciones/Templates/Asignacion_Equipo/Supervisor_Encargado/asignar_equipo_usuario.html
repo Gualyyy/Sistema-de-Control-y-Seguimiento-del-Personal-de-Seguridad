@@ -1,0 +1,58 @@
+{% extends 'Estructura/base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="contenedor_formulario">
+    <div class="contenedor_campos_amplio">
+        <h2>Asignación Equipo a Empleado</h2>
+
+        <div class="modulo_equipo">
+            <form method="post" id="formulario_registrar" class="formulario_equipo">
+                {% csrf_token %}
+
+                <div class="campo_formulario">
+                    <label for="empleados_registrados">Empleados:</label>
+                    <select name="empleados_registrados" id="empleados_registrados"></select>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="equipos_registrados">Equipos:</label>
+                    <select name="equipos_registrados" id="equipos_registrados"></select>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="cantidad_actual">Cantidad Disponible:</label>
+                    <input type="text" name="cantidad_actual" id="cantidad_actual"
+                        placeholder="Cantida disponible del equipo." readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="cantidad_entrega">Cantidad a Entregar:</label>
+                    <input type="text" name="cantidad_entrega" id="cantidad_entrega"
+                        placeholder="Ingrese la cantidad del equipo a asignar (Maximo 3 digito)" autocomplete="off">
+                    <small id="contenedor_msg_cantidad" class="mensaje-feedback"></small>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="observacion_entrega">Observación:</label>
+                    <textarea name="observacion_entrega" id="observacion_entrega" maxlength="200"
+                        placeholder="Cuenta con 200 caracteres para la observación de como se entrega o se recibe."></textarea>
+                    <div class="contador_caracteres">
+                        <span id="contador_observacion">0</span> / 200 caracteres
+                    </div>
+                </div>
+
+                <div class="contenedor_boton_submit">
+                    <input type="submit" class="btn_primario" id="btn_registro" value="Registrar">
+                </div>
+            </form>
+        </div>
+
+    </div>
+</section>
+
+<script src="{% static 'Funcionalidades_Asincronas/asignacion_equipos/supervisor/registrar_asignacion.js' %}"></script>
+
+{% endblock %}

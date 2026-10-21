@@ -1,0 +1,162 @@
+{% extends 'Estructura/base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="contenedor_formulario">
+    <div class="contenedor_campos_extra_amplio">
+        <h2>Registrar Venta</h2>
+
+        <div class="modulo_compra">
+            <form method="post" id="formulario_registrar" class="modulo_compra">
+                {% csrf_token %}
+
+                <div class="contenedor_detalle_venta">
+
+                    <div class="contenedor_controles_detalle">
+                        <div class="campo_formulario">
+                            <label for="productos_registrados">Productos Registrados:</label>
+                            <select name="producto_registrado" id="productos_registrados"></select>
+                        </div>
+                        <div class="campo_formulario">
+                            <label for="cantidad_producto">Cantidad Producto:</label>
+                            <input type="text" name="cantidad_producto" id="cantidad_producto"
+                                placeholder="Ingrese la cantidad del producto." autocomplete="off" required>
+                        </div>
+                        <div class="campo_formulario">
+                            <label for="subtotal_producto">Subtotal del Producto:</label>
+                            <input type="text" name="subtotal_producto" id="subtotal_producto"
+                                placeholder="Subtotal del producto." autocomplete="off" readonly required>
+                        </div>
+                        <div class="campo_formulario">
+                            <label for="costo_unitario">Costo Unitario:</label>
+                            <input type="text" name="costo_unitario" id="costo_unitario"
+                                placeholder="Ingrese el costo unitario." autocomplete="off" required>
+                        </div>
+                        <div class="campo_formulario">
+                            <label for="costo_total">Costo Total:</label>
+                            <input type="text" name="costo_total" id="costo_total"
+                                placeholder="Costo total del producto." autocomplete="off" readonly required>
+                        </div>
+
+                        <div class="contenedor_boton_submit">
+                            <input type="submit" class="btn_primario" value="Agregar">
+                        </div>
+                    </div>
+
+                    <div class="contenedor_tabla_detalle">
+                        <div class="encabezado_detalle">
+                            <h3>Producto a comprar</h3>
+                        </div>
+                        <div class="tabla_detalle_venta">
+                            <table>
+                                <thead>
+                                    <th>ID</th>
+                                    <th>PRODUCTO</th>
+                                    <th>CANTIDAD</th>
+                                    <th>SUBTOTAL</th>
+                                    <th>COSTO UNITARIO</th>
+                                    <th>COSTO TOTAL</th>
+                                </thead>
+                                <tbody id="contenedor_productos_venta"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="contenedor_detalle_pago">
+
+                    <div class="contenedor_controles_pago">
+                        <div class="campo_formulario">
+                            <label for="metodos_pagos">Método Pago:</label>
+                            <select name="metodo_pago" id="metodos_pagos"></select>
+                        </div>
+
+                        <div class="campo_formulario">
+                            <label for="referencia_pago">Referencia Pago Móvil:</label>
+                            <input type="text" name="referencia_pago" id="referencia_pago"
+                                placeholder="Ingresa la referencia del pago móvil" autocomplete="off">
+                        </div>
+
+                        <div class="campo_formulario">
+                            <label for="moton_cancelar">Monto:</label>
+                            <input type="text" name="moton_cancelar" id="moton_cancelar"
+                                placeholder="Ingresa cantidad a pagar." autocomplete="off">
+                        </div>
+
+                        <div class="campo_formulario">
+                            <label for="estado_compra">Estado Compra:</label>
+                            <select name="estado_compra" id="estado_compra">
+                                <option value="">Selecciona su estado</option>
+                                <option value="REGISTRADO">Registrado</option>
+                                <option value="ANULADO">Anulado</option>
+                            </select>
+                        </div>
+
+                        <div class="contenedor_boton_submit">
+                            <input type="submit" class="btn_primario" id="btn_registro" value="Registrar">
+                        </div>
+                    </div>
+
+                    <div class="contenedor_tabla_pago">
+                        <div class="encabezado_pago">
+                            <h3>Método de Pago</h3>
+                        </div>
+
+                        <div class="tabla_detalle_venta">
+                            <table>
+                                <thead>
+                                    <th>ID</th>
+                                    <th>MÉTODO</th>
+                                    <th>REFERENCIA</th>
+                                    <th>MONTO</th>
+                                    <th>ESTADO COMPRA</th>
+                                </thead>
+                                <tbody id="contenedor_pago_producto"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+
+
+                <div class="contenedor_venta">
+                    <div class="campo_formulario">
+                        <label for="clientes_registrados">Clientes Registrados:</label>
+                        <select name="cliente_registrado" id="clientes_registrados"></select>
+                    </div>
+
+                    <div class="campo_formulario">
+                        <label for="subtotal">Subtotal:</label>
+                        <input type="text" name="subtotal" id="subtotal" placeholder="Sin impuestos."
+                            autocomplete="off">
+                    </div>
+
+                    <div class="campo_formulario">
+                        <label for="impuesto">Impuesto:</label>
+                        <input type="text" name="impuesto" id="impuesto" placeholder="Impuesto de la venta."
+                            autocomplete="off">
+                    </div>
+
+                    <div class="campo_formulario">
+                        <label for="total_venta">Total:</label>
+                        <input type="text" name="total_venta" id="total_venta" placeholder="Total de la venta."
+                            autocomplete="off">
+                    </div>
+
+
+                    <div class="contenedor_boton_submit">
+                        <input type="submit" class="btn_primario" id="btn_registro" value="Registrar">
+                    </div>
+                </div>
+            </form>
+        </div>
+
+    </div>
+</section>
+
+<script src="{% static 'Funcionalidades_Asincronas/ventas/ventas/registrar_venta.js' %}"></script>
+
+{% endblock %}

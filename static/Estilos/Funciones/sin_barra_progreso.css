@@ -1,7 +1,3 @@
-/* =========================================
-   CONTENEDOR PRINCIPAL DEL MÓDULO
-   ========================================= */
-
 .contenedor_datos_contenido {
     width: min(900px, 92%);
     margin: 30px auto;
@@ -12,19 +8,9 @@
     box-sizing: border-box;
 }
 
-
-/* =========================================
-   FORMULARIO
-   ========================================= */
-
 .contenedor_datos_contenido form {
     width: 100%;
 }
-
-
-/* =========================================
-   PASOS
-   ========================================= */
 
 .contenedor_datos_contenido .paso {
     display: none;
@@ -35,11 +21,7 @@
     display: block;
 }
 
-
-/* Animación al cambiar de paso */
-
 @keyframes aparecerPaso {
-
     from {
         opacity: 0;
         transform: translateX(15px);
@@ -49,13 +31,7 @@
         opacity: 1;
         transform: translateX(0);
     }
-
 }
-
-
-/* =========================================
-   TITULOS DEL PASO
-   ========================================= */
 
 .contenedor_datos_contenido .paso h2 {
     margin: 0 0 8px;
@@ -76,11 +52,6 @@
     color: #5f6f76;
     font-size: 14px;
 }
-
-
-/* =========================================
-   CAMPOS
-   ========================================= */
 
 .contenedor_datos_contenido label {
     display: block;
@@ -115,9 +86,6 @@
     resize: vertical;
 }
 
-
-/* Focus */
-
 .contenedor_datos_contenido input:focus,
 .contenedor_datos_contenido select:focus,
 .contenedor_datos_contenido textarea:focus {
@@ -125,19 +93,11 @@
     box-shadow: 0 0 0 3px rgba(0, 182, 234, 0.12);
 }
 
-
-/* Campo inválido */
-
 .contenedor_datos_contenido input:invalid:not(:placeholder-shown),
 .contenedor_datos_contenido select:invalid,
 .contenedor_datos_contenido textarea:invalid {
     border-color: #d9534f;
 }
-
-
-/* =========================================
-   GRUPOS DE CAMPOS
-   ========================================= */
 
 .contenedor_datos_contenido .grupo_campo {
     margin-bottom: 20px;
@@ -154,22 +114,12 @@
     margin-bottom: 0;
 }
 
-
-/* =========================================
-   SEPARADOR
-   ========================================= */
-
 .contenedor_datos_contenido .separador {
     width: 100%;
     height: 1px;
     margin: 25px 0;
     background: #e4ecef;
 }
-
-
-/* =========================================
-   BOTONES
-   ========================================= */
 
 .contenedor_datos_contenido .botones_pasos {
     display: flex;
@@ -180,9 +130,6 @@
     padding-top: 20px;
     border-top: 1px solid #e4ecef;
 }
-
-
-/* Estilo general */
 
 .contenedor_datos_contenido button {
     min-width: 130px;
@@ -208,11 +155,6 @@
     transform: translateY(0);
 }
 
-
-/* =========================================
-   BOTÓN SIGUIENTE
-   ========================================= */
-
 .contenedor_datos_contenido #avanzar {
     background: #00779e;
     color: #ffffff;
@@ -223,11 +165,6 @@
     box-shadow: 0 4px 12px rgba(0, 119, 158, 0.25);
 }
 
-
-/* =========================================
-   BOTÓN ATRÁS
-   ========================================= */
-
 .contenedor_datos_contenido #retroceder {
     background: #e8f1f4;
     color: #00445f;
@@ -236,11 +173,6 @@
 .contenedor_datos_contenido #retroceder:hover {
     background: #d9e9ee;
 }
-
-
-/* =========================================
-   BOTÓN CERRAR
-   ========================================= */
 
 .contenedor_datos_contenido #btn_cerrar {
     background: transparent;
@@ -253,11 +185,6 @@
     color: #00445f;
 }
 
-
-/* =========================================
-   BOTÓN GUARDAR / ENVIAR
-   ========================================= */
-
 .contenedor_datos_contenido button[type="submit"] {
     background: #00445f;
     color: #ffffff;
@@ -268,21 +195,11 @@
     box-shadow: 0 4px 12px rgba(0, 68, 95, 0.25);
 }
 
-
-/* =========================================
-   ESTADO DESHABILITADO
-   ========================================= */
-
 .contenedor_datos_contenido button:disabled {
     opacity: 0.55;
     cursor: not-allowed;
     transform: none;
 }
-
-
-/* =========================================
-   INDICADOR DE PASOS
-   ========================================= */
 
 .indicador_pasos {
     display: flex;
@@ -321,11 +238,6 @@
     background: #00b6ea;
 }
 
-
-/* =========================================
-   MENSAJES / AYUDA
-   ========================================= */
-
 .contenedor_datos_contenido .texto_ayuda {
     margin-top: 6px;
     color: #74858b;
@@ -337,11 +249,6 @@
     color: #c0392b;
     font-size: 12px;
 }
-
-
-/* =========================================
-   RESPONSIVE
-   ========================================= */
 
 @media (max-width: 700px) {
 
@@ -369,7 +276,6 @@
         flex: 1;
         min-width: 110px;
     }
-
 }
 
 @media (max-width: 450px) {
@@ -389,5 +295,4 @@
     .contenedor_datos_contenido button {
         width: 100%;
     }
-
 }

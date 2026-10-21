@@ -1,0 +1,260 @@
+/* Contenedor principal */
+.contenedor_info_amplio {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+
+    padding: 20px 24px;
+    max-height: 85vh;
+
+    background: #ffffff;
+
+    overflow-x: hidden;
+    overflow-y: auto;
+    overflow-wrap: anywhere;
+}
+
+/* Título */
+.contenedor_info_amplio h2 {
+    width: calc(100% + 48px);
+    max-width: none;
+    min-width: 0;
+    box-sizing: border-box;
+
+    margin: -20px -24px 22px;
+    padding: 16px 20px;
+
+    background: #00648b;
+    color: #ffffff;
+
+    text-align: center;
+    font-size: 1.5rem;
+    font-weight: 600;
+    line-height: 1.35;
+
+    overflow-wrap: anywhere;
+}
+
+/* Formulario */
+.formulario_dialogo {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    margin: 0;
+
+    box-sizing: border-box;
+}
+
+/* Contenedores separados */
+.contenedor_visualizar_datos,
+.contenedor_modificar {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+
+    padding: 18px;
+    margin: 0;
+
+    box-sizing: border-box;
+
+    border: 1px solid #d5e2e8;
+    border-radius: 10px;
+
+    overflow-wrap: anywhere;
+}
+
+/* Datos informativos */
+.contenedor_visualizar_datos {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+
+    gap: 14px 18px;
+
+    background: #f4f8fa;
+}
+
+/* Campos que se pueden modificar */
+.contenedor_modificar {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+
+    gap: 16px 18px;
+
+    background: #ffffff;
+}
+
+.campo_formulario {
+    display: flex;
+    flex-direction: column;
+
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    margin: 0;
+
+    gap: 7px;
+
+    box-sizing: border-box;
+}
+
+/* Etiquetas */
+.campo_formulario label {
+    display: block;
+
+    max-width: 100%;
+    margin: 0;
+
+    color: #00394f;
+    font-size: 0.92rem;
+    font-weight: 600;
+    line-height: 1.4;
+
+    overflow-wrap: anywhere;
+}
+
+/* Controles */
+.campo_formulario input,
+.campo_formulario select,
+.campo_formulario textarea {
+    display: block;
+
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    min-height: 42px;
+
+    padding: 10px 12px;
+    margin: 0;
+
+    box-sizing: border-box;
+
+    border: 1px solid #b8cbd5;
+    border-radius: 7px;
+
+    background: #ffffff;
+    color: #203640;
+
+    font-family: inherit;
+    font-size: 0.92rem;
+
+    outline: none;
+
+    transition:
+        border-color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+/* Hover */
+.campo_formulario input:hover,
+.campo_formulario select:hover,
+.campo_formulario textarea:hover {
+    border-color: #00779e;
+}
+
+/* Foco */
+.campo_formulario input:focus,
+.campo_formulario select:focus,
+.campo_formulario textarea:focus {
+    border-color: #00779e;
+    box-shadow: 0 0 0 3px rgba(0, 119, 158, 0.12);
+}
+
+
+/* Responsive: tablets y móviles */
+@media (max-width: 768px) {
+    .contenedor_info_amplio {
+        padding: 14px;
+        max-height: 92vh;
+    }
+
+    .contenedor_info_amplio h2 {
+        width: calc(100% + 28px);
+        margin: -14px -14px 18px;
+        padding: 14px 36px 14px 14px;
+
+        font-size: 1.2rem;
+    }
+
+    .formulario_dialogo {
+        gap: 14px;
+    }
+
+    .contenedor_visualizar_datos,
+    .contenedor_modificar {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 13px;
+
+        padding: 14px;
+    }
+
+    .campo_formulario {
+        gap: 6px;
+    }
+
+    .campo_formulario label {
+        font-size: 0.875rem;
+    }
+
+    .campo_formulario input,
+    .campo_formulario select,
+    .campo_formulario textarea {
+        min-height: 42px;
+        font-size: 0.875rem;
+    }
+
+    .contenedor_boton_submit {
+        justify-content: stretch;
+    }
+
+    .btn_registro {
+        width: 100%;
+    }
+}
+
+/* Responsive: móviles pequeños */
+@media (max-width: 400px) {
+    .contenedor_info_amplio {
+        padding: 10px;
+        max-height: 94vh;
+    }
+
+    .contenedor_info_amplio h2 {
+        width: calc(100% + 20px);
+        margin: -10px -10px 14px;
+        padding: 12px 32px 12px 12px;
+
+        font-size: 1rem;
+    }
+
+    .formulario_dialogo {
+        gap: 12px;
+    }
+
+    .contenedor_visualizar_datos,
+    .contenedor_modificar {
+        padding: 11px;
+        gap: 12px;
+    }
+
+    .campo_formulario {
+        gap: 5px;
+    }
+
+    .campo_formulario input,
+    .campo_formulario select,
+    .campo_formulario textarea {
+        min-height: 40px;
+        padding: 9px 10px;
+        font-size: 0.85rem;
+    }
+
+    .btn_registro {
+        padding: 10px 14px;
+        font-size: 0.875rem;
+    }
+}

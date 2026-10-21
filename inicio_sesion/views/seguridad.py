@@ -16,14 +16,14 @@ from reportlab.platypus import (
 )
 
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_CENTER, TA_LEFT
+from reportlab.lib.enums import TA_CENTER
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter, landscape, legal
 
 # BITACORA DE ACCIÓN
 
 def visualizar_bitacora(request):
-    return render(request, "Modulos/visualizar_bitacora.html")
+    return render(request, "Modulos/Seguridad/visualizar_bitacora.html")
 
 def bitacora_registradas(request):
     cedula = request.POST.get("cedula", "").strip()
@@ -65,7 +65,6 @@ def bitacora_registradas(request):
     return JsonResponse(datos, safe=False)
     
 def lista_bitacora_pdf(request):
-
     cedula = request.POST.get("cedula", "").strip()
     nacionalidad = request.POST.get("nacionalidad", "").strip()
 
@@ -82,20 +81,29 @@ def lista_bitacora_pdf(request):
             id_usuario__cedula_identidad=cedula_identidad
         )
 
+    if not registros.exists():
+        return JsonResponse({
+            "estado": "error",
+            "title": "Sin registros",
+            "icon": "warning",
+            "descripcion": (
+                "No hay registros en la bitácora para generar el reporte PDF."
+            )
+        })
+
     response = HttpResponse(content_type="application/pdf")
 
     response["Content-Disposition"] = (
         'inline; filename="lista_bitacora.pdf"'
     )
 
-    # topMargin ajustado a 160 para respetar las dimensiones originales del encabezado
     documento = SimpleDocTemplate(
         response,
         pagesize=landscape(letter),
         rightMargin=30,
         leftMargin=30,
-        topMargin=140,
-        bottomMargin=30
+        topMargin=175,
+        bottomMargin=35
     )
 
     estilos = getSampleStyleSheet()
@@ -124,10 +132,11 @@ def lista_bitacora_pdf(request):
         "CeldaBitacora",
         parent=estilos["Normal"],
         fontName="Times-Roman",
-        fontSize=10,
-        leading=12,
+        fontSize=9,
+        leading=11,
         alignment=TA_CENTER,
-        textColor=colors.black
+        textColor=colors.black,
+        wordWrap="CJK"
     )
 
     ruta_logo = os.path.join(
@@ -161,7 +170,7 @@ def lista_bitacora_pdf(request):
             f"{registro.id_usuario.apellidos}"
         )
 
-        cedula = (
+        cedula_usuario = (
             registro.id_usuario.cedula_identidad
             or "No especificada"
         )
@@ -175,22 +184,17 @@ def lista_bitacora_pdf(request):
         datos_tabla.append([
             Paragraph(str(numero), estilo_celda),
             Paragraph(str(usuario), estilo_celda),
-            Paragraph(str(cedula), estilo_celda),
+            Paragraph(str(cedula_usuario), estilo_celda),
             Paragraph(str(fecha), estilo_celda),
             Paragraph(str(accion), estilo_celda),
         ])
 
     tabla = Table(
         datos_tabla,
-        colWidths=[
-            35,   # N.º
-            150,  # Usuario
-            90,   # Cédula
-            100,  # Fecha
-            357   # Acción / Observación
-        ],
+        colWidths=[35, 150, 90, 100, 357],
         repeatRows=2,
-        hAlign="CENTER"
+        hAlign="CENTER",
+        splitByRow=1
     )
 
     tabla.setStyle(TableStyle([
@@ -220,7 +224,10 @@ def lista_bitacora_pdf(request):
         ("RIGHTPADDING", (0, 0), (-1, -1), 5),
     ]))
 
-    elementos = [tabla]
+    elementos = [
+        Spacer(1, 10),
+        tabla
+    ]
 
     documento.build(
         elementos,
@@ -237,6 +244,7 @@ def lista_bitacora_pdf(request):
                 ruta_logo
             )
     )
+
     return response
 
 def encabezado_bitacora_pdf(canvas, documento, ruta_logo):
@@ -244,35 +252,28 @@ def encabezado_bitacora_pdf(canvas, documento, ruta_logo):
 
     ancho_pagina, alto_pagina = landscape(letter)
 
-    # LOGO (Dimensiones y posición original)
     if os.path.exists(ruta_logo):
         canvas.drawImage(
             ruta_logo,
             50,
-            alto_pagina - 170,
-            width=200,
-            height=200,
+            alto_pagina - 135,
+            width=165,
+            height=165,
             preserveAspectRatio=True,
             mask="auto"
         )
 
-    # TITULO EMPRESA (Dimensiones y posición original)
-    canvas.setFont(
-        "Times-Bold",
-        18
-    )
-
+    canvas.setFont("Times-Bold", 17)
     canvas.setFillColor(
         colors.HexColor("#00445F")
     )
 
     canvas.drawString(
-        250,
-        alto_pagina - 100,
+        270,
+        alto_pagina - 65,
         "EMPRESA HIELO CAIPE C.A"
     )
 
-    # FECHA (Dimensiones y posición original)
     meses = [
         "Enero",
         "Febrero",
@@ -296,19 +297,27 @@ def encabezado_bitacora_pdf(canvas, documento, ruta_logo):
         f"{fecha.year}"
     )
 
-    canvas.setFont(
-        "Times-Bold",
-        11
-    )
-
+    canvas.setFont("Times-Bold", 11)
     canvas.setFillColor(
         colors.HexColor("#072F3F")
     )
 
     canvas.drawString(
-        273,
-        alto_pagina - 130,
-        f"Fecha Generado {fecha_actual}"
+        280,
+        alto_pagina - 95,
+        f"Fecha de generación: {fecha_actual}"
+    )
+
+    canvas.setStrokeColor(
+        colors.HexColor("#00445F")
+    )
+    canvas.setLineWidth(1)
+
+    canvas.line(
+        30,
+        alto_pagina - 150,
+        ancho_pagina - 30,
+        alto_pagina - 150
     )
 
     canvas.restoreState()
@@ -316,7 +325,7 @@ def encabezado_bitacora_pdf(canvas, documento, ruta_logo):
 #  INICIOS DE SESIÓN Y REPORTE
 
 def visualizar_inicio_sesion(request):
-    return render(request, "Modulos/visualizar_inicios_sesiones.html")
+    return render(request, "Modulos/Seguridad/visualizar_inicios_sesiones.html")
 
 def fechas_inicios_sesiones(request):
     registros = (
@@ -401,6 +410,14 @@ def lista_inicios_sesiones_pdf(request):
         .order_by("-fecha_inicio")
     )
 
+    if not registros.exists():
+        return JsonResponse({
+            "estado": "vacio",
+            "title": "Sin registros",
+            "icon": "warning",
+            "descripcion": "No existen inicios de sesión registrados para generar el reporte."
+        })
+
     if fecha:
         registros = registros.filter(fecha_inicio__date=fecha)
 
@@ -413,7 +430,7 @@ def lista_inicios_sesiones_pdf(request):
         pagesize=landscape(legal),
         rightMargin=30,
         leftMargin=30,
-        topMargin=140,
+        topMargin=190,
         bottomMargin=30
     )
 
@@ -584,10 +601,10 @@ def lista_inicios_sesiones_pdf(request):
         ("RIGHTPADDING", (0, 0), (-1, -1), 6),
     ]))
 
-    elementos = []
-
-    elementos.append(Spacer(1, 15))
-    elementos.append(tabla)
+    elementos = [
+        Spacer(1, 10),
+        tabla
+    ]
 
     documento.build(
         elementos,
@@ -614,48 +631,31 @@ def encabezado_inicios_sesiones_pdf(canvas, documento, ruta_logo):
 
     ancho_pagina, alto_pagina = landscape(legal)
 
-    # LOGO
     if os.path.exists(ruta_logo):
         canvas.drawImage(
             ruta_logo,
-            70,
-            alto_pagina - 180,
-            width=200,
-            height=200,
+            80,
+            alto_pagina - 190,
+            width=210,
+            height=210,
             preserveAspectRatio=True,
+            anchor="c",
             mask="auto"
         )
 
-    # TITULO EMPRESA
-    canvas.setFont(
-        "Times-Bold",
-        18
-    )
+    canvas.setFont("Times-Bold", 18)
+    canvas.setFillColor(colors.HexColor("#00445F"))
 
-    canvas.setFillColor(
-        colors.HexColor("#00445F")
-    )
-
-    canvas.drawString(
-        370,
-        alto_pagina - 100,
+    canvas.drawCentredString(
+        ancho_pagina / 2,
+        alto_pagina - 75,
         "EMPRESA HIELO CAIPE C.A"
     )
 
-    # FECHA
     meses = [
-        "Enero",
-        "Febrero",
-        "Marzo",
-        "Abril",
-        "Mayo",
-        "Junio",
-        "Julio",
-        "Agosto",
-        "Septiembre",
-        "Octubre",
-        "Noviembre",
-        "Diciembre"
+        "Enero", "Febrero", "Marzo", "Abril",
+        "Mayo", "Junio", "Julio", "Agosto",
+        "Septiembre", "Octubre", "Noviembre", "Diciembre"
     ]
 
     fecha = datetime.now()
@@ -666,27 +666,32 @@ def encabezado_inicios_sesiones_pdf(canvas, documento, ruta_logo):
         f"{fecha.year}"
     )
 
-    canvas.setFont(
-        "Times-Bold",
-        14
+    canvas.setFont("Times-Bold", 12)
+    canvas.setFillColor(colors.HexColor("#072F3F"))
+
+    canvas.drawCentredString(
+        ancho_pagina / 2,
+        alto_pagina - 105,
+        f"Fecha de generación: {fecha_actual}"
     )
 
-    canvas.setFillColor(
-        colors.HexColor("#072F3F")
-    )
+    canvas.setStrokeColor(colors.HexColor("#58A5C4"))
+    canvas.setLineWidth(1)
 
-    canvas.drawString(
-        365,
-        alto_pagina - 140,
-        f"Fecha Generado {fecha_actual}"
+    canvas.line(
+        30,
+        alto_pagina - 165,
+        ancho_pagina - 30,
+        alto_pagina - 165
     )
 
     canvas.restoreState()
+
     
 # INTENTO INICIÓN DE SESIÓN
 
 def visualizar_intentos_sesion(request):
-    return render(request, "Modulos/visualizar_intentos_sesion.html")
+    return render(request, "Modulos/Seguridad/visualizar_intentos_sesion.html")
 
 def fechas_intentos_registrados(request):
     fechas = (
@@ -713,24 +718,24 @@ def intentos_registrados(request):
     datos = []
     for intento in intentos:
         datos.append({
-                "id_intento": intento.id_intento,
-                "usuario": (
-                    f"{intento.usuario.nombres} "
-                    f"{intento.usuario.apellidos}"
-                    if intento.usuario
-                    else "Usuario no registrado"
-                ),
-                "nombre_usuario": (
-                    intento.nombre_usuario
-                    if intento.nombre_usuario
-                    else "Usuario no registrado"
-                ),
-                "direccion_ip": intento.direccion_ip,
-                "exitoso": intento.exitoso,
-                "fecha_hora": intento.fecha_hora.strftime(
-                    "%d/%m/%Y %H:%M:%S"
-                )
-            })
+            "id_intento": intento.id_intento,
+            "usuario": (
+                f"{intento.usuario.nombres} "
+                f"{intento.usuario.apellidos}"
+                if intento.usuario
+                else "Usuario no registrado"
+            ),
+            "nombre_usuario": (
+                intento.nombre_usuario
+                if intento.nombre_usuario
+                else "Usuario no registrado"
+            ),
+            "direccion_ip": intento.direccion_ip,
+            "exitoso": intento.exitoso,
+            "fecha_hora": intento.fecha_hora.strftime(
+                "%d/%m/%Y %H:%M:%S"
+            )
+        })
 
     return JsonResponse({
         "estado": "exito",
@@ -738,7 +743,6 @@ def intentos_registrados(request):
     })
 
 def lista_intentos_sesion_pdf(request):
-
     fecha = request.POST.get("fecha", "").strip()
 
     registros = (
@@ -751,6 +755,17 @@ def lista_intentos_sesion_pdf(request):
         registros = registros.filter(
             fecha_hora__date=fecha
         )
+
+    if not registros.exists():
+        return JsonResponse({
+            "estado": "vacio",
+            "title": "Sin registros",
+            "icon": "warning",
+            "descripcion": (
+                "No existen intentos de inicio de sesión "
+                "para generar el reporte con los filtros seleccionados."
+            )
+        })
 
     response = HttpResponse(
         content_type="application/pdf"
@@ -765,7 +780,7 @@ def lista_intentos_sesion_pdf(request):
         pagesize=landscape(legal),
         rightMargin=30,
         leftMargin=30,
-        topMargin=140,
+        topMargin=190,
         bottomMargin=30
     )
 
@@ -795,10 +810,11 @@ def lista_intentos_sesion_pdf(request):
         "CeldaIntentos",
         parent=estilos["Normal"],
         fontName="Times-Roman",
-        fontSize=11,
-        leading=13,
+        fontSize=9,
+        leading=11,
         alignment=TA_CENTER,
-        textColor=colors.black
+        textColor=colors.black,
+        wordWrap="CJK"
     )
 
     ruta_logo = os.path.join(
@@ -935,24 +951,19 @@ def lista_intentos_sesion_pdf(request):
         ("RIGHTPADDING", (0, 0), (-1, -1), 7),
     ]))
 
-    elementos = []
-
-    elementos.append(
-        Spacer(1, 15)
-    )
-
-    elementos.append(tabla)
+    elementos = [
+        Spacer(1, 10),
+        tabla
+    ]
 
     documento.build(
         elementos,
-
         onFirstPage=lambda canvas, documento:
             encabezado_intentos_sesion_pdf(
                 canvas,
                 documento,
                 ruta_logo
             ),
-
         onLaterPages=lambda canvas, documento:
             encabezado_intentos_sesion_pdf(
                 canvas,

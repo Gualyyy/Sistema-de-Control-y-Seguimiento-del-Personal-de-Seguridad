@@ -39,9 +39,9 @@
 }
 
 .grupo_doble .select_dominio {
-    flex: 0 0 140px;
-    width: 140px;
-    min-width: 140px;
+    flex: 0 0 100px;
+    width: 100px;
+    min-width: 100px;
 }
 
 .grupo_doble input {

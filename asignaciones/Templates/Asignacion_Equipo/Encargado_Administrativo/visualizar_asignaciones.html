@@ -1,0 +1,150 @@
+{% extends 'Estructura/base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="contenedor_formulario">
+    <div class="contenedor_campos_amplio">
+        <h2>Visualizar de Asignación Equipo</h2>
+
+        <div class="modulo_buqueda">
+            <h3>Buscar Asignaciones</h3>
+
+            <form method="post" class="formulario_base">
+                {% csrf_token %}
+
+                <div class="campos_fila">
+                    <div class="campos_reducido">
+                        <label for="cedula_identidad">Cedula Identidad:</label>
+                        <div class="grupo_doble">
+                            <select name="nacionalidad" id="nacionalidad" class="campo_select">
+                                <option value="">N</option>
+                                <option value="V">V</option>
+                                <option value="E">E</option>
+                            </select>
+                            <input type="text" name="cedula_identidad" id="cedula_identidad" autocomplete="off">
+                        </div>
+                    </div>
+
+                    <div class="campo_formulario">
+                        <label for="categorias_registradas">Categoría de Equipo:</label>
+                        <select name="categoria" id="categorias_registradas"></select>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="modulo_visualizar detalle">
+            <div class="encabezado_registrados">
+                <button type="button" class="btn_pdf" id="lista_asignacion_pdf">
+                    <i class="fa-regular fa-file-pdf"></i>
+                    Reporte
+                </button>
+            </div>
+
+            <div class="contenedor_tabla">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>EMPLEADO</th>
+                            <th>EQUIPO</th>
+                            <th>ASIGNADO</th>
+                            <th>DEVUELTO</th>
+                            <th>FECHA Y HORA</th>
+                            <th>ESTADO</th>
+                        </tr>
+                    </thead>
+                    <tbody id="registros_asignaciones"></tbody>
+                </table>
+            </div>
+
+            <div class="botones_navegacion">
+                <button class="btn_secundario btn_retroceder" type="button">Retroceder</button>
+                <button class="btn_primario btn_avanzar" type="button">Avanzar</button>
+            </div>
+        </div>
+
+    </div>
+</section>
+
+<dialog id="dialogo_asignacion" class="dialogo">
+    <div class="contenedor_info_reducido">
+        <button type="button" id="btn_cerrar_asignacion" class="btn_cerrar">
+            <i class="fa-solid fa-square-xmark"></i>
+        </button>
+
+        <h2>Detalle de la Asignación del Equipo</h2>
+
+        <div class="contenedor_btn_pdf">
+            <button type="button" class="btn_pdf_dialog" id="detalle_asignado_pdf">
+                <i class="fa-regular fa-file-pdf"></i>
+                Reporte
+            </button>
+        </div>
+
+        <div class="modelo_dialogo_visualizar">
+            <form method="post" class="formulario_dialogo_visualizar">
+                <input type="hidden" name="id_asignacion" id="id_asignacion">
+
+                <div class="campo_formulario">
+                    <label for="empleado_asignado">Nombres y Apellidos del Empleado:</label>
+                    <input type="text" id="empleado_asignado" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="cedula_empleado">Cédula de Identidad del Empleado:</label>
+                    <input type="text" id="cedula_empleado" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="nombre_equipo">Equipo:</label>
+                    <input type="text" id="nombre_equipo" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="codigo_equipo">Código del Equipo:</label>
+                    <input type="text" id="codigo_equipo" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="categoria_equipo">Categoría del Equipo:</label>
+                    <input type="text" id="categoria_equipo" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="fecha_entrega">Fecha de la Asignación:</label>
+                    <input type="text" id="fecha_entrega" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="fecha_devolucion">Fecha de Devolución:</label>
+                    <input type="text" id="fecha_devolucion" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="cantidad_devuelto">Cantidad o Unidad del Equipo Devuelto:</label>
+                    <input type="text" id="cantidad_devuelto" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="cantidad_equipo">Cantidad de Equipo Asignado:</label>
+                    <input type="text" id="cantidad_equipo" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="estado_equipo">Estado de la Asignación:</label>
+                    <input type="text" id="estado_equipo" readonly>
+                </div>
+            </form>
+        </div>
+
+    </div>
+</dialog>
+
+<script src="{% static 'Funcionalidades/cedula_identidad.js' %}"></script>
+<script
+    src="{% static 'Funcionalidades_Asincronas/asignacion_equipos/administrador/visualizar_asignaciones.js' %}"></script>
+
+{% endblock %}¿

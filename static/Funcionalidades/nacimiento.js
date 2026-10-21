@@ -1089,170 +1089,34 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     cargarPaises();
 
-    // ESTADO INICIAL
-    function bloquearDatosNacimiento() {
+    pais_nacimiento.addEventListener("change", () => {
+        const es_venezuela = pais_nacimiento.value === "Venezuela";
 
-        // Venezuela
-        estado_nacimiento.disabled = true;
-        municipio_nacimiento.disabled = true;
-        parroquia_nacimiento.disabled = true;
+        const controles_venezuela = [
+            estado_nacimiento,
+            municipio_nacimiento,
+            parroquia_nacimiento
+        ];
+        const controles_otro_pais = [
+            estado_nacimiento_nvzla,
+            municipio_nacimiento_nvzla,
+            parroquia_nacimiento_nvzla
+        ];
 
-        // Otros países
-        estado_nacimiento_nvzla.disabled = true;
-        municipio_nacimiento_nvzla.disabled = true;
-        parroquia_nacimiento_nvzla.disabled = true;
+        controles_venezuela.forEach(control => {
+            control.hidden = !es_venezuela;
+            control.required = es_venezuela;
+        });
 
-        // Datos finales
-        direccion_nacimiento.disabled = true;
-        fecha_nacimiento_usuario.disabled = true;
-
-        // Required
-        pais_nacimiento.required = true;
-
-        estado_nacimiento.required = false;
-        municipio_nacimiento.required = false;
-        parroquia_nacimiento.required = false;
-
-        estado_nacimiento_nvzla.required = false;
-        municipio_nacimiento_nvzla.required = false;
-        parroquia_nacimiento_nvzla.required = false;
-
-        direccion_nacimiento.required = false;
-        fecha_nacimiento_usuario.required = false;
-
-
-        // Ocultar campos alternativos
-        estado_nacimiento_nvzla.hidden = true;
-        municipio_nacimiento_nvzla.hidden = true;
-        parroquia_nacimiento_nvzla.hidden = true;
-    }
-
-    bloquearDatosNacimiento();
-
-
-    // =====================================================
-    // CAMBIO DE PAÍS
-    // =====================================================
-
-    pais_nacimiento.addEventListener("change", function () {
-
-        const pais = pais_nacimiento.value;
-
-        if (!pais) {
-            bloquearDatosNacimiento();
-            return;
-        }
-
-
-        // =================================================
-        // VENEZUELA
-        // =================================================
-
-        if (pais === "Venezuela") {
-
-            // Mostrar campos venezolanos
-            estado_nacimiento.hidden = false;
-            municipio_nacimiento.hidden = false;
-            parroquia_nacimiento.hidden = false;
-
-            // Habilitar SOLAMENTE estado
-            estado_nacimiento.disabled = false;
-            estado_nacimiento.required = true;
-
-            // Los siguientes esperan selección anterior
-            municipio_nacimiento.disabled = true;
-            parroquia_nacimiento.disabled = true;
-
-            municipio_nacimiento.required = false;
-            parroquia_nacimiento.required = false;
-
-
-            // Ocultar campos manuales
-            estado_nacimiento_nvzla.hidden = true;
-            municipio_nacimiento_nvzla.hidden = true;
-            parroquia_nacimiento_nvzla.hidden = true;
-
-            estado_nacimiento_nvzla.disabled = true;
-            municipio_nacimiento_nvzla.disabled = true;
-            parroquia_nacimiento_nvzla.disabled = true;
-
-            estado_nacimiento_nvzla.required = false;
-            municipio_nacimiento_nvzla.required = false;
-            parroquia_nacimiento_nvzla.required = false;
-
-
-            // Bloquear campos finales
-            direccion_nacimiento.disabled = true;
-            fecha_nacimiento_usuario.disabled = true;
-
-            direccion_nacimiento.required = false;
-            fecha_nacimiento_usuario.required = false;
-
-
-            // Limpiar
-            municipio_nacimiento.value = "";
-            parroquia_nacimiento.value = "";
-        }
-
-
-        // =================================================
-        // OTRO PAÍS
-        // =================================================
-
-        else {
-
-            // Ocultar selects venezolanos
-            estado_nacimiento.hidden = true;
-            municipio_nacimiento.hidden = true;
-            parroquia_nacimiento.hidden = true;
-
-            estado_nacimiento.disabled = true;
-            municipio_nacimiento.disabled = true;
-            parroquia_nacimiento.disabled = true;
-
-            estado_nacimiento.required = false;
-            municipio_nacimiento.required = false;
-            parroquia_nacimiento.required = false;
-
-
-            // Mostrar campos manuales
-            estado_nacimiento_nvzla.hidden = false;
-            municipio_nacimiento_nvzla.hidden = false;
-            parroquia_nacimiento_nvzla.hidden = false;
-
-
-            // Habilitar SOLAMENTE estado
-            estado_nacimiento_nvzla.disabled = false;
-            estado_nacimiento_nvzla.required = true;
-
-
-            // Bloquear los siguientes
-            municipio_nacimiento_nvzla.disabled = true;
-            parroquia_nacimiento_nvzla.disabled = true;
-
-            municipio_nacimiento_nvzla.required = false;
-            parroquia_nacimiento_nvzla.required = false;
-
-
-            // Bloquear datos finales
-            direccion_nacimiento.disabled = true;
-            fecha_nacimiento_usuario.disabled = true;
-
-            direccion_nacimiento.required = false;
-            fecha_nacimiento_usuario.required = false;
-        }
-
+        controles_otro_pais.forEach(control => {
+            control.hidden = es_venezuela;
+            control.required = !es_venezuela;
+        });
     });
 
-
-    // =====================================================
     // CARGAR ESTADOS DE VENEZUELA
-    // =====================================================
-
     function cargarEstados() {
-
-        estado_nacimiento.innerHTML =
-            '<option value="" disabled selected hidden>Elija el Estado</option>';
+        estado_nacimiento.innerHTML = '<option value="" disabled selected hidden>Elija el Estado</option>';
 
         Estado.forEach(estado => {
 
@@ -1264,143 +1128,68 @@ document.addEventListener("DOMContentLoaded", function () {
             estado_nacimiento.appendChild(opcion);
         });
 
-        estado_nacimiento.disabled = true;
     }
-
     cargarEstados();
 
-
-    // =====================================================
     // ESTADO → MUNICIPIO
-    // =====================================================
-
     function cargarMunicipios() {
-
         const estado = estado_nacimiento.value;
 
         // Reiniciar
-        municipio_nacimiento.innerHTML =
-            '<option value="" disabled selected hidden>Elija el Municipio</option>';
-
-        parroquia_nacimiento.innerHTML =
-            '<option value="" disabled selected hidden>Elija una Parroquia</option>';
-
-
-        // Bloquear siguientes
-        municipio_nacimiento.disabled = true;
-        parroquia_nacimiento.disabled = true;
-
-        direccion_nacimiento.disabled = true;
-        fecha_nacimiento_usuario.disabled = true;
-
-
+        municipio_nacimiento.innerHTML = '<option value="" disabled selected hidden>Elija el Municipio</option>';
+        parroquia_nacimiento.innerHTML = '<option value="" disabled selected hidden>Elija una Parroquia</option>';
         municipio_nacimiento.required = false;
         parroquia_nacimiento.required = false;
 
-        direccion_nacimiento.required = false;
-        fecha_nacimiento_usuario.required = false;
-
-
         if (estado && estado in municipiosPorEstado) {
-
             municipiosPorEstado[estado].forEach(municipio => {
-
                 const option = document.createElement("option");
-
                 option.value = municipio;
                 option.textContent = municipio;
-
                 municipio_nacimiento.appendChild(option);
             });
 
-
-            // Habilitar MUNICIPIO
-            municipio_nacimiento.disabled = false;
             municipio_nacimiento.required = true;
         }
     }
 
     estado_nacimiento.addEventListener("change", cargarMunicipios);
 
-
-    // =====================================================
     // MUNICIPIO → PARROQUIA
-    // =====================================================
-
     function cargarParroquias() {
-
         const estado = estado_nacimiento.value;
         const municipio = municipio_nacimiento.value;
 
-
-        parroquia_nacimiento.innerHTML =
-            '<option value="" disabled selected hidden>Elija una Parroquia</option>';
-
-
-        // Bloquear siguientes
-        parroquia_nacimiento.disabled = true;
-        direccion_nacimiento.disabled = true;
-        fecha_nacimiento_usuario.disabled = true;
-
-
+        parroquia_nacimiento.innerHTML = '<option value="" disabled selected hidden>Elija una Parroquia</option>';
         parroquia_nacimiento.required = false;
-        direccion_nacimiento.required = false;
-        fecha_nacimiento_usuario.required = false;
 
-
-        if (
-            estado &&
+        if (estado &&
             municipio &&
             parroquiasPorMunicipio[estado] &&
-            parroquiasPorMunicipio[estado][municipio]
-        ) {
+            parroquiasPorMunicipio[estado][municipio]) {
 
             parroquiasPorMunicipio[estado][municipio].forEach(parroquia => {
-
                 const option = document.createElement("option");
-
                 option.value = parroquia;
                 option.textContent = parroquia;
-
                 parroquia_nacimiento.appendChild(option);
             });
 
-
-            // Habilitar PARROQUIA
-            parroquia_nacimiento.disabled = false;
             parroquia_nacimiento.required = true;
         }
     }
 
     municipio_nacimiento.addEventListener("change", cargarParroquias);
 
-
-    // =====================================================
     // PARROQUIA → DIRECCIÓN + FECHA
-    // =====================================================
-
     parroquia_nacimiento.addEventListener("change", function () {
-
         const parroquia = parroquia_nacimiento.value;
-
         if (!parroquia) {
-
-            direccion_nacimiento.disabled = true;
-            fecha_nacimiento_usuario.disabled = true;
-
-            direccion_nacimiento.required = false;
-            fecha_nacimiento_usuario.required = false;
-
             return;
         }
 
-        // Habilitar DIRECCIÓN
-        direccion_nacimiento.disabled = false;
         direccion_nacimiento.required = true;
 
-
-        // Habilitar FECHA
-        fecha_nacimiento_usuario.disabled = false;
         fecha_nacimiento_usuario.required = true;
     });
 

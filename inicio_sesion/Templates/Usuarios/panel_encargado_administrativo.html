@@ -1,0 +1,179 @@
+{% extends 'Estructura/base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="panel_usuario">
+
+    <div class="encabezado_panel_usuario">
+        <h2>
+            ¡Bienvenido {{ request.session.perfil }}!
+        </h2>
+    </div>
+
+    <div class="contenedor_panel_usuario">
+
+        <!-- ESTADÍSTICAS GENERALES -->
+        <div class="contenedor_estadisticas">
+
+            <div class="tarjeta_estadistica empleados">
+                <div class="icono_estadistica">
+                    <i class="fa-solid fa-users"></i>
+                </div>
+
+                <div class="informacion_estadistica">
+                    <h3>Total de Empleados</h3>
+                    <p class="numero_contador" data-campo="total_empleados">0</p>
+                </div>
+            </div>
+
+            <div class="tarjeta_estadistica equipos">
+                <div class="icono_estadistica">
+                    <i class="fa-solid fa-toolbox"></i>
+                </div>
+
+                <div class="informacion_estadistica">
+                    <h3>Total de Equipos</h3>
+                    <p class="numero_contador" data-campo="total_equipos">0</p>
+                </div>
+            </div>
+
+            <div class="tarjeta_estadistica incidencias">
+                <div class="icono_estadistica">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+
+                <div class="informacion_estadistica">
+                    <h3>Incidencias Registradas</h3>
+                    <p class="numero_contador" data-campo="total_incidencias">0</p>
+                </div>
+            </div>
+
+            <div class="tarjeta_estadistica asignaciones">
+                <div class="icono_estadistica">
+                    <i class="fa-solid fa-boxes-stacked"></i>
+                </div>
+
+                <div class="informacion_estadistica">
+                    <h3>Entregas de Equipos</h3>
+                    <p class="numero_contador" data-campo="total_entregas">0</p>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- GRÁFICAS PRINCIPALES -->
+        <div class="contenedor_graficas_panel">
+
+            <div class="estadistica_perfiles_registrados">
+                <h3>Empleados Registrados por Perfil</h3>
+
+                <div class="contenedor_grafica_perfiles">
+                    <canvas id="grafica_perfiles_registrados"></canvas>
+                </div>
+            </div>
+
+            <div class="estadistica_equipos_entregados">
+                <h3>Equipos Registrados por Categoría</h3>
+
+                <div class="contenedor_grafica_entregado">
+                    <canvas id="grafica_categoria_equipo"></canvas>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ÚLTIMO INICIO DE SESIÓN -->
+        <div class="estadistica_ultimo_inicio">
+
+            <h3>Último inicio de sesión</h3>
+
+            <div id="contenedor_ultimo_inicio" class="contenedor_ultimo_inicio">
+
+                <div class="ultimo_inicio_encabezado">
+
+                    <div class="ultimo_inicio_icono">
+                        <i class="fas fa-user-clock"></i>
+                    </div>
+
+                    <div class="ultimo_inicio_titulo">
+                        <h4 id="ultimo_inicio_titulo">
+                            Sesión anterior
+                        </h4>
+
+                        <span id="ultimo_inicio_estado" class="ultimo_inicio_estado">
+                            Consultando...
+                        </span>
+                    </div>
+
+                </div>
+
+                <div class="ultimo_inicio_resumen">
+
+                    <div class="ultimo_inicio_dato">
+                        <div class="ultimo_inicio_dato_icono">
+                            <i class="fas fa-calendar-alt"></i>
+                        </div>
+
+                        <div class="ultimo_inicio_dato_contenido">
+                            <span>Fecha de inicio</span>
+                            <strong id="ultimo_inicio_fecha">
+                                Consultando...
+                            </strong>
+                        </div>
+                    </div>
+
+                    <div class="ultimo_inicio_dato">
+                        <div class="ultimo_inicio_dato_icono">
+                            <i class="fas fa-clock"></i>
+                        </div>
+
+                        <div class="ultimo_inicio_dato_contenido">
+                            <span>Fecha de cierre</span>
+                            <strong id="ultimo_inicio_cierre">
+                                Consultando...
+                            </strong>
+                        </div>
+                    </div>
+
+                    <div class="ultimo_inicio_dato">
+                        <div class="ultimo_inicio_dato_icono">
+                            <i class="fas fa-network-wired"></i>
+                        </div>
+
+                        <div class="ultimo_inicio_dato_contenido">
+                            <span>Dirección IP</span>
+                            <strong id="ultimo_inicio_ip">
+                                Consultando...
+                            </strong>
+                        </div>
+                    </div>
+
+                    <div class="ultimo_inicio_dato">
+                        <div class="ultimo_inicio_dato_icono">
+                            <i class="fas fa-desktop"></i>
+                        </div>
+
+                        <div class="ultimo_inicio_dato_contenido">
+                            <span>Dispositivo</span>
+                            <strong id="ultimo_inicio_dispositivo">
+                                Consultando...
+                            </strong>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div id="ultimo_inicio_mensaje" class="ultimo_inicio_mensaje" hidden>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+</section>
+
+<script src="{% static 'Funcionalidades_Asincronas/panel_usuario/panel_administrador.js' %}"></script>
+
+{% endblock %}

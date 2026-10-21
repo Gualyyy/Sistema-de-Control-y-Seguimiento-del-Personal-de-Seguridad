@@ -1,0 +1,84 @@
+{% extends 'Estructura/base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="contenedor_formulario">
+    <div class="contenedor_campos_amplio">
+        <h2>Corrección de Entrega</h2>
+
+        <div class="modulo_equipo">
+            <form method="post" id="formulario_correccion" class="formulario_equipo">
+                {% csrf_token %}
+
+                <div class="campo_formulario">
+                    <label for="supervisores_encargados">Supervisor Encargado:</label>
+                    <select name="supervisores_encargados" id="supervisores_encargados"></select>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="categoria_equipos">Categoria del Equipo Entregado:</label>
+                    <select name="categoria_equipos" id="categoria_equipos"></select>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="equipos_entregados">Equipos Entregado:</label>
+                    <select name="equipos_entregados" id="equipos_entregados"></select>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="tipo_correccion">Tipo de Corrección:</label>
+                    <select name="tipo_correccion" id="tipo_correccion">
+                        <option value="">Seleccione el Tipo de Corrección</option>
+                        <option value="ACTUALIZAR">Actualizar</option>
+                        <option value="ERROR_HUMANO">Error Humano</option>
+                    </select>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="cantidad_entregada">Cantidad Entregada:</label>
+                    <input type="text" name="cantidad_entregada" id="cantidad_entregada"
+                        placeholder="Cantidad disponible del equipo" autocomplete="off" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="cantidad_actualizar">Cantidad a Corregir:</label>
+                    <input type="text" name="cantidad_actualizar" id="cantidad_actualizar"
+                        placeholder="Ingrese la cantidad de equipo a entregar" autocomplete="off" required>
+                    <small id="contenedor_msg_cantidad" class="mensaje-feedback"></small>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="observacion_entrega">Observación de la Entrega:</label>
+                    <textarea name="observacion_entrega" id="observacion_entrega"
+                        placeholder="Observación de la entrega de equipo" autocomplete="off" maxlength="200"
+                        required></textarea>
+                    <div class="contador_caracteres">
+                        <span id="contador_observacion">0</span> / 200 caracteres
+                    </div>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="motivo_correccion">Motivo de la Corrección:</label>
+                    <textarea name="motivo_correccion" id="motivo_correccion"
+                        placeholder="Exprese el motivo de la corrección." autocomplete="off" maxlength="200"
+                        required></textarea>
+                    <div class="contador_caracteres">
+                        <span id="contador_motivo">0</span> / 200 caracteres
+                    </div>
+                </div>
+
+                <div class="contenedor_boton_submit">
+                    <button type="submit" class="btn_primario" id="btn_actualizar">Actualizar</button>
+                </div>
+            </form>
+        </div>
+
+    </div>
+</section>
+
+<script
+    src="{% static 'Funcionalidades_Asincronas/entrega_equipos/Administrador/correccion_entregas_quipos.js' %}"></script>
+
+{% endblock %}

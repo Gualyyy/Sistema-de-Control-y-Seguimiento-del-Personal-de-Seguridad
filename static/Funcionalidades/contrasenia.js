@@ -1,25 +1,26 @@
-document.addEventListener("DOMContentLoaded", () => {
-    const input_clave = document.getElementById("clave");
-    const input_checkbox = document.getElementById("evento");
-    const icono_visualizar = document.getElementById("id_mostrar");
-    const icono_ocultar = document.getElementById("id_ocultar");
+function configurarContrasenia(contenedor) {
+    const inputClave = contenedor.querySelector('input[name="contrasenia"]');
+    const inputCheckbox = contenedor.querySelector(".checkbox_ojo");
+    const labelOjo = contenedor.querySelector(".icono_ojo");
 
-    function campo_contrasenia() {
-        if (input_checkbox.checked) {
-            input_clave.type = "text";
-
-            icono_visualizar.classList.add("ocultar");
-            icono_ocultar.classList.remove("ocultar");
-
-        } else {
-            input_clave.type = "password";
-
-            icono_visualizar.classList.remove("ocultar");
-            icono_ocultar.classList.add("ocultar");
-        }
+    if (!inputClave || !inputCheckbox || !labelOjo) {
+        throw new Error(
+            "El campo de contraseña debe incluir su input, checkbox y label del ojo."
+        );
     }
 
-    input_checkbox.addEventListener("change", campo_contrasenia);
+    if (contenedor.dataset.contraseniaConfigurada === "true") {
+        return;
+    }
 
-    campo_contrasenia();
-});
+    inputCheckbox.id = `checkbox_ojo_${crypto.randomUUID()}`;
+    labelOjo.htmlFor = inputCheckbox.id;
+
+    const actualizarVisibilidad = () => {
+        inputClave.type = inputCheckbox.checked ? "text" : "password";
+    };
+
+    inputCheckbox.addEventListener("change", actualizarVisibilidad);
+    actualizarVisibilidad();
+    contenedor.dataset.contraseniaConfigurada = "true";
+}

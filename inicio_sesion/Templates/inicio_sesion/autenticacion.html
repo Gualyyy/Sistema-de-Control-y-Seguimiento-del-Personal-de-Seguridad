@@ -25,19 +25,20 @@
                 {% csrf_token %}
                 <div class="campo_login">
                     <label for="id_usuario">Usuario</label>
-                    <input name="nombre_usuario" id="id_usuario" type="text" placeholder="Ingrese su usuario"
-                        autocomplete="off" required>
+                    <input name="nombre_usuario" id="id_usuario" type="text"
+                        placeholder="Ingrese su usuario (30 caracteres)" autocomplete="off" maxlength="30" required>
                 </div>
 
                 <div class="campo_login">
                     <label for="clave">Contraseña</label>
                     <div class="password_contenedor">
-                        <input name="contrasenia" id="clave" type="password" placeholder="Ingrese su contraseña"
-                            autocomplete="off" required>
-                        <input type="checkbox" id="evento" class="checkbox_ojo">
-                        <label for="evento" class="icono_ojo" aria-label="Mostrar u ocultar contraseña">
-                            <i class="icon-eye" id="id_mostrar"></i>
-                            <i class="icon-eye-off" id="id_ocultar"></i>
+                        <input name="contrasenia" id="clave" type="password"
+                            placeholder="Ingrese su contraseña  (30 caracteres)" autocomplete="off" maxlength="30"
+                            required>
+                        <input type="checkbox" class="checkbox_ojo">
+                        <label class="icono_ojo" aria-label="Mostrar u ocultar contraseña">
+                            <i class="fa-sharp-duotone fa-regular fa-eye icono_mostrar"></i>
+                            <i class="fa-duotone fa-regular fa-eye-slash icono_ocultar"></i>
                         </label>
                     </div>
                 </div>
@@ -49,6 +50,6 @@
 </section>
 
 <script src="{% static 'Funcionalidades/contrasenia.js' %}"></script>
-<script src="{% static 'Funcionalidades_Asincronas/autenticacion.js' %}"></script>
+<script src="{% static 'Funcionalidades_Asincronas/inicio_sesion/autenticacion.js' %}"></script>
 
 {% endblock %}

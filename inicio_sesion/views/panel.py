@@ -1,34 +1,19 @@
 from django.shortcuts import redirect, render
-from django.http import JsonResponse, HttpResponse
-from django.db.models import Count
+from django.http import JsonResponse
+from django.db.models import Count, Sum, Q
+from django.db.models.functions import TruncDate
 from django.views.decorators.cache import never_cache
 
-from inicio_sesion.models import perfil_usuario, sesiones_usuario, contacto, turnos_laborales, usuarios, perfiles
+from inicio_sesion.models import sesiones_usuario, bitacora, supervisores_encargados, personal_limpieza, despachadores, vigilantes
+from asignaciones.models import categoria_equipo, equipos, entrega_equipos, asignacion_equipo
+from incidencias.models import incidencia, tipo_incidencia, vigilante_incidencia
 
 from inicio_sesion.views.autenticacion import validar_token_panel, crear_token_panel
 
-import os
-from django.conf import settings
-from datetime import datetime
-
-from reportlab.platypus import (
-    SimpleDocTemplate,
-    Table,
-    TableStyle
-)
-
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import letter
-
 # USUARIOS PANEL
 
-def pagina_error_404(request, exception):
-    return render(
-        request,
-        "inicio_sesion/404.html",
-        {"pagina_404": True},
-        status=404
-    )
+def pagina_error_404(request, exception=None, **kwargs):
+    return render(request, "inicio_sesion/404.html", { "es_404": True }, status=404)
 
 @never_cache
 def panel_usuario(request):
@@ -49,7 +34,6 @@ def panel_usuario(request):
         token=token
     )
 
-
 @never_cache
 def panel_usuario_token(request, token):
 
@@ -67,7 +51,7 @@ def panel_usuario_token(request, token):
 
     response = render(
         request,
-        "inicio_sesion/panel_usuario.html"
+        "Panel/panel_usuario.html"
     )
 
     response["Cache-Control"] = (
@@ -78,55 +62,98 @@ def panel_usuario_token(request, token):
 
     return response
 
+# ESTADISTICAS DEL ENCARGADO ADMINISTRATIVO
 
-def empleados_registrados(request):
+def registros_sistema(request):
+    total_supervisores = supervisores_encargados.objects.count()
+    total_limpieza = personal_limpieza.objects.count()
+    total_despachadores = despachadores.objects.count()
+    total_vigilantes = vigilantes.objects.count()
 
-    nombres_perfiles = [
-        "Vigilante",
-        "Despachador",
-        "Personal de Limpieza",
-        "Supervisor Encargado"
+    total_empleados = (
+        total_supervisores
+        + total_limpieza
+        + total_despachadores
+        + total_vigilantes
+    )
+
+    total_equipos = equipos.objects.count()
+
+    total_incidencias = incidencia.objects.count()
+
+    total_entregas = entrega_equipos.objects.count()
+
+    return JsonResponse({
+        "estado": "exito",
+        "total_empleados": total_empleados,
+        "total_equipos": total_equipos,
+        "total_incidencias": total_incidencias,
+        "total_entregas": total_entregas,
+    })
+
+def empleados_administrador(request):
+    total_supervisores = supervisores_encargados.objects.count()
+    total_limpieza = personal_limpieza.objects.count()
+    total_despachadores = despachadores.objects.count()
+    total_vigilantes = vigilantes.objects.count()
+
+    total_empleados = (
+        total_supervisores
+        + total_limpieza
+        + total_despachadores
+        + total_vigilantes
+    )
+
+    return JsonResponse({
+        "estado": "exito",
+        "total_empleados": total_empleados,
+        "total_supervisores": total_supervisores,
+        "total_limpieza": total_limpieza,
+        "total_despachadores": total_despachadores,
+        "total_vigilantes": total_vigilantes,
+    })
+    
+def bitacora_sistema(request):
+    acciones_por_fecha = (
+        bitacora.objects
+        .annotate(fecha=TruncDate("fecha_hora"))
+        .values("fecha")
+        .annotate(total=Count("id_bitacora"))
+        .order_by("fecha")
+    )
+
+    registros = [
+        {
+            "fecha": registro["fecha"].strftime("%d/%m/%Y"),
+            "total": registro["total"]
+        }
+        for registro in acciones_por_fecha
     ]
 
-    # OBTENER LOS PERFILES
-    perfiles_registrados = perfiles.objects.filter(
-        perfil__in=nombres_perfiles
+    return JsonResponse({
+        "estado": "exito",
+        "acciones_por_fecha": registros
+    })
+
+def registro_equipo_categoria(request):
+    categorias = (
+        categoria_equipo.objects
+        .annotate(total_equipos=Count("equipos__id_equipo"))
+        .order_by("nombre")
     )
 
-    # CONTAR EMPLEADOS POR PERFIL
-    conteo_perfiles = (
-        perfil_usuario.objects
-        .filter(
-            id_perfil__perfil__in=nombres_perfiles,
-            vigencia=True
-        )
-        .values("id_perfil")
-        .annotate(
-            cantidad=Count("id_perfil_usuario")
-        )
-    )
+    registros = [
+        {
+            "categoria": categoria.nombre,
+            "total": categoria.total_equipos
+        }
+        for categoria in categorias
+    ]
 
-    # CREAR DICCIONARIO DE CANTIDADES
-    conteo = {
-        item["id_perfil"]: item["cantidad"]
-        for item in conteo_perfiles
-    }
-
-    # RESPUESTA
-    datos = []
-
-    for perfil in perfiles_registrados:
-
-        datos.append({
-            "id_perfil": perfil.id_perfil,
-            "perfil": perfil.perfil,
-            "cantidad": conteo.get(
-                perfil.id_perfil,
-                0
-            )
-        })
-
-    return JsonResponse(datos, safe=False)
+    return JsonResponse({
+        "estado": "exito",
+        "categorias": registros
+    })
 
 def obtener_info_dispositivo(user_agent):
     user_agent = user_agent or ""
@@ -191,6 +218,343 @@ def obtener_info_dispositivo(user_agent):
         "version": version,
     }
 
+# ESTADISTICAS DE LOS SUPERVISORES ENCARGADOS
+
+def registro_sistema_supervisor(request):
+    cedula = request.session.get("cedula_identidad")
+
+    if not cedula:
+        return JsonResponse({
+            "estado": "fallo",
+            "title": "Sesión no válida",
+            "icon": "warning",
+            "descripcion": "Debe iniciar sesión para consultar los registros."
+        }, status=401)
+
+    supervisor = supervisores_encargados.objects.filter(
+        id_usuario__cedula_identidad=cedula,
+        vigencia=True
+    ).select_related("id_turno").first()
+
+    if not supervisor:
+        return JsonResponse({
+            "estado": "fallo",
+            "title": "Supervisor no encontrado",
+            "icon": "warning",
+            "descripcion": "No se encontró un supervisor encargado vigente."
+        }, status=404)
+
+    turno = supervisor.id_turno
+
+    total_limpieza = personal_limpieza.objects.filter(
+        id_turno=turno,
+        vigencia=True
+    ).count()
+
+    total_despachadores = despachadores.objects.filter(
+        id_turno=turno,
+        vigencia=True
+    ).count()
+
+    total_vigilantes = vigilantes.objects.filter(
+        id_turno=turno,
+        vigencia=True
+    ).count()
+
+    total_empleados = (
+        + total_limpieza
+        + total_despachadores
+        + total_vigilantes
+    )
+
+    entregas = entrega_equipos.objects.filter(
+        supervisor_encargado=supervisor,
+        supervisor_encargado__id_turno=turno
+    )
+
+    total_equipos = entregas.aggregate(
+        total=Sum("cantidad_entregada")
+    )["total"] or 0
+
+    total_incidencias = incidencia.objects.filter(
+        id_supervisor=supervisor,
+        id_turno=turno
+    ).count()
+
+    total_entregas = entregas.count()
+
+    return JsonResponse({
+        "estado": "exito",
+        "title": "Registros del supervisor",
+        "icon": "success",
+        "descripcion": "Registros obtenidos correctamente.",
+        "turno": str(turno),
+        "total_empleados": total_empleados,
+        "total_equipos": total_equipos,
+        "total_incidencias": total_incidencias,
+        "total_entregas": total_entregas
+    })
+
+def empleados_supervisor_turno(request):
+    cedula = request.session.get("cedula_identidad")
+    if not cedula:
+        return JsonResponse({
+            "estado": "fallo",
+            "title": "Sesión no válida",
+            "icon": "warning",
+            "descripcion": "Debe iniciar sesión para consultar los empleados."
+        }, status=401)
+
+    supervisor = supervisores_encargados.objects.filter(
+        id_usuario__cedula_identidad=cedula,
+        vigencia=True
+    ).select_related("id_turno").first()
+    if not supervisor:
+        return JsonResponse({
+            "estado": "fallo",
+            "title": "Supervisor no encontrado",
+            "icon": "warning",
+            "descripcion": "No se encontró un supervisor encargado vigente."
+        }, status=404)
+
+    turno = supervisor.id_turno
+
+    cantidad_limpieza = personal_limpieza.objects.filter(
+        id_turno=turno,
+        vigencia=True
+    ).count()
+
+    cantidad_despachadores = despachadores.objects.filter(
+        id_turno=turno,
+        vigencia=True
+    ).count()
+
+    cantidad_vigilantes = vigilantes.objects.filter(
+        id_turno=turno,
+        vigencia=True
+    ).count()
+
+    total_empleados = (
+        cantidad_limpieza
+        + cantidad_despachadores
+        + cantidad_vigilantes
+    )
+
+    return JsonResponse({
+        "estado": "exito",
+        "title": "Empleados del turno",
+        "icon": "success",
+        "descripcion": "Cantidad de empleados obtenida correctamente.",
+        "turno": str(turno),
+        "cantidad_limpieza": cantidad_limpieza,
+        "cantidad_despachadores": cantidad_despachadores,
+        "cantidad_vigilantes": cantidad_vigilantes,
+        "total_empleados": total_empleados
+    })
+
+def equipos_entregados_supervisores(request):
+    cedula = request.session.get("cedula_identidad")
+
+    if not cedula:
+        return JsonResponse({
+            "estado": "fallo",
+            "title": "Sesión no válida",
+            "icon": "warning",
+            "descripcion": "Debe iniciar sesión para consultar los equipos."
+        }, status=401)
+
+    supervisor = supervisores_encargados.objects.filter(
+        id_usuario__cedula_identidad=cedula,
+        vigencia=True
+    ).select_related("id_turno").first()
+
+    if not supervisor:
+        return JsonResponse({
+            "estado": "fallo",
+            "title": "Supervisor no encontrado",
+            "icon": "warning",
+            "descripcion": "No se encontró un supervisor encargado vigente."
+        }, status=404)
+
+    equipos_entregados = entrega_equipos.objects.filter(
+        supervisor_encargado=supervisor,
+        supervisor_encargado__id_turno=supervisor.id_turno,
+        estado="ASIGNADO"
+    )
+
+    equipos_por_categoria = (
+        equipos_entregados
+        .values(
+            "id_equipo__id_categoria",
+            "id_equipo__id_categoria__nombre"
+        )
+        .annotate(
+            cantidad_registros=Count("id_entrega"),
+            cantidad_equipos=Sum("cantidad_entregada")
+        )
+        .order_by("id_equipo__id_categoria__nombre")
+    )
+
+    cantidad_registros = equipos_entregados.count()
+
+    cantidad_equipos = equipos_entregados.aggregate(
+        total=Sum("cantidad_entregada")
+    )["total"] or 0
+
+    return JsonResponse({
+        "estado": "exito",
+        "title": "Equipos entregados por categoría",
+        "icon": "success",
+        "descripcion": "Cantidad de equipos obtenida correctamente.",
+        "turno": str(supervisor.id_turno),
+        "cantidad_registros": cantidad_registros,
+        "cantidad_equipos": cantidad_equipos,
+        "categorias": [
+            {
+                "id_categoria": categoria["id_equipo__id_categoria"],
+                "nombre": categoria["id_equipo__id_categoria__nombre"],
+                "cantidad_registros": categoria["cantidad_registros"],
+                "cantidad_equipos": categoria["cantidad_equipos"] or 0
+            }
+            for categoria in equipos_por_categoria
+        ]
+    })
+
+def incidencias_ocurridos_supervisor(request):
+    cedula = request.session.get("cedula_identidad")
+
+    if not cedula:
+        return JsonResponse({
+            "estado": "fallo",
+            "title": "Sesión no válida",
+            "icon": "warning",
+            "descripcion": "Debe iniciar sesión para consultar las incidencias."
+        }, status=401)
+
+    supervisor = supervisores_encargados.objects.filter(
+        id_usuario__cedula_identidad=cedula,
+        vigencia=True
+    ).select_related("id_turno").first()
+
+    if not supervisor:
+        return JsonResponse({
+            "estado": "fallo",
+            "title": "Supervisor no encontrado",
+            "icon": "warning",
+            "descripcion": "No se encontró un supervisor encargado vigente."
+        }, status=404)
+
+    incidencias_por_tipo = (
+        tipo_incidencia.objects
+        .annotate(
+            cantidad=Count(
+                "incidencias",
+                filter=Q(
+                    incidencias__id_supervisor=supervisor,
+                    incidencias__id_turno=supervisor.id_turno
+                )
+            )
+        )
+        .order_by("nombre")
+    )
+
+    datos_incidencias = [
+        {
+            "id_tipo": tipo.id_tipo,
+            "nombre": tipo.nombre,
+            "cantidad": tipo.cantidad
+        }
+        for tipo in incidencias_por_tipo
+    ]
+
+    total_incidencias = sum(
+        tipo["cantidad"]
+        for tipo in datos_incidencias
+    )
+
+    return JsonResponse({
+        "estado": "exito",
+        "title": "Incidencias por tipo",
+        "icon": "success",
+        "descripcion": "Cantidad de incidencias obtenida correctamente.",
+        "turno": str(supervisor.id_turno),
+        "total_incidencias": total_incidencias,
+        "incidencias_por_tipo": datos_incidencias
+    })
+
+def equipos_asignados_supervisor(request):
+    cedula = request.session.get("cedula_identidad")
+
+    if not cedula:
+        return JsonResponse({
+            "estado": "fallo",
+            "title": "Sesión no válida",
+            "icon": "warning",
+            "descripcion": "Debe iniciar sesión para consultar los equipos."
+        }, status=401)
+
+    supervisor = supervisores_encargados.objects.filter(
+        id_usuario__cedula_identidad=cedula,
+        vigencia=True
+    ).select_related("id_turno").first()
+
+    if not supervisor:
+        return JsonResponse({
+            "estado": "fallo",
+            "title": "Supervisor no encontrado",
+            "icon": "warning",
+            "descripcion": "No se encontró un supervisor encargado vigente."
+        }, status=404)
+
+    asignaciones = asignacion_equipo.objects.filter(
+        id_entrega__supervisor_encargado=supervisor,
+        id_entrega__supervisor_encargado__id_turno=supervisor.id_turno
+    ).exclude(
+        estado="FINALIZADO"
+    )
+
+    equipos_por_categoria = (
+        asignaciones
+        .values(
+            "id_entrega__id_equipo__id_categoria",
+            "id_entrega__id_equipo__id_categoria__nombre"
+        )
+        .annotate(
+            cantidad_asignada=Sum("cantidad_asignada"),
+            cantidad_devuelta=Sum("cantidad_devuelta")
+        )
+        .order_by("id_entrega__id_equipo__id_categoria__nombre")
+    )
+
+    categorias = [
+        {
+            "id_categoria": registro[
+                "id_entrega__id_equipo__id_categoria"
+            ],
+            "categoria": registro[
+                "id_entrega__id_equipo__id_categoria__nombre"
+            ],
+            "cantidad_asignada": registro["cantidad_asignada"] or 0,
+            "cantidad_devuelta": registro["cantidad_devuelta"] or 0,
+            "cantidad_en_posesion": (
+                (registro["cantidad_asignada"] or 0)
+                - (registro["cantidad_devuelta"] or 0)
+            )
+        }
+        for registro in equipos_por_categoria
+    ]
+
+    return JsonResponse({
+        "estado": "exito",
+        "title": "Equipos asignados por categoría",
+        "icon": "success",
+        "descripcion": "Cantidad de equipos obtenida correctamente.",
+        "turno": str(supervisor.id_turno),
+        "categorias": categorias
+    })
+
+# NOTIFICACIÓN DE SEGURIDAD
+
 def ultimo_inicio_sesion(request):
     cedula = request.session.get("cedula_identidad")
 
@@ -225,378 +589,3 @@ def ultimo_inicio_sesion(request):
             "dispositivo": dispositivo,
         }
     })
-
-def empleado_perfil(request):
-    if request.method == "POST":
-        id_perfil = request.POST.get("id_perfil", "").strip()
-
-        # Validar ID vacío, null o undefined
-        if id_perfil in ("", "null", "undefined"):
-            return JsonResponse({
-                "estado": True,
-                "empleados": []
-            })
-    
-        # Buscar las asignaciones del perfil
-        asignaciones = perfil_usuario.objects.filter(
-            id_perfil_id=id_perfil,
-            vigencia=True
-        )
-
-        datos_empleados = []
-        for asignacion in asignaciones:
-            id_usuario = asignacion.id_usuario_id
-
-            # Datos del usuario
-            try:
-                usuario = usuarios.objects.get(id_usuario=id_usuario)
-            except usuarios.DoesNotExist:
-                continue
-
-            # Datos de contacto
-            try:
-                datos_contacto = contacto.objects.get(id_usuario_id=id_usuario)
-            except contacto.DoesNotExist:
-                datos_contacto = None
-
-            # Datos del turno
-            turno = None
-            if asignacion.id_turno_id:
-                try:
-                    datos_turno = turnos_laborales.objects.get(id_turno=asignacion.id_turno_id)
-
-                    turno = datos_turno.nombre
-                except turnos_laborales.DoesNotExist:
-                    turno = "No asignado"
-            else:
-                turno = "No asignado"
-
-            # Construir datos
-            datos_empleados.append({
-                "id": usuario.id_usuario,
-                "nombres": usuario.nombres,
-                "apellidos": usuario.apellidos,
-                "cedula": usuario.cedula_identidad,
-                "telefono": (
-                    datos_contacto.telefono_principal
-                    if datos_contacto
-                    else "No registrado"
-                ),
-                "correo": (
-                    datos_contacto.correo_principal
-                    if datos_contacto
-                    else "No registrado"
-                ),
-                "turno": turno
-            })
-
-        return JsonResponse({
-            "estado": True,
-            "empleados": datos_empleados
-        })
-
-
-def empleado_perfil_pdf(request):
-    if request.method == "POST":
-        id_perfil = request.POST.get("id_perfil").strip()
-
-        if not id_perfil or id_perfil in ("null", "undefined"):
-            return JsonResponse({
-                "estado": "fallo",
-                "title": "Perfil no seleccionado",
-                "descripcion": "No se recibió un perfil válido para generar el PDF.",
-                "icon": "warning"
-            })
-
-        try:
-            id_perfil = int(id_perfil)
-        except (ValueError, TypeError):
-            return JsonResponse({
-                "estado": "fallo",
-                "title": "Perfil no válido",
-                "descripcion": "El ID del perfil recibido no es válido.",
-                "icon": "error"
-            })
-
-        # BUSCAR ASIGNACIONES DEL PERFIL
-        asignaciones = (
-            perfil_usuario.objects
-            .filter(
-                id_perfil_id=id_perfil,
-                vigencia=True
-            )
-            .select_related(
-                "id_perfil",
-                "id_turno"
-            )
-        )
-
-        datos = []
-
-        for asignacion in asignaciones:
-
-            id_usuario = asignacion.id_usuario_id
-
-            # BUSCAR USUARIO
-            try:
-                usuario = usuarios.objects.get(id_usuario=id_usuario)
-            except usuarios.DoesNotExist:
-                continue
-
-            # BUSCAR CONTACTO
-            try:
-                datos_contacto = contacto.objects.get(id_usuario_id=id_usuario)
-
-            except contacto.DoesNotExist:
-                datos_contacto = None
-
-            # TURNO
-            if asignacion.id_turno_id:
-
-                try:
-                    datos_turno = turnos_laborales.objects.get(id_turno=asignacion.id_turno_id)
-
-                    turno = datos_turno.nombre
-
-                except turnos_laborales.DoesNotExist:
-                    turno = "No asignado"
-
-            else:
-                turno = "No asignado"
-
-            datos.append({
-                "id": usuario.id_usuario,
-                "nombres": usuario.nombres,
-                "apellidos": usuario.apellidos,
-                "cedula": usuario.cedula_identidad,
-                "telefono": (
-                    datos_contacto.telefono_principal
-                    if datos_contacto
-                    else "No registrado"
-                ),
-                "correo": (
-                    datos_contacto.correo_principal
-                    if datos_contacto
-                    else "No registrado"
-                ),
-                "turno": turno
-            })
-
-        # VALIDAR SI LA TABLA ESTÁ VACÍA
-        if not datos:
-            return JsonResponse({
-                "estado": "fallo",
-                "title": "Sin empleados registrados",
-                "descripcion": "No existen empleados registrados para el perfil seleccionado.",
-                "icon": "warning"
-            })
-
-        # CONTINUAR CON LA GENERACIÓN DEL PDF
-        response = HttpResponse(
-            content_type="application/pdf"
-        )
-
-
-        response["Content-Disposition"] = (
-            'inline; filename="empleados_perfil.pdf"'
-        )
-
-        # DOCUMENTO
-        documento = SimpleDocTemplate(
-            response,
-            pagesize=letter,
-            rightMargin=25,
-            leftMargin=25,
-            topMargin=130,
-            bottomMargin=30
-        )
-
-        # LOGO
-        ruta_logo = os.path.join(
-            settings.BASE_DIR,
-            "static",
-            "Imagenes",
-            "logo_hielo_caipe.png"
-        )
-
-        # DATOS DE LA TABLA
-        datos_tabla = [
-
-            # ENCABEZADO PRINCIPAL
-            [
-                "LISTA DE EMPLEADOS",
-                "",
-                "",
-                "",
-                "",
-                "",
-                ""
-            ],
-
-            # ENCABEZADO DE COLUMNAS
-            [
-                "ID",
-                "Nombres",
-                "Apellidos",
-                "C.I",
-                "Teléfono",
-                "Correo Electrónico",
-                "Turno Laboral"
-            ]
-        ]
-
-        # REGISTROS
-        for numero, dato in enumerate(datos, start=1):
-            datos_tabla.append([
-                numero,
-                dato["nombres"],
-                dato["apellidos"],
-                dato["cedula"],
-                dato["telefono"],
-                dato["correo"],
-                dato["turno"]
-            ])
-
-        # TABLA
-        tabla = Table(
-            datos_tabla,
-            colWidths=[
-                35,   # ID
-                85,   # Nombres
-                85,   # Apellidos
-                70,   # C.I
-                75,   # Teléfono
-                130,  # Correo
-                85    # Turno
-            ],
-            repeatRows=2
-        )
-
-        tabla.setStyle(TableStyle([
-            # ENCABEZADO PRINCIPAL
-            ("SPAN",       (0, 0), (-1, 0)),
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#00445F")),
-            ("TEXTCOLOR",  (0, 0), (-1, 0), colors.white),
-            ("FONTNAME",   (0, 0), (-1, 0), "Times-Bold"),
-            ("FONTSIZE",   (0, 0), (-1, 0), 14),
-            ("ALIGN",      (0, 0), (-1, 0), "CENTER"),
-            ("VALIGN",     (0, 0), (-1, 0), "MIDDLE"),
-
-            # ENCABEZADO DE COLUMNAS
-            ("BACKGROUND", (0, 1), (-1, 1), colors.HexColor("#00445F")),
-            ("TEXTCOLOR",  (0, 1), (-1, 1), colors.white),
-            ("FONTNAME",   (0, 1), (-1, 1), "Times-Bold"),
-            ("FONTSIZE",   (0, 1), (-1, 1), 9),
-            ("ALIGN",      (0, 1), (-1, 1), "CENTER"),
-            ("VALIGN",     (0, 1), (-1, 1), "MIDDLE"),
-
-            # CONTENIDO
-            ("FONTNAME",   (0, 2), (-1, -1), "Times-Roman"),
-            ("FONTSIZE",   (0, 2), (-1, -1), 8),
-            ("TEXTCOLOR",  (0, 2), (-1, -1), colors.black),
-            ("ALIGN",      (0, 2), (-1, -1), "CENTER"),
-            ("VALIGN",     (0, 2), (-1, -1), "MIDDLE"),
-
-            # BORDES
-            ("GRID",       (0, 0), (-1, -1), 0.5, colors.grey),
-
-            # ESPACIADO
-            ("TOPPADDING",    (0, 0), (-1, -1), 7),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
-        ]))
-
-        # ELEMENTOS
-        elementos = [
-            tabla
-        ]
-
-        # GENERAR PDF
-        documento.build(
-            elementos,
-            onFirstPage=lambda canvas, documento:
-                encabezado_lista_pdf(
-                    canvas,
-                    documento,
-                    ruta_logo
-                ),
-            onLaterPages=lambda canvas, documento:
-                encabezado_lista_pdf(
-                    canvas,
-                    documento,
-                    ruta_logo
-                )
-        )
-
-        return response
-
-def encabezado_lista_pdf(canvas, documento, ruta_logo):
-    canvas.saveState()
-
-    # LOGO
-    x_logo = 30
-    y_logo = letter[1] - 150
-
-    ancho_logo = 160
-    alto_logo = 160
-
-    canvas.drawImage(
-        ruta_logo,
-        x_logo,
-        y_logo,
-        width=ancho_logo,
-        height=alto_logo,
-        preserveAspectRatio=True,
-        mask="auto"
-    )
-
-    # TITULO EMPRESA
-    x_titulo = 185
-    y_titulo = letter[1] - 70
-
-    canvas.setFont("Times-Bold", 18)
-    canvas.setFillColor(colors.HexColor("#00445F"))
-
-    canvas.drawString(
-        x_titulo,
-        y_titulo,
-        "EMPRESA HIELO CAIPE C.A"
-    )
-
-    # FECHA EN ESPAÑOL
-    meses = [
-        "Enero",
-        "Febrero",
-        "Marzo",
-        "Abril",
-        "Mayo",
-        "Junio",
-        "Julio",
-        "Agosto",
-        "Septiembre",
-        "Octubre",
-        "Noviembre",
-        "Diciembre"
-    ]
-
-    fecha = datetime.now()
-
-    fecha_actual = (
-        f"{fecha.day} de "
-        f"{meses[fecha.month - 1]} de "
-        f"{fecha.year}"
-    )
-
-    # FECHA
-    x_fecha = 210
-    y_fecha = letter[1] - 120
-
-    canvas.setFont("Times-Bold", 11)
-    canvas.setFillColor(colors.HexColor("#072F3F"))
-
-    canvas.drawString(
-        x_fecha,
-        y_fecha,
-        f"Fecha Generado {fecha_actual}"
-    )
-
-    canvas.restoreState()

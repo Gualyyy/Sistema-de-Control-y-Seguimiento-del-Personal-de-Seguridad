@@ -1,13 +1,14 @@
 from django.db.models import Q
 from django.db import transaction
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.http import JsonResponse, HttpResponse
 from django.contrib.auth.hashers import check_password, make_password
-from inicio_sesion.models import usuarios, credenciales, contacto, nacimiento, residencia, perfil_usuario, perfiles, turnos_laborales, historial_perfiles_usuario, bitacora
-
+from django.views.decorators.cache import never_cache
 from inicio_sesion.views.autenticacion import crear_token_panel
 
+from inicio_sesion.models import usuarios, credenciales, contacto, nacimiento, residencia, turnos_laborales, bitacora
+from inicio_sesion.models import personal_limpieza, supervisores_encargados, despachadores, vigilantes
 
 import os
 from django.conf import settings
@@ -17,7 +18,6 @@ from reportlab.platypus import (
     SimpleDocTemplate,
     Table,
     TableStyle,
-    Paragraph,
     Spacer,
     KeepTogether
 )
@@ -27,7 +27,7 @@ from reportlab.lib.enums import TA_CENTER
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 
-# GESTIÓN DE EMPLEADOS Y USUARIOS
+# GESTIÓN DE EMPLEADOS Y USUARIOS ENCARGADO ADMINISTRATIVO
 
 # VALIDACIÓN DE CAMPOS CRÍTICOS
 
@@ -59,13 +59,13 @@ def validar_contrasenia(request):
 
         cuentas = credenciales.objects.only("id_credenciales", "clave", "id_usuario")
 
-        # Si es actualización, excluir las credenciales pertenecientes al usuario actual
         if id_usuario:
             cuentas = cuentas.exclude(id_usuario=id_usuario)
 
         existe = any(
             check_password(contrasenia, cuenta.clave)
             for cuenta in cuentas
+
         )
 
         return JsonResponse({
@@ -147,6 +147,320 @@ def validar_email(request):
         "existe": False
     })
 
+def validar_telefono(request):
+    if request.method == "POST":
+        prefijo = request.POST.get("prefijo", "").strip()
+        numeros = request.POST.get("numeros", "").strip()
+        id_usuario = request.POST.get("id_usuario", "").strip()
+
+        telefono = f"{prefijo}-{numeros}"
+
+        consulta = contacto.objects.filter(
+            Q(telefono_principal__iexact=telefono) |
+            Q(telefono_secundario__iexact=telefono)
+        )
+
+        if id_usuario:
+            contacto_usuario = contacto.objects.filter(id_usuario=id_usuario).first()
+
+            if contacto_usuario:
+                mismo_usuario = (
+                    contacto_usuario.telefono_principal == telefono or
+                    contacto_usuario.telefono_secundario == telefono
+                )
+
+                if mismo_usuario:
+                    return JsonResponse({ "existe": True })
+
+            consulta = consulta.exclude(id_usuario=id_usuario)
+
+        existe = consulta.exists()
+
+        return JsonResponse({
+            "existe": existe
+        })
+
+    return JsonResponse({
+        "existe": False
+    })
+
+# SUPERVISORES ENCARGADOS
+
+def supervisores_registrados(request):
+    supervisores = []
+
+    registros = supervisores_encargados.objects.filter(
+        vigencia=True
+    ).select_related(
+        "id_usuario",
+        "id_turno",
+        "id_usuario__credenciales"
+    )
+
+    for supervisor in registros:
+
+        credenciales = getattr(
+            supervisor.id_usuario,
+            "credenciales",
+            None
+        )
+
+        supervisores.append({
+            "id_usuario": supervisor.id_usuario.id_usuario,
+            "id_supervisor": supervisor.id_supervisor,
+            "cedula": supervisor.id_usuario.cedula_identidad,
+            "nombres": supervisor.id_usuario.nombres,
+            "apellidos": supervisor.id_usuario.apellidos,
+            "genero": supervisor.id_usuario.genero,
+            "estado_civil": supervisor.id_usuario.estado_civil,
+            "turno": (
+                supervisor.id_turno.nombre
+                if supervisor.id_turno
+                else "Sin turno asignado"
+            ),
+            "vigencia": supervisor.vigencia,
+
+            "tiene_credenciales": credenciales is not None,
+            "bloqueado": (
+                credenciales.bloqueado
+                if credenciales
+                else False
+            )
+        })
+
+    if not supervisores:
+        return JsonResponse({
+            "estado": "vacio",
+            "supervisores": []
+        })
+
+    return JsonResponse({
+        "estado": "exito",
+        "supervisores": supervisores
+    })
+
+def credenciales_supervisor(request):
+    if request.method != "POST":
+        return JsonResponse({
+            "estado": "fallo",
+            "descripcion": "Método de solicitud no permitido.",
+            "tipo_mensaje": "error"
+        })
+
+    id_usuario = request.POST.get("id_usuario")
+    nombre_usuario = request.POST.get("nombre_usuario", "").strip()
+    contrasenia = request.POST.get("contrasenia", "")
+
+    if not id_usuario:
+        return JsonResponse({
+            "estado": "fallo",
+            "descripcion": "Selecciona un supervisor registrado.",
+            "tipo_mensaje": "advertencia"
+        })
+
+    if not nombre_usuario:
+        return JsonResponse({
+            "estado": "fallo",
+            "descripcion": "Ingresa el nombre de usuario.",
+            "tipo_mensaje": "advertencia"
+        })
+
+    if not contrasenia:
+        return JsonResponse({
+            "estado": "fallo",
+            "descripcion": "Ingresa la contraseña.",
+            "tipo_mensaje": "advertencia"
+        })
+
+    try:
+        usuario = usuarios.objects.get(id_usuario=id_usuario)
+    except usuarios.DoesNotExist:
+        return JsonResponse({
+            "estado": "fallo",
+            "descripcion": "El supervisor no se encuentra registrado.",
+            "tipo_mensaje": "error"
+        })
+
+    if hasattr(usuario, "credenciales"):
+        return JsonResponse({
+            "estado": "fallo",
+            "descripcion": "Este supervisor ya tiene credenciales registradas.",
+            "tipo_mensaje": "advertencia"
+        })
+
+    if credenciales.objects.filter(nombre_usuario=nombre_usuario).exists():
+        return JsonResponse({
+            "estado": "fallo",
+            "descripcion": "El nombre de usuario ya está registrado. Elige otro.",
+            "tipo_mensaje": "advertencia"
+        })
+
+    credenciales.objects.create(
+        nombre_usuario=nombre_usuario,
+        clave=make_password(contrasenia),
+        id_usuario=usuario
+    )
+
+    return JsonResponse({
+        "estado": "exito",
+        "descripcion": "Las credenciales se registraron correctamente.",
+        "tipo_mensaje": "exito"
+    })
+
+def actualizar_credenciales_supervisor(request):
+    if request.method != "POST":
+        return JsonResponse({
+            "estado": "fallo",
+            "descripcion": "Método de solicitud no permitido.",
+            "tipo_mensaje": "error"
+        })
+
+    id_usuario = request.POST.get("id_usuario")
+    nombre_usuario = request.POST.get("nombre_usuario", "").strip()
+    contrasenia = request.POST.get("contrasenia", "")
+
+    if not id_usuario:
+        return JsonResponse({
+            "estado": "fallo",
+            "descripcion": "Selecciona un supervisor registrado.",
+            "tipo_mensaje": "advertencia"
+        })
+
+    if not nombre_usuario:
+        return JsonResponse({
+            "estado": "fallo",
+            "descripcion": "Ingresa el nombre de usuario.",
+            "tipo_mensaje": "advertencia"
+        })
+
+    if not contrasenia:
+        return JsonResponse({
+            "estado": "fallo",
+            "descripcion": "Ingresa la contraseña.",
+            "tipo_mensaje": "advertencia"
+        })
+    try:
+        usuario = usuarios.objects.get(id_usuario=id_usuario)
+    except usuarios.DoesNotExist:
+        return JsonResponse({
+            "estado": "fallo",
+            "descripcion": "El supervisor no se encuentra registrado o está inactivo.",
+            "tipo_mensaje": "error"
+        })
+    
+    try:
+        credenciales_supervisor = credenciales.objects.get(
+            id_usuario=usuario
+        )
+    except credenciales.DoesNotExist:
+        return JsonResponse({
+            "estado": "fallo",
+            "descripcion": "Este supervisor todavía no tiene credenciales registradas.",
+            "tipo_mensaje": "advertencia"
+        })
+
+    if credenciales.objects.filter(
+        nombre_usuario=nombre_usuario
+    ).exclude(
+        id_usuario=usuario
+    ).exists():
+        return JsonResponse({
+            "estado": "fallo",
+            "descripcion": "El nombre de usuario ya está registrado. Elige otro.",
+            "tipo_mensaje": "advertencia"
+        })
+
+    credenciales_supervisor.nombre_usuario = nombre_usuario
+    credenciales_supervisor.clave = make_password(contrasenia)
+    credenciales_supervisor.save()
+
+    return JsonResponse({
+        "estado": "exito",
+        "descripcion": "Las credenciales se actualizaron correctamente.",
+        "tipo_mensaje": "exito"
+    })
+
+def bloquear_supervisor(request):
+    id_usuario = request.POST.get("id_usuario", "").strip()
+    estado = request.POST.get("bloqueado", "").strip()
+
+    if not id_usuario:
+        return JsonResponse({
+            "estado": "fallo",
+            "title": "Error",
+            "descripcion": "No se recibió el usuario del supervisor.",
+            "icon": "error"
+        })
+
+    # OBTENER USUARIO DEL SUPERVISOR
+    try:
+        usuario = usuarios.objects.get(id_usuario=id_usuario)
+    except usuarios.DoesNotExist:
+        return JsonResponse({
+            "estado": "fallo",
+            "title": "Error",
+            "descripcion": "El supervisor no se encuentra registrado.",
+            "icon": "error"
+        })
+
+    # OBTENER CREDENCIALES
+    try:
+        credencial = credenciales.objects.get(id_usuario=usuario)
+    except credenciales.DoesNotExist:
+        return JsonResponse({
+            "estado": "fallo",
+            "title": "Sin credenciales",
+            "descripcion": "Este supervisor no tiene credenciales registradas.",
+            "icon": "warning"
+        })
+
+    # CAMBIAR ESTADO
+    credencial.bloqueado = estado == "true"
+    credencial.save()
+
+    # USUARIO QUE REALIZA LA ACCIÓN
+    try:
+        usuario_accion = usuarios.objects.get(cedula_identidad=request.session.get("cedula_identidad"))
+    except usuarios.DoesNotExist:
+        return JsonResponse({
+            "estado": "fallo",
+            "title": "Error",
+            "descripcion": "No se pudo identificar al usuario que realiza la acción.",
+            "icon": "error"
+        })
+
+    # REGISTRAR EN BITÁCORA
+    if credencial.bloqueado:
+        accion = (
+            f"Se bloqueó al supervisor "
+            f"{usuario.nombres} {usuario.apellidos}."
+        )
+    else:
+        accion = (
+            f"Se desbloqueó al supervisor "
+            f"{usuario.nombres} {usuario.apellidos}."
+        )
+
+    bitacora.objects.create(
+        id_usuario=usuario_accion,
+        accion=accion
+    )
+
+    return JsonResponse({
+        "estado": "exito",
+        "title": "Éxito",
+        "descripcion": (
+            "El supervisor ha sido bloqueado."
+            if credencial.bloqueado
+            else
+            "El supervisor ha sido desbloqueado."
+        ),
+        "icon": "success"
+    })
+
+def supervisores_generales(request):
+    return render(request, "Modulos/Supervisor Encargado/gestionar_supervisores.html")
+
 # COMPLETAR REGISTRO EMPLEADOS Y ADMINISTRADOR
 
 def buscar_datos_pre_registrado(request):
@@ -193,7 +507,19 @@ def buscar_datos_pre_registrado(request):
         }
     })
 
+@never_cache
 def completar_registro(request):
+    if not request.session.get("usuario"):
+        if request.method == "POST":
+            return JsonResponse({
+                "estado": "fallo",
+                "title": "Sesión expirada",
+                "descripcion": "Inicie sesión para continuar.",
+                "icon": "warning"
+            }, status=401)
+
+        return redirect("inicio_sesion")
+
     if request.method == "POST":
         prefijo_principal = request.POST.get("prefijo_principal")
         numero_principal = request.POST.get("numero_principal")
@@ -233,8 +559,6 @@ def completar_registro(request):
             parroquia = parroquia_nacimiento_nvzla
 
         campos = [
-            (correo_secundaria, "Correo Secundario", "Por favor, ingrese su correo secundario."),
-            (dominio_secundaria, "Dominio del Correo Secundario", "Por favor, seleccione el dominio del correo secundario."),
             (pais_nacimiento, "País de Nacimiento", "Por favor, seleccione su país de nacimiento."),
             
             (direccion_nacimiento, "Dirección de Nacimiento", "Por favor, ingrese su dirección de nacimiento."),
@@ -276,8 +600,27 @@ def completar_registro(request):
 
         else:
             telefono_secundario = prefijo_secundaria + "-" + numero_secundaria
-        
-        correo_secundario = correo_secundaria + dominio_secundaria
+
+        # CORREO ELECTRONICO (ALTERNATIVO)
+        if not dominio_secundaria and not correo_secundaria:
+            correo_secundario = "N/A"
+
+        elif not dominio_secundaria:
+            return JsonResponse({
+                "title": "Prefijo vacío",
+                "descripcion": "Por favor, selecciona el dominio del Correo Electronico.",
+                "icon": "warning"
+            })
+
+        elif not correo_secundaria:
+            return JsonResponse({
+                "title": "Número vacío",
+                "descripcion": "Por favor, ingresa el nombre del Correo Electronico.",
+                "icon": "warning"
+            })
+
+        else:
+            correo_secundario = correo_secundaria + dominio_secundaria
 
         try:
             with transaction.atomic():
@@ -331,6 +674,80 @@ def completar_registro(request):
 
 # REGISTRO EMPLEADOS POR PARTE DEL ADMINISTRADOR
 
+def turnos_registrados(request):
+    turnos_lista = turnos_laborales.objects.all()
+
+    datos = [
+        {
+            "id_turno": turno.id_turno,
+            "nombre": turno.nombre
+        }
+        for turno in turnos_lista
+    ]
+
+    return JsonResponse(datos, safe=False)
+
+def perfiles_disponibles(request):
+    if request.method == "POST":
+        id_turno = request.POST.get("turno")
+
+        if not id_turno:
+            return JsonResponse({
+                "estado": "fallo",
+                "perfiles": []
+            })
+
+        perfiles = []
+
+        # Supervisor Encargado
+        supervisor_existe = supervisores_encargados.objects.filter(
+            id_turno=id_turno,
+            vigencia=True
+        ).exists()
+
+        if not supervisor_existe:
+            perfiles.append({
+                "perfil": "Supervisor Encargado"
+            })
+
+        # Personal de Limpieza
+        limpieza_existe = personal_limpieza.objects.filter(
+            id_turno=id_turno,
+            vigencia=True
+        ).exists()
+
+        if not limpieza_existe:
+            perfiles.append({
+                "perfil": "Personal de Limpieza"
+            })
+
+        # Despachador
+        despachador_existe = despachadores.objects.filter(
+            id_turno=id_turno,
+            vigencia=True
+        ).exists()
+
+        if not despachador_existe:
+            perfiles.append({
+                "perfil": "Despachador"
+            })
+
+        # Vigilante
+        vigilante_existe = vigilantes.objects.filter(
+            id_turno=id_turno,
+            vigencia=True
+        ).exists()
+
+        if not vigilante_existe:
+            perfiles.append({
+                "perfil": "Vigilante"
+            })
+
+        return JsonResponse({
+            "estado": "exito",
+            "perfiles": perfiles
+        })
+
 def registro_usuarios(request):
     if request.method == "POST":
         nombres = request.POST.get("nombres")
@@ -340,34 +757,75 @@ def registro_usuarios(request):
         genero = request.POST.get("genero")
         estado_civil = request.POST.get("estado_civil")
 
-        nombre_usuario = request.POST.get("nombre_usuario")
-        contrasenia = request.POST.get("contrasenia")
+        prefijo_principal = request.POST.get("prefijo_principal")
+        numero_principal = request.POST.get("numero_principal")
+        prefijo_secundaria = request.POST.get("prefijo_secundaria")
+        numero_secundaria = request.POST.get("numero_secundaria")
 
-        prefijo = request.POST.get("prefijo")
-        numero = request.POST.get("numero")
-        correo = request.POST.get("correo")
-        dominio = request.POST.get("dominio")
+        correo_principal = request.POST.get("correo_principal")
+        dominio_principal = request.POST.get("dominio_principal")
+        correo_secundaria = request.POST.get("correo_secundaria")
+        dominio_secundaria = request.POST.get("dominio_secundaria")
+
+        pais_nacimiento = request.POST.get("pais_nacimiento")
+
+        if pais_nacimiento == "Venezuela":
+            estado = request.POST.get("estado_nacimiento")
+            municipio = request.POST.get("municipio_nacimiento")
+            parroquia = request.POST.get("parroquia_nacimiento")
+        else:
+            estado = request.POST.get("estado_novzla")
+            municipio = request.POST.get("municipio_nacimiento_nvzla")
+            parroquia = request.POST.get("parroquia_novzla")
+
+        direccion_nacimiento = request.POST.get("direccion_nacimiento")
+        fecha_nacimiento = request.POST.get("fecha_nacimiento")
+        
+        condicion_residencia = request.POST.get("condicion_residencia")
+        municipio_residencia = request.POST.get("municipio_residencia")
+        parroquia_residencia = request.POST.get("parroquia_residencia")
+        direccion_residencia = request.POST.get("direccion_residencia")
 
         turno = request.POST.get("turno_laboral")
 
-        # TODOS LOS PERFILES
-        perfiles_seleccionados = request.POST.getlist("perfiles")
+        perfil = request.POST.get("perfil")
 
         campos = [
+            # DATOS PERSONALES
             (nombres, "nombre", "Por favor, ingrese su nombre."),
             (apellidos, "apellidos", "Por favor, ingrese sus apellidos."),
             (nacionalidad, "nacionalidad", "Por favor, ingrese su nacionalidad."),
             (cedula, "cédula de identidad", "Por favor, ingrese su cédula de identidad."),
             (genero, "género", "Por favor, ingrese su género."),
             (estado_civil, "estado civil", "Por favor, ingrese su estado civil."),
-            (nombre_usuario, "nombre de usuario", "Por favor, ingrese su nombre de usuario."),
-            (contrasenia, "contraseña", "Por favor, ingrese su contraseña."),
-            (prefijo, "prefijo", "Por favor, seleccione un prefijo telefonico."),
-            (numero, "numero", "Por favor, ingresa el número telefonico."),
-            (correo, "correo", "Por favor, ingresa el correo electronico."),
-            (dominio, "dominio", "Por favor, ingresa el dominio del correo electronico."),
-            (turno, "turno", "Por favor, seleccione un turno."),
-            (perfiles_seleccionados, "perfil", "Por favor, seleccione al menos un perfil."),
+
+            # TELÉFONO PRINCIPAL
+            (prefijo_principal, "prefijo principal", "Por favor, seleccione un prefijo telefónico."),
+            (numero_principal, "número principal", "Por favor, ingrese el número telefónico principal."),
+
+            # CORREO PRINCIPAL
+            (correo_principal, "correo principal", "Por favor, ingrese el correo electrónico principal."),
+            (dominio_principal, "dominio principal", "Por favor, seleccione el dominio del correo electrónico principal."),
+
+            # NACIMIENTO
+            (pais_nacimiento, "país de nacimiento", "Por favor, seleccione el país de nacimiento."),
+            (estado, "estado de nacimiento", "Por favor, seleccione el estado de nacimiento."),
+            (municipio, "municipio de nacimiento", "Por favor, seleccione el municipio de nacimiento."),
+            (parroquia, "parroquia de nacimiento", "Por favor, seleccione la parroquia de nacimiento."),
+            (direccion_nacimiento, "dirección de nacimiento", "Por favor, ingrese la dirección de nacimiento."),
+            (fecha_nacimiento, "fecha de nacimiento", "Por favor, ingrese la fecha de nacimiento."),
+
+            # RESIDENCIA
+            (condicion_residencia, "condición de residencia", "Por favor, seleccione la condición de residencia."),
+            (municipio_residencia, "municipio de residencia", "Por favor, seleccione el municipio de residencia."),
+            (parroquia_residencia, "parroquia de residencia", "Por favor, selecciona la parroquia de residencia."),
+            (direccion_residencia, "dirección de residencia", "Por favor, ingrese la dirección de residencia."),
+
+            # DATOS LABORALES
+            (turno, "turno","Por favor, seleccione un turno."),
+
+            # PERFILES
+            (perfil, "perfil", "Por favor, seleccione un perfil laboral."),
         ]
 
         for valor, campo, mensaje in campos:
@@ -379,40 +837,55 @@ def registro_usuarios(request):
                     "icon": "warning"
                 })
 
+        if not dominio_secundaria and not correo_secundaria:
+            correo_alternativo = "N/A"
+
+        elif not dominio_secundaria:
+            return JsonResponse({
+                "title": "Prefijo vacío",
+                "descripcion": "Por favor, selecciona el dominio del Correo Electronico.",
+                "icon": "warning"
+            })
+        elif not correo_secundaria:
+            return JsonResponse({
+                "title": "Número vacío",
+                "descripcion": "Por favor, ingresa el nombre del Correo Electronico.",
+                "icon": "warning"
+            })
+        else:
+            correo_alternativo = correo_secundaria + dominio_secundaria
+
+        if not prefijo_secundaria and not numero_secundaria:
+            telefono_secundario = "N/A"
+
+        elif not prefijo_secundaria:
+            return JsonResponse({
+                "estado": "fallo",
+                "title": "Prefijo vacío",
+                "descripcion": "Por favor, selecciona el prefijo telefónico.",
+                "icon": "warning"
+            })
+        elif not numero_secundaria:
+            return JsonResponse({
+                "estado": "fallo",
+                "title": "Número vacío",
+                "descripcion": "Por favor, ingresa el número telefónico.",
+                "icon": "warning"
+            })
+        else:
+            telefono_secundario = prefijo_secundaria + "-" + numero_secundaria
+
         cedula_identidad = nacionalidad + "-" + cedula
-        telefono = prefijo + "-" + numero
-        correo_electronico = correo + dominio
+
+        telefono_princiapl = prefijo_principal + "-" + numero_principal
+
+        correo_electronico = correo_principal + dominio_principal
+
+        print(perfil)
 
         try:
             with transaction.atomic():
-
-                turno_obj = turnos_laborales.objects.get(
-                    id_turno=turno
-                )
-
-                # VALIDAR SUPERVISOR
-                supervisor = perfiles.objects.filter(
-                    perfil="Supervisor Encargado",
-                    id_perfil__in=perfiles_seleccionados
-                ).first()
-
-                if supervisor:
-                    existe_supervisor = perfil_usuario.objects.filter(
-                        id_perfil=supervisor,
-                        id_turno=turno_obj,
-                        vigencia=True
-                    ).exists()
-
-                    if existe_supervisor:
-                        return JsonResponse({
-                            "estado": "fallo",
-                            "title": "Perfil no disponible",
-                            "icon": "error",
-                            "descripcion": (
-                                f"Ya existe un Supervisor Encargado "
-                                f"asignado al turno {turno_obj.nombre}."
-                            )
-                        })
+                turno_obj = turnos_laborales.objects.get(id_turno=turno)
 
                 # CREAR USUARIO
                 usuario = usuarios.objects.create(
@@ -423,66 +896,86 @@ def registro_usuarios(request):
                     estado_civil=estado_civil
                 )
 
-                credenciales.objects.create(
-                    nombre_usuario=nombre_usuario,
-                    clave=make_password(contrasenia),
-                    bloqueado=True,
-                    id_usuario=usuario
-                )
-
                 contacto.objects.create(
-                    telefono_principal=telefono,
+                    telefono_principal=telefono_princiapl,
+                    telefono_secundario=telefono_secundario,
                     correo_principal=correo_electronico,
+                    correo_secundario=correo_alternativo,
                     id_usuario=usuario
                 )
 
-                # ASIGNAR PERFILES
-                perfiles_obj = perfiles.objects.filter(
-                    id_perfil__in=perfiles_seleccionados
+                nacimiento.objects.create(
+                    pais=pais_nacimiento,
+                    estado=estado,
+                    municipio=municipio,
+                    parroquia=parroquia,
+                    direccion=direccion_nacimiento,
+                    fecha_nacimiento=fecha_nacimiento,
+                    id_usuario=usuario
                 )
 
-                for perfil_obj in perfiles_obj:
+                residencia.objects.create(
+                    condicion_residencia=condicion_residencia,
+                    municipio=municipio_residencia,
+                    parroquia=parroquia_residencia,
+                    direccion=direccion_residencia,
+                    id_usuario=usuario
+                )
 
-                    perfil_usuario.objects.create(
-                        id_perfil=perfil_obj,
+                if perfil == "Supervisor Encargado":
+                    supervisores_encargados.objects.create(
                         id_usuario=usuario,
                         id_turno=turno_obj,
                         vigencia=True
                     )
 
-                    historial_perfiles_usuario.objects.create(
+                elif perfil == "Personal de Limpieza":
+                    personal_limpieza.objects.create(
                         id_usuario=usuario,
-                        id_perfil=perfil_obj,
                         id_turno=turno_obj,
-                        accion="ASIGNACION"
+                        vigencia=True
                     )
 
-                # BITÁCORA
-                info_usuario = usuarios.objects.get(
-                    cedula_identidad=request.session.get(
-                        "cedula_identidad"
+                elif perfil == "Despachador":
+                    despachadores.objects.create(
+                        id_usuario=usuario,
+                        id_turno=turno_obj,
+                        vigencia=True
                     )
-                )
 
-                accion = (
-                    f"Registró un nuevo usuario "
-                    f"{nombres} {apellidos} {cedula_identidad}"
-                )
+                elif perfil == "Vigilante":
+                    vigilantes.objects.create(
+                        id_usuario=usuario,
+                        id_turno=turno_obj,
+                        vigencia=True
+                    )
 
-                bitacora.objects.create(
-                    id_usuario=info_usuario,
-                    accion=accion
+            # BITÁCORA
+            info_usuario = usuarios.objects.get(
+                cedula_identidad=request.session.get(
+                    "cedula_identidad"
                 )
+            )
 
-                return JsonResponse({
-                    "estado": "exito",
-                    "title": "Éxito",
-                    "descripcion": (
-                        "Se registraron los datos del empleado "
-                        "exitosamente."
-                    ),
-                    "icon": "success"
-                })
+            accion = (
+                f"Registró un nuevo usuario "
+                f"{nombres} {apellidos} {cedula_identidad}"
+            )
+
+            bitacora.objects.create(
+                id_usuario=info_usuario,
+                accion=accion
+            )
+
+            return JsonResponse({
+                "estado": "exito",
+                "title": "Éxito",
+                "descripcion": (
+                    "Se registraron los datos del empleado "
+                    "exitosamente."
+                ),
+                "icon": "success"
+            })
 
         except Exception as e:
             return JsonResponse({
@@ -492,7 +985,7 @@ def registro_usuarios(request):
                 "icon": "error"
             })
 
-    return render(request, "Modulos/registro_usuarios.html")
+    return render(request, "Modulos/Empleados/Administrador/registro_empleados.html")
 
 # ACTUALIZAR DATOS DEL EMPLEADO EL ADMINISTRADOR
 
@@ -521,7 +1014,11 @@ def buscar_datos_usuario(request):
 
         try:
             usuario = usuarios.objects.select_related(
-                "credenciales"
+                "credenciales",
+                "supervisor__id_turno",
+                "personal_limpieza__id_turno",
+                "despachador__id_turno",
+                "vigilante__id_turno"
             ).get(
                 cedula_identidad=cedula_identidad
             )
@@ -546,30 +1043,25 @@ def buscar_datos_usuario(request):
                 id_usuario=usuario
             )
 
-            info_credenciales = credenciales.objects.get(
-                id_usuario=usuario
-            )
+            # PERFIL LABORAL Y TURNO
+            perfil_laboral = "N/A"
+            turno_laboral = "N/A"
 
-            relaciones_perfil = perfil_usuario.objects.filter(
-                id_usuario=usuario,
-                vigencia=True
-            )
+            if hasattr(usuario, "supervisor") and usuario.supervisor.vigencia:
+                perfil_laboral = "Supervisor Encargado"
+                turno_laboral = str(usuario.supervisor.id_turno)
 
-            # NO PERMITIR ADMINISTRADOR
-            if relaciones_perfil.filter(
-                id_perfil__perfil__iexact="Administrador(a)"
-            ).exists():
-                return JsonResponse({
-                    "estado": "fallo",
-                    "title": "Acceso no permitido",
-                    "descripcion": "No puede cambiar sus datos personales.",
-                    "icon": "error"
-                })
+            elif hasattr(usuario, "personal_limpieza") and usuario.personal_limpieza.vigencia:
+                perfil_laboral = "Personal de Limpieza"
+                turno_laboral = str(usuario.personal_limpieza.id_turno)
 
-            perfiles = [
-                relacion.id_perfil.perfil
-                for relacion in relaciones_perfil
-            ]
+            elif hasattr(usuario, "despachador") and usuario.despachador.vigencia:
+                perfil_laboral = "Despachador"
+                turno_laboral = str(usuario.despachador.id_turno)
+
+            elif hasattr(usuario, "vigilante") and usuario.vigilante.vigencia:
+                perfil_laboral = "Vigilante"
+                turno_laboral = str(usuario.vigilante.id_turno)
 
             return JsonResponse({
                 "estado": "exito",
@@ -581,7 +1073,11 @@ def buscar_datos_usuario(request):
                     "cedula_identidad": usuario.cedula_identidad,
                     "genero": usuario.genero,
                     "estado_civil": usuario.estado_civil,
-                    "perfiles": perfiles,
+                },
+
+                "laboral": {
+                    "perfil": perfil_laboral,
+                    "turno": turno_laboral,
                 },
 
                 "contacto": {
@@ -606,10 +1102,6 @@ def buscar_datos_usuario(request):
                     "parroquia": info_residencia.parroquia,
                     "direccion": info_residencia.direccion,
                 },
-
-                "credenciales": {
-                    "nombre_usuario": info_credenciales.nombre_usuario
-                }
             })
 
         except usuarios.DoesNotExist:
@@ -617,14 +1109,6 @@ def buscar_datos_usuario(request):
                 "estado": "fallo",
                 "title": "No encontrado",
                 "descripcion": "No existe un usuario con esa cédula.",
-                "icon": "error"
-            })
-
-        except credenciales.DoesNotExist:
-            return JsonResponse({
-                "estado": "fallo",
-                "title": "Credenciales no encontradas",
-                "descripcion": "El usuario no tiene credenciales registradas.",
                 "icon": "error"
             })
 
@@ -645,8 +1129,6 @@ def actualizacion_datos_usuarios(request):
         cedula_usuario = request.POST.get("cedula_usuario")
         genero_usuario = request.POST.get("genero_usuario")
         estado_civil_usuario = request.POST.get("estado_civil_usuario")
-        nom_usuario = request.POST.get("usuario")
-        actualizar_contrasenia = request.POST.get("actualizar_contrasenia")
 
         prefijo_principal = request.POST.get("prefijo_principal")
         numero_principal = request.POST.get("numero_principal")
@@ -678,21 +1160,19 @@ def actualizacion_datos_usuarios(request):
         actualizar_direccion_residencia = request.POST.get("actualizar_direccion_residencia")
 
         campos = [
-            (nombre_usuario, "Nombre", "Por favor, ingrese el nombre del usuario."),
-            (apellido_usuario, "Apellido", "Por favor, ingrese el apellido del usuario."),
+            (nombre_usuario, "Nombre", "Por favor, ingrese el nombre del empleado."),
+            (apellido_usuario, "Apellido", "Por favor, ingrese el apellido del empleado."),
             (nacionalidad_usuario, "Nacionalidad", "Por favor, seleccione la nacionalidad."),
             (cedula_usuario, "Cédula", "Por favor, ingrese la cédula de identidad."),
             (genero_usuario, "Género", "Por favor, seleccione el género."),
             (estado_civil_usuario, "Estado Civil", "Por favor, seleccione el estado civil."),
-            (nom_usuario, "Usuario", "Por favor, ingrese el nombre de usuario."),
+
             (prefijo_principal, "Prefijo Principal", "Por favor, seleccione el prefijo del teléfono principal."),
             (numero_principal, "Teléfono Principal", "Por favor, ingrese el número del teléfono principal."),
             
             (correo_principal, "Correo Principal", "Por favor, ingrese el usuario del correo principal."),
             (dominio_principal, "Dominio Principal", "Por favor, seleccione el dominio del correo principal."),
-            (correo_secundaria, "Correo Secundario", "Por favor, ingrese el usuario del correo secundario."),
-            (dominio_secundaria, "Dominio Secundario", "Por favor, seleccione el dominio del correo secundario."),
-
+            
             (actualizar_direccion_nacimiento, "Dirección de Nacimiento", "Por favor, ingrese la dirección de nacimiento."),
             (actualizar_fecha_nacimiento, "Fecha de Nacimiento", "Por favor, seleccione la fecha de nacimiento."),
 
@@ -711,7 +1191,10 @@ def actualizacion_datos_usuarios(request):
                     "icon": "warning"
                 })
 
-        if prefijo_secundaria and not numero_secundaria:
+        if not prefijo_secundaria and not numero_secundaria:
+            telefono_secundario = "N/A"
+
+        elif prefijo_secundaria and not numero_secundaria:
             return JsonResponse({
                 "estado": "fallo",
                 "title": "Vacío",
@@ -728,12 +1211,28 @@ def actualizacion_datos_usuarios(request):
             })
 
         elif prefijo_secundaria and numero_secundaria:
-            telefono_secundario = (
-                prefijo_secundaria + "-" + numero_secundaria
-            )
+            telefono_secundario = prefijo_secundaria + "-" + numero_secundaria
+
+
+        if not dominio_secundaria and not correo_secundaria:
+            correo_secundario = "N/A"
+
+        elif not dominio_secundaria:
+            return JsonResponse({
+                "title": "Prefijo vacío",
+                "descripcion": "Por favor, selecciona el dominio del Correo Electronico.",
+                "icon": "warning"
+            })
+
+        elif not correo_secundaria:
+            return JsonResponse({
+                "title": "Número vacío",
+                "descripcion": "Por favor, ingresa el nombre del Correo Electronico.",
+                "icon": "warning"
+            })
 
         else:
-            telefono_secundario = "N/A"
+            correo_secundario = correo_secundaria+dominio_secundaria
 
         if actualizar_pais_nacimiento == "Venezuela":
             estado = actualizar_estado_nacimiento
@@ -747,12 +1246,10 @@ def actualizacion_datos_usuarios(request):
         cedula_identidad = nacionalidad_usuario + "-" + cedula_usuario
         telefono_principal = prefijo_principal + "-" + numero_principal
         correo_principal = correo_principal + dominio_principal
-        correo_secundario = correo_secundaria + dominio_secundaria
 
         try:
             with transaction.atomic():
                 usuario = usuarios.objects.get(id_usuario=usuario_id)
-                credencial = credenciales.objects.get(id_usuario=usuario)
                 info_contacto = contacto.objects.get(id_usuario=usuario)
 
                 if cedula_identidad != usuario.cedula_identidad:
@@ -762,15 +1259,6 @@ def actualizacion_datos_usuarios(request):
                             "estado": "fallo",
                             "title": "Cédula existente",
                             "descripcion": "Ya existe otro usuario con esa cédula.",
-                            "icon": "warning"
-                        })
-
-                if nom_usuario != credencial.nombre_usuario:
-                    if credenciales.objects.filter(nombre_usuario=nom_usuario).exclude(id_usuario=usuario_id).exists():
-                        return JsonResponse({
-                            "estado": "fallo",
-                            "title": "Nombre de usuario existente",
-                            "descripcion": "Ya existe otro usuario con ese nombre de usuario.",
                             "icon": "warning"
                         })
 
@@ -809,16 +1297,6 @@ def actualizacion_datos_usuarios(request):
                 usuario.estado_civil = estado_civil_usuario
                 usuario.save()
 
-                # ACTUALIZAR CREDENCIALES
-                credencial.nombre_usuario = nom_usuario
-
-                if actualizar_contrasenia:
-                    credencial.clave = make_password(
-                        actualizar_contrasenia
-                    )
-
-                credencial.save()
-
                 # ACTUALIZAR CONTACTO
                 info_contacto.telefono_principal = telefono_principal
                 info_contacto.telefono_secundario = telefono_secundario
@@ -828,7 +1306,6 @@ def actualizacion_datos_usuarios(request):
 
                 # ACTUALIZAR NACIMIENTO
                 info_nacimiento = nacimiento.objects.get(id_usuario=usuario)
-
                 info_nacimiento.pais = actualizar_pais_nacimiento
                 info_nacimiento.estado = estado
                 info_nacimiento.municipio = municipio
@@ -887,7 +1364,7 @@ def actualizacion_datos_usuarios(request):
                 "icon": "error"
             })
 
-    return render(request, "Modulos/actualizar_datos_usuarios.html")
+    return render(request, "Modulos/Empleados/Administrador/actualizar_datos_empleado.html")
 
 # VISUALIZAR EN LA TABLA LOS EMPLEADOS REGISTRADOS
 
@@ -897,137 +1374,156 @@ def visualizacion_datos_usuarios(request):
         cedula = request.POST.get("cedula", "").strip()
         perfil = request.POST.get("perfil", "").strip()
 
-        usuarios_registrados = (
-            usuarios.objects
-            .select_related("credenciales")
-            .exclude(
-                perfiles__id_perfil__perfil__iexact="Administrador(a)"
-            )
-        )
-
-        # FILTRAR POR CÉDULA
-        if nacionalidad and cedula:
-            cedula_identidad = f"{nacionalidad}-{cedula}"
-
-            usuarios_registrados = usuarios_registrados.filter(
-                cedula_identidad=cedula_identidad
-            )
-
-        # FILTRAR POR PERFIL
-        if perfil:
-            usuarios_registrados = usuarios_registrados.filter(
-                perfiles__id_perfil=perfil
-            )
-
-        # EVITAR USUARIOS REPETIDOS
-        usuarios_registrados = usuarios_registrados.distinct()
-
         datos = []
 
-        for usuario in usuarios_registrados:
-            datos.append({
-                "id": usuario.id_usuario,
-                "nombres": usuario.nombres,
-                "apellidos": usuario.apellidos,
-                "cedula": usuario.cedula_identidad,
-                "genero": usuario.genero,
-                "estado_civil": usuario.estado_civil,
-                "bloqueado": usuario.credenciales.bloqueado,
-            })
+        # SUPERVISORES ENCARGADOS
+        if not perfil or perfil == "Supervisor Encargado":
+            supervisores = (
+                supervisores_encargados.objects
+                .select_related("id_usuario", "id_turno")
+                .filter(vigencia=True)
+            )
+
+            for empleado in supervisores:
+                usuario = empleado.id_usuario
+
+                if nacionalidad and cedula:
+                    if usuario.cedula_identidad != f"{nacionalidad}-{cedula}":
+                        continue
+
+                datos.append({
+                    "id": usuario.id_usuario,
+                    "nombres": usuario.nombres,
+                    "apellidos": usuario.apellidos,
+                    "cedula": usuario.cedula_identidad,
+                    "genero": usuario.genero,
+                    "estado_civil": usuario.estado_civil,
+                    "perfil": "Supervisor Encargado",
+                    "turno": empleado.id_turno.nombre
+                })
+
+        # PERSONAL DE LIMPIEZA
+        if not perfil or perfil == "Personal de Limpieza":
+            empleados = (
+                personal_limpieza.objects
+                .select_related("id_usuario", "id_turno")
+                .filter(vigencia=True)
+            )
+
+            for empleado in empleados:
+                usuario = empleado.id_usuario
+
+                if nacionalidad and cedula:
+                    if usuario.cedula_identidad != f"{nacionalidad}-{cedula}":
+                        continue
+
+                datos.append({
+                    "id": usuario.id_usuario,
+                    "nombres": usuario.nombres,
+                    "apellidos": usuario.apellidos,
+                    "cedula": usuario.cedula_identidad,
+                    "genero": usuario.genero,
+                    "estado_civil": usuario.estado_civil,
+                    "perfil": "Personal de Limpieza",
+                    "turno": empleado.id_turno.nombre
+                })
+
+        # DESPACHADORES
+        if not perfil or perfil == "Despachador":
+            empleados = (
+                despachadores.objects
+                .select_related("id_usuario", "id_turno")
+                .filter(vigencia=True)
+            )
+
+            for empleado in empleados:
+
+                usuario = empleado.id_usuario
+
+                if nacionalidad and cedula:
+                    if usuario.cedula_identidad != f"{nacionalidad}-{cedula}":
+                        continue
+
+                datos.append({
+                    "id": usuario.id_usuario,
+                    "nombres": usuario.nombres,
+                    "apellidos": usuario.apellidos,
+                    "cedula": usuario.cedula_identidad,
+                    "genero": usuario.genero,
+                    "estado_civil": usuario.estado_civil,
+                    "perfil": "Despachador",
+                    "turno": empleado.id_turno.nombre
+                })
+
+        # VIGILANTES
+        if not perfil or perfil == "Vigilante":
+            empleados = (
+                vigilantes.objects
+                .select_related("id_usuario", "id_turno")
+                .filter(vigencia=True)
+            )
+
+            for empleado in empleados:
+
+                usuario = empleado.id_usuario
+
+                if nacionalidad and cedula:
+                    if usuario.cedula_identidad != f"{nacionalidad}-{cedula}":
+                        continue
+
+                datos.append({
+                    "id": usuario.id_usuario,
+                    "nombres": usuario.nombres,
+                    "apellidos": usuario.apellidos,
+                    "cedula": usuario.cedula_identidad,
+                    "genero": usuario.genero,
+                    "estado_civil": usuario.estado_civil,
+                    "perfil": "Vigilante",
+                    "turno": empleado.id_turno.nombre
+                })
 
         return JsonResponse(datos, safe=False)
 
     return JsonResponse([], safe=False)
 
 def visualizar_empleados(request):
-    return render(request, "Modulos/visualizar_usuarios.html")
-
-# ACTUALIZAR EL ESTADO DEL BLOQUEO DEL EMPLEADO
-
-def bloqueo_empleado(request):
-    if request.method == "POST":
-        id_usuario = request.POST.get("id_usuario", "").strip()
-        estado = request.POST.get("bloqueado", "").strip()
-        print(id_usuario)
-        print(estado)
-        print((estado == True))
-
-        usuario = usuarios.objects.get(id_usuario=id_usuario)
-
-        credencial = credenciales.objects.get(id_usuario=usuario)
-        credencial.bloqueado = (estado.lower() == "true")
-        credencial.save()
-
-        usuario_accion = usuarios.objects.get(
-            cedula_identidad=request.session.get("cedula_identidad")
-        )
-
-        accion = (
-            f"Se bloqueó al empleado "
-            f"{usuario.nombres} {usuario.apellidos}."
-            if credencial.bloqueado
-            else
-            f"Se desbloqueó al empleado "
-            f"{usuario.nombres} {usuario.apellidos}."
-        )
-
-        bitacora.objects.create(
-            id_usuario=usuario_accion,
-            accion=accion
-        )
-
-        return JsonResponse({
-            "estado": "exito",
-            "title": "Éxito",
-            "descripcion": (
-                "El usuario ha sido bloqueado."
-                if credencial.bloqueado
-                else "El usuario ha sido desbloqueado."
-            ),
-            "icon": "success"
-        })
+    return render(request, "Modulos/Empleados/Administrador/visualizar_empleados.html")
 
 # REPORTE DE TODOS LOS EMPLEADOS REGISTRADOS
 
 def lista_empleados_pdf(request):
-    perfil_empleado = request.POST.get("perfil_empleado", "").strip()
-
-    usuarios_registrados = usuarios.objects.all()
-
-    # FILTRAR POR PERFIL
-    if perfil_empleado:
-        usuarios_registrados = usuarios_registrados.filter(perfiles__id_perfil=perfil_empleado)
-
-    # EXCLUIR ADMINISTRADOR
-    usuarios_registrados = (
-        usuarios_registrados
-        .exclude(
-            perfiles__id_perfil__perfil="Administrador(a)"
-        )
-        .prefetch_related(
-            "perfiles__id_perfil",
-            "perfiles__id_turno"
-        )
-        .distinct()
-    )
+    perfil_empleado = request.POST.get("perfil", "").strip()
 
     datos = []
+    modelos_perfiles = (
+        ("Supervisor Encargado", supervisores_encargados),
+        ("Personal de Limpieza", personal_limpieza),
+        ("Despachador", despachadores),
+        ("Vigilante", vigilantes),
+    )
 
-    for usuario in usuarios_registrados:
-        perfiles_usuario = usuario.perfiles.all()
+    for nombre_perfil, modelo_perfil in modelos_perfiles:
+        if perfil_empleado and perfil_empleado != nombre_perfil:
+            continue
 
-        for perfil_usuario in perfiles_usuario:
-            nombre_perfil = perfil_usuario.id_perfil.perfil.strip()
+        empleados = (
+            modelo_perfil.objects
+            .filter(vigencia=True)
+            .select_related("id_usuario")
+        )
 
-            # NO MOSTRAR ADMINISTRADOR
-            if nombre_perfil == "Administrador(a)":
-                continue
-
+        for empleado in empleados:
+            usuario = empleado.id_usuario
             datos.append({
                 "nombres": usuario.nombres,
                 "apellidos": usuario.apellidos,
                 "cedula": usuario.cedula_identidad,
-                "perfil": nombre_perfil
+                "perfil": nombre_perfil,
+                "turno": (
+                    "Turno Completo"
+                    if nombre_perfil == "Encargado Administrativo"
+                    else empleado.id_turno.nombre
+                )
             })
 
     # RESPUESTA PDF
@@ -1056,10 +1552,10 @@ def lista_empleados_pdf(request):
     # DATOS TABLA
     datos_tabla = [
         # ENCABEZADO PRINCIPAL
-        ["LISTA DE EMPLEADOS", "", "", "", ""],
+        ["LISTA DE EMPLEADOS", "", "", "", "", ""],
 
         # ENCABEZADO DE COLUMNAS
-        ["N.º", "Nombres", "Apellidos", "C.I", "Perfil"],
+        ["N.º", "Nombres", "Apellidos", "C.I", "Perfil", "Turno Laboral"],
     ]
 
     # NÚMERO DE REGISTRO DINÁMICO
@@ -1069,13 +1565,14 @@ def lista_empleados_pdf(request):
             dato["nombres"],
             dato["apellidos"],
             dato["cedula"],
-            dato["perfil"]
+            dato["perfil"],
+            dato["turno"]
         ])
 
     # TABLA
     tabla = Table(
         datos_tabla,
-        colWidths=[40, 110, 110, 90, 140, 75],
+        colWidths=[35, 85, 85, 70, 125, 120],
         repeatRows=2
     )
     
@@ -1224,37 +1721,6 @@ def datos_empleados_pdf(request):
     # BUSCAR USUARIO
     usuario = usuarios.objects.get(id_usuario=id_usuario)
 
-    # BUSCAR PERFILES ASIGNADOS
-    perfiles_usuario = perfil_usuario.objects.filter(
-        id_usuario=usuario,
-        vigencia=True
-    ).select_related("id_perfil")
-
-    # NO PERMITIR ADMINISTRADOR
-    if perfiles_usuario.filter(
-        id_perfil__perfil__iexact="Administrador(a)"
-    ).exists():
-        return JsonResponse({
-            "estado": "fallo",
-            "title": "Error",
-            "descripcion": "No se puede generar el PDF de un administrador.",
-            "icon": "error"
-        })
-
-    datos_perfiles = []
-
-    for relacion in perfiles_usuario:
-        datos_perfiles.append([
-            "Perfil:",
-            relacion.id_perfil.perfil.strip()
-        ])
-
-    if not datos_perfiles:
-        datos_perfiles.append([
-            "Perfil:",
-            "Sin perfiles asignados"
-        ])
-
     # INFORMACIÓN DE CONTACTO
     try:
         info_contacto = contacto.objects.get(id_usuario=usuario)
@@ -1401,11 +1867,6 @@ def datos_empleados_pdf(request):
         datos_basicos
     )
 
-    tabla_perfiles = crear_tabla(
-        "PERFILES ASIGNADOS",
-        datos_perfiles
-    )
-
     tabla_contacto = crear_tabla(
         "CONTACTO",
         datos_contacto
@@ -1427,13 +1888,6 @@ def datos_empleados_pdf(request):
     elementos.append(
         KeepTogether([
             tabla_basicos,
-            Spacer(1, 15)
-        ])
-    )
-
-    elementos.append(
-        KeepTogether([
-            tabla_perfiles,
             Spacer(1, 15)
         ])
     )

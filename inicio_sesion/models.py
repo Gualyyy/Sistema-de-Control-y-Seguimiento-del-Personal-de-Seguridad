@@ -1,6 +1,8 @@
 from django.db import models
+from django.utils import timezone
 
 # Create your models here.
+
 class usuarios(models.Model):
     id_usuario = models.AutoField(primary_key=True)
     nombres = models.CharField(max_length=100)
@@ -10,14 +12,15 @@ class usuarios(models.Model):
     estado_civil = models.CharField(max_length=20)
 
     def __str__(self):
-        return self.nombres + " " + self.apellidos
+        return f"{self.nombres} {self.apellidos}"
 
 class credenciales(models.Model):
     id_credenciales = models.AutoField(primary_key=True)
     nombre_usuario = models.CharField(max_length=120)
     clave = models.CharField(max_length=120)
     bloqueado = models.BooleanField(default=False)
-    id_usuario = models.OneToOneField(usuarios, on_delete=models.PROTECT)
+    foto_perfil = models.ImageField(upload_to="fotos_perfil/", blank=True,  null=True)
+    id_usuario = models.OneToOneField(usuarios, on_delete=models.PROTECT, related_name="credenciales")
 
 class contacto(models.Model):
     id_contacto = models.AutoField(primary_key=True)
@@ -25,7 +28,7 @@ class contacto(models.Model):
     telefono_secundario = models.CharField(max_length=12, null=True, blank=True)
     correo_principal = models.EmailField(max_length=30)
     correo_secundario = models.EmailField(max_length=30, null=True, blank=True)
-    id_usuario = models.OneToOneField(usuarios, on_delete=models.PROTECT)
+    id_usuario = models.OneToOneField(usuarios, on_delete=models.PROTECT, related_name="contacto")
 
     def __str__(self):
         return f"{self.id_usuario.nombres} {self.id_usuario.apellidos}"
@@ -38,7 +41,7 @@ class nacimiento(models.Model):
     parroquia = models.CharField(max_length=50)
     direccion = models.TextField()
     fecha_nacimiento = models.DateField(max_length=10)
-    id_usuario = models.OneToOneField(usuarios, on_delete=models.PROTECT)
+    id_usuario = models.OneToOneField(usuarios, on_delete=models.PROTECT, related_name="nacimiento")
 
     def __str__(self):
         return f"{self.id_usuario.nombres} {self.id_usuario.apellidos}"
@@ -49,17 +52,10 @@ class residencia(models.Model):
     municipio = models.CharField(max_length=50)
     parroquia = models.CharField(max_length=50)
     direccion = models.TextField()
-    id_usuario = models.OneToOneField(usuarios, on_delete=models.PROTECT)
+    id_usuario = models.OneToOneField(usuarios, on_delete=models.PROTECT, related_name="residencia")
 
     def __str__(self):
         return f"{self.id_usuario.nombres} {self.id_usuario.apellidos}"
-
-class perfiles(models.Model):
-    id_perfil = models.AutoField(primary_key=True)
-    perfil = models.CharField(max_length=30, unique=True)
-
-    def __str__(self):
-        return self.perfil
 
 class turnos_laborales(models.Model):
     id_turno = models.AutoField(primary_key=True)
@@ -67,59 +63,58 @@ class turnos_laborales(models.Model):
 
     def __str__(self):
             return self.nombre
-    
-class perfil_usuario(models.Model):
-    id_perfil_usuario = models.AutoField(primary_key=True)
-    id_perfil = models.ForeignKey(perfiles, on_delete=models.PROTECT, related_name="usuarios")
-    id_usuario = models.ForeignKey(usuarios, on_delete=models.PROTECT, related_name="perfiles")
-    id_turno = models.ForeignKey(turnos_laborales, on_delete=models.PROTECT, related_name="perfiles_usuario", blank=True, null=True)
+
+class directiva_nacional(models.Model):
+    id_directiva = models.AutoField(primary_key=True)
+    id_usuario = models.OneToOneField(usuarios, on_delete=models.PROTECT, related_name="directiva_nacional")
+
+    def __str__(self):
+        return f"{self.id_usuario.nombres} {self.id_usuario.apellidos}"
+
+class encargados_administrativos(models.Model):
+    id_encargado = models.AutoField(primary_key=True)
+    id_usuario = models.OneToOneField(usuarios, on_delete=models.PROTECT, related_name="encargado_administrativo")
     vigencia = models.BooleanField(default=True)
-    def __str__(self):
-        return (
-            f"{self.id_usuario.nombres} "
-            f"{self.id_usuario.apellidos} "
-            f"{self.id_perfil.perfil}"
-        )
-
-class historial_perfiles_usuario(models.Model):
-    id_historial = models.AutoField(primary_key=True)
-    id_usuario = models.ForeignKey(usuarios, on_delete=models.PROTECT, related_name="historial_perfiles")
-    id_perfil = models.ForeignKey(perfiles, on_delete=models.PROTECT, related_name="historial_asignaciones")
-    id_turno = models.ForeignKey(turnos_laborales, on_delete=models.PROTECT, related_name="historial_perfiles")
-    accion = models.CharField(max_length=20, choices= [
-        ("ASIGNACION", "Asignación"),
-        ("DESIGNACION", "Designación"),
-        ("REASIGNAR", "Reasignar"),
-    ])
-    fecha_accion = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return (
-            f"{self.id_usuario.nombres} "
-            f"{self.id_usuario.apellidos} - "
-            f"{self.id_perfil.perfil}"
-        )
+        return f"{self.id_usuario.nombres} {self.id_usuario.apellidos}"
 
-class categoria_equipo(models.Model):
-    id_categoria = models.AutoField(primary_key=True)
-    nombre = models.CharField(max_length=50, unique=True)
+class supervisores_encargados(models.Model):
+    id_supervisor = models.AutoField(primary_key=True)
+    id_usuario = models.OneToOneField(usuarios, on_delete=models.PROTECT, related_name="supervisor")
+    id_turno = models.ForeignKey(turnos_laborales, on_delete=models.PROTECT, related_name="supervisores")
+    vigencia = models.BooleanField(default=True)
 
     def __str__(self):
-        return self.nombre
-
-class equipos(models.Model):
-    id_equipo = models.AutoField(primary_key=True)
-    nombre = models.CharField(max_length=35)
-    codigo = models.CharField(max_length=30, unique=True)
-    observacion = models.TextField(blank=True, null=True)
-    cantidad_total = models.PositiveIntegerField(default=0)
-    cantidad_disponible = models.PositiveIntegerField(default=0)
-    fecha_registro = models.DateTimeField(auto_now_add=True, blank=True, null=True)
-    id_categoria = models.ForeignKey(categoria_equipo, models.PROTECT)
+        return f"{self.id_usuario.nombres} {self.id_usuario.apellidos}"
+    
+class personal_limpieza(models.Model):
+    id_personal = models.AutoField(primary_key=True)
+    id_usuario = models.OneToOneField(usuarios, on_delete=models.PROTECT, related_name="personal_limpieza")
+    id_turno = models.ForeignKey(turnos_laborales, on_delete=models.PROTECT, related_name="personal_limpieza")
+    vigencia = models.BooleanField(default=True)
 
     def __str__(self):
-        return self.nombre
+        return f"{self.id_usuario.nombres} {self.id_usuario.apellidos}"
 
+class despachadores(models.Model):
+    id_despachador = models.AutoField(primary_key=True)
+    id_usuario = models.OneToOneField(usuarios, on_delete=models.PROTECT, related_name="despachador")
+    id_turno = models.ForeignKey(turnos_laborales, on_delete=models.PROTECT, related_name="despachadores")
+    vigencia = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"{self.id_usuario.nombres} {self.id_usuario.apellidos}"
+    
+class vigilantes(models.Model):
+    id_vigilante = models.AutoField(primary_key=True)
+    id_usuario = models.OneToOneField(usuarios, on_delete=models.PROTECT, related_name="vigilante")
+    id_turno = models.ForeignKey(turnos_laborales, on_delete=models.PROTECT, related_name="vigilantes")
+    vigencia = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"{self.id_usuario.nombres} {self.id_usuario.apellidos}"
+    
 # SEGURIDAD DEL SISTEMA
 
 class bitacora(models.Model):
@@ -142,18 +137,10 @@ class sesiones_usuario(models.Model):
     tab_id = models.CharField(max_length=100, null=True, blank=True)
     fecha_inicio = models.DateTimeField(auto_now_add=True)
     fecha_fin = models.DateTimeField(null=True, blank=True)
+    ultima_actividad = models.DateTimeField(default=timezone.now)
     activa = models.BooleanField(default=True)
     info_general = models.CharField(max_length=255)
     direccion_ip = models.GenericIPAddressField()
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=["usuario"],
-                condition=models.Q(activa=True),
-                name="una_sola_sesion_activa_por_usuario"
-            )
-        ]
 
 class intentos_inicio_sesion(models.Model):
     id_intento = models.AutoField(primary_key=True)

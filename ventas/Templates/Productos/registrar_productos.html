@@ -1,0 +1,64 @@
+{% extends 'Estructura/base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="contenedor_formulario">
+    <div class="contenedor_campos_amplio">
+        <h2>Registrar Productos</h2>
+
+        <div class="modulo_ventas">
+            <form method="post" id="formulario_registrar" class="formulario_venta" enctype="multipart/form-data">
+                {% csrf_token %}
+
+                <div class="campo_formulario">
+                    <label for="nombre_producto">Nombre:</label>
+                    <input type="text" name="nombre_producto" id="nombre_producto" minlength="3" maxlength="20"
+                        placeholder="Ingresa el nombre del producto (3 - 20 caracteres)" autocomplete="off" required>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="codigo_producto">Código (Generado Automaticamente):</label>
+                    <input type="text" name="codigo_producto" id="codigo_producto" autocomplete="off" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="precio_base">Precio Base (USD $):</label>
+                    <input type="text" name="precio_base" id="precio_base" placeholder="Ingresa el precio en dólares"
+                        autocomplete="off" inputmode="decimal" required>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="costo_base">Costo Base (USD $):</label>
+                    <input type="text" name="costo_base" id="costo_base" placeholder="Ingresa el costo en dólares"
+                        autocomplete="off" inputmode="decimal" required>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="imagen_producto">Imagen:</label>
+                    <input type="file" name="imagen_producto" id="imagen_producto" required>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="categoria_producto">Categoria:</label>
+                    <select name="categoria_producto" id="categoria_producto"></select>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="unidad_producto">Unidad:</label>
+                    <select name="unidad_producto" id="unidad_producto"></select>
+                </div>
+
+                <div class="contenedor_boton_submit">
+                    <input type="submit" class="btn_primario" id="btn_registro" value="Registrar">
+                </div>
+            </form>
+        </div>
+
+    </div>
+</section>
+
+<script src="{% static 'Funcionalidades_Asincronas/ventas/productos/registrar_productos.js' %}"></script>
+
+{% endblock %}

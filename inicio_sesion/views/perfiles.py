@@ -1,93 +1,65 @@
 from django.db import transaction
 from django.shortcuts import render
-from django.http import JsonResponse, HttpResponse
+from django.http import JsonResponse
 
-from inicio_sesion.models import usuarios, historial_perfiles_usuario, turnos_laborales, perfiles, perfil_usuario, bitacora
-
-from datetime import datetime
-
-import os
-from django.conf import settings
-
-from reportlab.platypus import (
-    SimpleDocTemplate,
-    Table,
-    TableStyle,
-    Paragraph,
-    Spacer,
-    KeepTogether
-)
-
-from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.lib.enums import TA_CENTER
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import letter
+from inicio_sesion.models import usuarios, turnos_laborales, bitacora, supervisores_encargados, personal_limpieza, despachadores, vigilantes
 
 # PERFILES REGISTRADOS
 
-def perfiles_registrados(request):
-    perfiles_registrados = perfiles.objects.exclude(
-        perfil="Administrador(a)"
-    ).values(
-        "id_perfil",
-        "perfil"
-    )
-
-    return JsonResponse(list(perfiles_registrados), safe=False)
-
 def perfiles_disponibles(request):
-    if request.method == "POST":
-        turno_seleccionado = request.POST.get("turno")
 
-        # TODOS LOS PERFILES DISPONIBLES
-        perfiles_lista = perfiles.objects.exclude(perfil="Administrador(a)")
-
-        # SUPERVISOR ENCARGADO
-        supervisor = perfiles.objects.filter(perfil="Supervisor Encargado").first()
-
-        if supervisor and turno_seleccionado:
-            try:
-                turno_id = int(turno_seleccionado)
-            except (TypeError, ValueError):
-                turno_id = None
-
-            if turno_id:
-                supervisor_ocupado = perfil_usuario.objects.filter(
-                    id_perfil=supervisor,
-                    id_turno_id=turno_id,
-                    vigencia=True
-                ).exists()
-
-                if supervisor_ocupado:
-                    perfiles_lista = perfiles_lista.exclude(id_perfil=supervisor.id_perfil)
-
-        # PERFILES DISPONIBLES
-        datos = [
-            {
-                "id_perfil": perfil.id_perfil,
-                "perfil": perfil.perfil
-            }
-            for perfil in perfiles_lista
-        ]
-
+    if request.method != "POST":
         return JsonResponse({
-            "perfiles": datos
-        })
+            "perfiles": []
+        }, status=405)
 
-    return JsonResponse({ "perfiles": [] }, status=405)
-
-def turnos_registrados(request):
-    turnos_lista = turnos_laborales.objects.exclude(nombre="Sin Turno")
+    turno_seleccionado = request.POST.get("turno")
 
     datos = [
         {
-            "id_turno": turno.id_turno,
-            "nombre": turno.nombre
+            "id_perfil": "SUPERVISOR_ENCARGADO",
+            "perfil": "Supervisor Encargado"
+        },
+        {
+            "id_perfil": "PERSONAL_LIMPIEZA",
+            "perfil": "Personal de Limpieza"
+        },
+        {
+            "id_perfil": "DESPACHADOR",
+            "perfil": "Despachador"
+        },
+        {
+            "id_perfil": "VIGILANTE",
+            "perfil": "Vigilante"
         }
-        for turno in turnos_lista
     ]
-    
-    return JsonResponse(datos, safe=False)
+
+    if turno_seleccionado:
+
+        try:
+            turno_id = int(turno_seleccionado)
+        except (TypeError, ValueError):
+            turno_id = None
+
+        if turno_id:
+
+            supervisor_ocupado = (
+                supervisores_encargados.objects
+                .filter(
+                    id_turno_id=turno_id,
+                    vigencia=True
+                )
+                .exists()
+            )
+
+            if supervisor_ocupado:
+                datos = [
+                    perfil
+                    for perfil in datos
+                    if perfil["id_perfil"] != "SUPERVISOR_ENCARGADO"
+                ]
+
+    return JsonResponse({"perfiles": datos})
 
 # BUSCAR DATOS PERFILES 
 
@@ -100,7 +72,9 @@ def buscar_datos_asignacion(request):
             return JsonResponse({
                 "estado": "fallo",
                 "title": "Vacío",
-                "descripcion": "Debe ingresar la nacionalidad y la cédula.",
+                "descripcion": (
+                    "Debe ingresar la nacionalidad y la cédula."
+                ),
                 "icon": "warning"
             })
 
@@ -110,78 +84,33 @@ def buscar_datos_asignacion(request):
             usuario = usuarios.objects.get(cedula_identidad=cedula_completa)
         except usuarios.DoesNotExist:
             return JsonResponse({
-                "estado": "fallo",
+                "estado": "no_existe",
                 "title": "Error",
-                "descripcion": "No se encontró ningún empleado con esa cédula.",
+                "descripcion": (
+                    "No se encontró ningún empleado "
+                    "con esa cédula."
+                ),
                 "icon": "warning"
-            })
-
-        perfiles_asignados = perfil_usuario.objects.filter(
-            id_usuario=usuario
-        ).select_related(
-            "id_perfil",
-            "id_turno"
-        )
-
-        if perfiles_asignados.filter(
-            id_perfil__perfil__iexact="Administrador(a)"
-        ).exists():
-            return JsonResponse({
-                "estado": "fallo",
-                "title": "Acceso no permitido",
-                "descripcion": "Datos no permitidos.",
-                "icon": "error"
             })
 
         turnos = list(turnos_laborales.objects.all())
 
-        supervisor = perfiles.objects.filter(
-            perfil="Supervisor Encargado"
-        ).first()
-
         perfiles_datos = []
 
-        for perfil_usuario_obj in perfiles_asignados:
+        # SUPERVISOR ENCARGADO
+        supervisor = (
+            supervisores_encargados.objects
+            .filter(
+                id_usuario=usuario
+            )
+            .select_related("id_turno")
+            .first()
+        )
+
+        if supervisor:
             opciones_turnos = []
 
-            if (
-                supervisor
-                and perfil_usuario_obj.id_perfil_id == supervisor.id_perfil
-            ):
-                if not perfil_usuario_obj.vigencia:
-                    opciones_turnos = [
-                        {
-                            "id_turno": turno.id_turno,
-                            "nombre": turno.nombre
-                        }
-                        for turno in turnos
-                    ]
-
-                else:
-                    for turno in turnos:
-
-                        if turno.id_turno == perfil_usuario_obj.id_turno_id:
-                            opciones_turnos.append({
-                                "id_turno": turno.id_turno,
-                                "nombre": turno.nombre
-                            })
-                            continue
-
-                        supervisor_ocupado = perfil_usuario.objects.filter(
-                            id_perfil=supervisor,
-                            id_turno=turno,
-                            vigencia=True
-                        ).exclude(
-                            id_perfil_usuario=perfil_usuario_obj.id_perfil_usuario
-                        ).exists()
-
-                        if not supervisor_ocupado:
-                            opciones_turnos.append({
-                                "id_turno": turno.id_turno,
-                                "nombre": turno.nombre
-                            })
-
-            else:
+            if not supervisor.vigencia:
                 opciones_turnos = [
                     {
                         "id_turno": turno.id_turno,
@@ -190,14 +119,149 @@ def buscar_datos_asignacion(request):
                     for turno in turnos
                 ]
 
+            else:
+                for turno in turnos:
+                    if turno.id_turno == supervisor.id_turno_id:
+
+                        opciones_turnos.append({
+                            "id_turno": turno.id_turno,
+                            "nombre": turno.nombre
+                        })
+
+                        continue
+
+                    supervisor_ocupado = (
+                        supervisores_encargados.objects
+                        .filter(
+                            id_turno=turno,
+                            vigencia=True
+                        )
+                        .exclude(
+                            id_supervisor=supervisor.id_supervisor
+                        )
+                        .exists()
+                    )
+
+                    if not supervisor_ocupado:
+
+                        opciones_turnos.append({
+                            "id_turno": turno.id_turno,
+                            "nombre": turno.nombre
+                        })
+
             perfiles_datos.append({
-                "id_perfil_usuario": perfil_usuario_obj.id_perfil_usuario,
-                "id_perfil": perfil_usuario_obj.id_perfil.id_perfil,
-                "perfil": perfil_usuario_obj.id_perfil.perfil,
-                "id_turno": perfil_usuario_obj.id_turno.id_turno,
-                "turno": perfil_usuario_obj.id_turno.nombre,
-                "vigencia": perfil_usuario_obj.vigencia,
+                "id_perfil_usuario": supervisor.id_supervisor,
+                "id_perfil": "SUPERVISOR_ENCARGADO",
+                "perfil": "Supervisor Encargado",
+                "id_turno": supervisor.id_turno_id,
+                "turno": supervisor.id_turno.nombre,
+                "vigencia": supervisor.vigencia,
                 "turnos": opciones_turnos
+            })
+
+        # PERSONAL DE LIMPIEZA
+        limpieza = (
+            personal_limpieza.objects
+            .filter(
+                id_usuario=usuario
+            )
+            .select_related("id_turno")
+            .first()
+        )
+
+        if limpieza:
+            opciones_turnos = [
+                {
+                    "id_turno": turno.id_turno,
+                    "nombre": turno.nombre
+                }
+                for turno in turnos
+            ]
+
+            perfiles_datos.append({
+                "id_perfil_usuario": limpieza.id_personal,
+                "id_perfil": "PERSONAL_LIMPIEZA",
+                "perfil": "Personal de Limpieza",
+                "id_turno": limpieza.id_turno_id,
+                "turno": limpieza.id_turno.nombre,
+                "vigencia": limpieza.vigencia,
+                "turnos": opciones_turnos
+            })
+
+        # DESPACHADOR
+        despachador = (
+            despachadores.objects
+            .filter(
+                id_usuario=usuario
+            )
+            .select_related("id_turno")
+            .first()
+        )
+
+        if despachador:
+            opciones_turnos = [
+                {
+                    "id_turno": turno.id_turno,
+                    "nombre": turno.nombre
+                }
+                for turno in turnos
+            ]
+
+            perfiles_datos.append({
+                "id_perfil_usuario": despachador.id_despachador,
+                "id_perfil": "DESPACHADOR",
+                "perfil": "Despachador",
+                "id_turno": despachador.id_turno_id,
+                "turno": despachador.id_turno.nombre,
+                "vigencia": despachador.vigencia,
+                "turnos": opciones_turnos
+            })
+
+        # VIGILANTE
+        vigilante = (
+            vigilantes.objects
+            .filter(
+                id_usuario=usuario
+            )
+            .select_related("id_turno")
+            .first()
+        )
+
+        if vigilante:
+            opciones_turnos = [
+                {
+                    "id_turno": turno.id_turno,
+                    "nombre": turno.nombre
+                }
+                for turno in turnos
+            ]
+
+            perfiles_datos.append({
+                "id_perfil_usuario": vigilante.id_vigilante,
+                "id_perfil": "VIGILANTE",
+                "perfil": "Vigilante",
+                "id_turno": vigilante.id_turno_id,
+                "turno": vigilante.id_turno.nombre,
+                "vigencia": vigilante.vigencia,
+                "turnos": opciones_turnos
+            })
+
+        if not perfiles_datos:
+            request.session["id_empleado"] = usuario.id_usuario
+
+            return JsonResponse({
+                "estado": "exito",
+                "success": True,
+                "codigo": "SIN_PERFIL",
+                "usuario": {
+                    "id_usuario": usuario.id_usuario,
+                    "nombres": usuario.nombres,
+                    "apellidos": usuario.apellidos,
+                    "cedula_identidad": usuario.cedula_identidad,
+                    "genero": usuario.genero,
+                    "estado_civil": usuario.estado_civil
+                },
+                "perfiles": []
             })
 
         request.session["id_empleado"] = usuario.id_usuario
@@ -221,9 +285,8 @@ def buscar_datos_asignacion(request):
 def perfiles_usuario_no_registrados(request):
     if request.method == "POST":
         turno_seleccionado = request.POST.get("turno")
-
+        
         id_empleado = request.session.get("id_empleado")
-
         if not id_empleado:
             return JsonResponse({
                 "estado": "fallo",
@@ -231,31 +294,21 @@ def perfiles_usuario_no_registrados(request):
                 "perfiles": []
             })
 
-        perfiles_asignados = perfil_usuario.objects.filter(
-            id_usuario_id=id_empleado,
-            vigencia=True
-        ).values_list(
-            "id_perfil_id",
-            flat=True
+        datos = []
+
+        # SUPERVISOR ENCARGADO
+        supervisor_usuario = (
+            supervisores_encargados.objects
+            .filter(
+                id_usuario_id=id_empleado
+            )
+            .first()
         )
 
-        perfiles_lista = perfiles.objects.exclude(
-            perfil="Administrador(a)"
-        ).exclude(
-            id_perfil__in=perfiles_asignados
-        )
-
-        supervisor = perfiles.objects.filter(perfil="Supervisor Encargado").first()
-        if supervisor:
-            supervisor_usuario = perfil_usuario.objects.filter(
-                id_usuario_id=id_empleado,
-                id_perfil=supervisor,
-                vigencia=True
-            ).exists()
-            if supervisor_usuario:
-                perfiles_lista = perfiles_lista.exclude(id_perfil=supervisor.id_perfil)
-
-            elif turno_seleccionado:
+        if not supervisor_usuario:
+            supervisor_disponible = True
+            
+            if turno_seleccionado:
                 try:
                     turno_id = int(turno_seleccionado)
                 except (TypeError, ValueError):
@@ -263,27 +316,67 @@ def perfiles_usuario_no_registrados(request):
 
                 if turno_id:
                     supervisor_ocupado = (
-                        perfil_usuario.objects.filter(
-                            id_perfil=supervisor,
+                        supervisores_encargados.objects
+                        .filter(
                             id_turno_id=turno_id,
                             vigencia=True
-                        ).exists()
+                        )
+                        .exists()
                     )
 
                     if supervisor_ocupado:
-                        perfiles_lista = (
-                            perfiles_lista.exclude(
-                                id_perfil=supervisor.id_perfil
-                            )
-                        )
+                        supervisor_disponible = False
 
-        datos = [
-            {
-                "id_perfil": perfil.id_perfil,
-                "perfil": perfil.perfil
-            }
-            for perfil in perfiles_lista
-        ]
+            if supervisor_disponible:
+                datos.append({
+                    "id_perfil": "SUPERVISOR_ENCARGADO",
+                    "perfil": "Supervisor Encargado"
+                })
+
+        # PERSONAL DE LIMPIEZA
+        limpieza_usuario = (
+            personal_limpieza.objects
+            .filter(
+                id_usuario_id=id_empleado
+            )
+            .exists()
+        )
+
+        if not limpieza_usuario:
+            datos.append({
+                "id_perfil": "PERSONAL_LIMPIEZA",
+                "perfil": "Personal de Limpieza"
+            })
+
+        # DESPACHADOR
+        despachador_usuario = (
+            despachadores.objects
+            .filter(
+                id_usuario_id=id_empleado
+            )
+            .exists()
+        )
+
+        if not despachador_usuario:
+            datos.append({
+                "id_perfil": "DESPACHADOR",
+                "perfil": "Despachador"
+            })
+
+        # VIGILANTE
+        vigilante_usuario = (
+            vigilantes.objects
+            .filter(
+                id_usuario_id=id_empleado
+            )
+            .exists()
+        )
+
+        if not vigilante_usuario:
+            datos.append({
+                "id_perfil": "VIGILANTE",
+                "perfil": "Vigilante"
+            })
 
         return JsonResponse({
             "estado": "exito",
@@ -303,33 +396,39 @@ def registrar_nueva_asignacion(request):
                 "title": "Empleado no seleccionado",
                 "descripcion": "No se ha seleccionado ningún empleado."
             })
-        
+
         id_turno = request.POST.get("turnos_registro")
-        ids_perfiles = request.POST.getlist("perfiles")
+        id_perfil = request.POST.get("perfil")
 
-        if not id_turno:
+        if not id_turno or not id_perfil:
             return JsonResponse({
                 "estado": "error",
                 "icon": "warning",
                 "title": "Datos incompletos",
                 "descripcion": (
-                    "Por favor, debes seleccionar el turno laboral."
+                    "Debe seleccionar el turno laboral y el perfil."
                 )
             })
 
-        if not ids_perfiles:
+        perfiles_validos = {
+            "SUPERVISOR_ENCARGADO": "Supervisor Encargado",
+            "PERSONAL_LIMPIEZA": "Personal de Limpieza",
+            "DESPACHADOR": "Despachador",
+            "VIGILANTE": "Vigilante"
+        }
+
+        if id_perfil not in perfiles_validos:
             return JsonResponse({
                 "estado": "error",
-                "icon": "warning",
-                "title": "Datos incompletos",
-                "descripcion": (
-                    "Por favor, debes seleccionar al menos un perfil laboral."
-                )
+                "icon": "error",
+                "title": "Perfil no válido",
+                "descripcion": "El perfil seleccionado no es válido."
             })
 
-        # BUSCAR EMPLEADO Y TURNO
         try:
-            usuario = usuarios.objects.get(id_usuario=id_empleado)
+            usuario = usuarios.objects.get(
+                id_usuario=id_empleado
+            )
         except usuarios.DoesNotExist:
             return JsonResponse({
                 "estado": "error",
@@ -339,7 +438,9 @@ def registrar_nueva_asignacion(request):
             })
 
         try:
-            turno = turnos_laborales.objects.get(id_turno=id_turno)
+            turno = turnos_laborales.objects.get(
+                id_turno=id_turno
+            )
         except turnos_laborales.DoesNotExist:
             return JsonResponse({
                 "estado": "error",
@@ -348,85 +449,268 @@ def registrar_nueva_asignacion(request):
                 "descripcion": "El turno seleccionado no existe."
             })
 
-        # BUSCAR PERFILES
-        perfiles_seleccionados = perfiles.objects.filter(
-            id_perfil__in=ids_perfiles
-        ).exclude(
-            perfil="Administrador(a)"
+        # VALIDAR SI EL EMPLEADO YA TIENE OTRO PERFIL ACTIVO
+        supervisor_activo = supervisores_encargados.objects.filter(
+            id_usuario=usuario,
+            vigencia=True
+        ).exists()
+
+        limpieza_activa = personal_limpieza.objects.filter(
+            id_usuario=usuario,
+            vigencia=True
+        ).exists()
+
+        despachador_activo = despachadores.objects.filter(
+            id_usuario=usuario,
+            vigencia=True
+        ).exists()
+
+        vigilante_activo = vigilantes.objects.filter(
+            id_usuario=usuario,
+            vigencia=True
+        ).exists()
+
+        tiene_perfil_activo = (
+            supervisor_activo
+            or limpieza_activa
+            or despachador_activo
+            or vigilante_activo
         )
 
-        if perfiles_seleccionados.count() != len(set(ids_perfiles)):
-            return JsonResponse({
-                "estado": "error",
-                "icon": "error",
-                "title": "Perfil no encontrado",
-                "descripcion": (
-                    "Uno o más de los perfiles seleccionados "
-                    "no son válidos."
-                )
-            })
-
-        # VALIDAR ASIGNACIONES EXISTENTES
-        asignaciones_existentes = perfil_usuario.objects.filter(
-            id_usuario=usuario,
-            id_perfil__in=ids_perfiles,
-            vigencia=True
-        ).select_related("id_perfil", "id_turno")
-
-        if asignaciones_existentes.exists():
-
-            perfiles_existentes = ", ".join(
-                asignacion.id_perfil.perfil
-                for asignacion in asignaciones_existentes
-            )
-
+        if tiene_perfil_activo:
             return JsonResponse({
                 "estado": "error",
                 "icon": "warning",
-                "title": "Perfil ya asignado",
+                "title": "Perfil activo",
                 "descripcion": (
-                    f"El empleado ya tiene asignado el perfil: "
-                    f"{perfiles_existentes}."
+                    "El empleado ya tiene un perfil laboral activo. "
+                    "Debe inhabilitar el perfil actual antes de "
+                    "asignar uno nuevo."
                 )
             })
 
-        # REGISTRAR ASIGNACIONES
         try:
             with transaction.atomic():
-
                 usuario_accion = usuarios.objects.get(
                     cedula_identidad=request.session.get(
                         "cedula_identidad"
                     )
                 )
 
-                nombres_perfiles = []
+                nombre_perfil = perfiles_validos[id_perfil]
 
-                for perfil in perfiles_seleccionados:
+                # SUPERVISOR ENCARGADO
+                if id_perfil == "SUPERVISOR_ENCARGADO":
 
-                    perfil_usuario.objects.create(
-                        id_perfil=perfil,
-                        id_usuario=usuario,
-                        id_turno=turno,
-                        vigencia=True
+                    supervisor_existente = (
+                        supervisores_encargados.objects
+                        .filter(
+                            id_usuario=usuario
+                        )
+                        .first()
                     )
 
-                    historial_perfiles_usuario.objects.create(
-                        id_usuario=usuario,
-                        id_perfil=perfil,
-                        id_turno=turno,
-                        accion="ASIGNACION"
+                    if supervisor_existente:
+                        if supervisor_existente.vigencia:
+                            return JsonResponse({
+                                "estado": "error",
+                                "icon": "warning",
+                                "title": "Perfil ya asignado",
+                                "descripcion": (
+                                    "El empleado ya tiene asignado "
+                                    "el perfil Supervisor Encargado."
+                                )
+                            })
+
+                        supervisor_ocupado = (
+                            supervisores_encargados.objects
+                            .filter(
+                                id_turno=turno,
+                                vigencia=True
+                            )
+                            .exclude(
+                                id_supervisor=(
+                                    supervisor_existente.id_supervisor
+                                )
+                            )
+                            .exists()
+                        )
+
+                        if supervisor_ocupado:
+                            return JsonResponse({
+                                "estado": "error",
+                                "icon": "warning",
+                                "title": "Turno ocupado",
+                                "descripcion": (
+                                    "El turno seleccionado ya tiene "
+                                    "un Supervisor Encargado activo."
+                                )
+                            })
+
+                        supervisor_existente.id_turno = turno
+                        supervisor_existente.vigencia = True
+
+                        supervisor_existente.save(
+                            update_fields=[
+                                "id_turno",
+                                "vigencia"
+                            ]
+                        )
+
+                    else:
+                        supervisor_ocupado = (
+                            supervisores_encargados.objects
+                            .filter(
+                                id_turno=turno,
+                                vigencia=True
+                            )
+                            .exists()
+                        )
+
+                        if supervisor_ocupado:
+                            return JsonResponse({
+                                "estado": "error",
+                                "icon": "warning",
+                                "title": "Turno ocupado",
+                                "descripcion": (
+                                    "El turno seleccionado ya tiene "
+                                    "un Supervisor Encargado activo."
+                                )
+                            })
+
+                        supervisores_encargados.objects.create(
+                            id_usuario=usuario,
+                            id_turno=turno,
+                            vigencia=True
+                        )
+
+                # PERSONAL DE LIMPIEZA
+                elif id_perfil == "PERSONAL_LIMPIEZA":
+
+                    limpieza_existente = (
+                        personal_limpieza.objects
+                        .filter(
+                            id_usuario=usuario
+                        )
+                        .first()
                     )
 
-                    nombres_perfiles.append(perfil.perfil)
+                    if limpieza_existente:
 
-                # BITÁCORA
-                perfiles_texto = ", ".join(nombres_perfiles)
+                        if limpieza_existente.vigencia:
+                            return JsonResponse({
+                                "estado": "error",
+                                "icon": "warning",
+                                "title": "Perfil ya asignado",
+                                "descripcion": (
+                                    "El empleado ya tiene asignado "
+                                    "el perfil Personal de Limpieza."
+                                )
+                            })
+
+                        limpieza_existente.id_turno = turno
+                        limpieza_existente.vigencia = True
+
+                        limpieza_existente.save(
+                            update_fields=[
+                                "id_turno",
+                                "vigencia"
+                            ]
+                        )
+
+                    else:
+                        personal_limpieza.objects.create(
+                            id_usuario=usuario,
+                            id_turno=turno,
+                            vigencia=True
+                        )
+
+                # DESPACHADOR
+                elif id_perfil == "DESPACHADOR":
+
+                    despachador_existente = (
+                        despachadores.objects
+                        .filter(
+                            id_usuario=usuario
+                        )
+                        .first()
+                    )
+
+                    if despachador_existente:
+
+                        if despachador_existente.vigencia:
+                            return JsonResponse({
+                                "estado": "error",
+                                "icon": "warning",
+                                "title": "Perfil ya asignado",
+                                "descripcion": (
+                                    "El empleado ya tiene asignado "
+                                    "el perfil Despachador."
+                                )
+                            })
+
+                        despachador_existente.id_turno = turno
+                        despachador_existente.vigencia = True
+
+                        despachador_existente.save(
+                            update_fields=[
+                                "id_turno",
+                                "vigencia"
+                            ]
+                        )
+
+                    else:
+                        despachadores.objects.create(
+                            id_usuario=usuario,
+                            id_turno=turno,
+                            vigencia=True
+                        )
+
+                # VIGILANTE
+                elif id_perfil == "VIGILANTE":
+
+                    vigilante_existente = (
+                        vigilantes.objects
+                        .filter(
+                            id_usuario=usuario
+                        )
+                        .first()
+                    )
+
+                    if vigilante_existente:
+
+                        if vigilante_existente.vigencia:
+                            return JsonResponse({
+                                "estado": "error",
+                                "icon": "warning",
+                                "title": "Perfil ya asignado",
+                                "descripcion": (
+                                    "El empleado ya tiene asignado "
+                                    "el perfil Vigilante."
+                                )
+                            })
+
+                        vigilante_existente.id_turno = turno
+                        vigilante_existente.vigencia = True
+
+                        vigilante_existente.save(
+                            update_fields=[
+                                "id_turno",
+                                "vigencia"
+                            ]
+                        )
+
+                    else:
+                        vigilantes.objects.create(
+                            id_usuario=usuario,
+                            id_turno=turno,
+                            vigencia=True
+                        )
 
                 bitacora.objects.create(
                     id_usuario=usuario_accion,
                     accion=(
-                        f"Se asignaron los perfiles {perfiles_texto} "
+                        f"Se asignó el perfil {nombre_perfil} "
                         f"al empleado {usuario.nombres} "
                         f"{usuario.apellidos} "
                         f"en el turno {turno.nombre}."
@@ -438,17 +722,33 @@ def registrar_nueva_asignacion(request):
                 "icon": "success",
                 "title": "Éxito",
                 "descripcion": (
-                    "Se registraron los perfiles "
-                    "exitosamente."
+                    f"El perfil {nombre_perfil} "
+                    "se registró exitosamente."
+                )
+            })
+
+        except usuarios.DoesNotExist:
+            return JsonResponse({
+                "estado": "fallo",
+                "icon": "error",
+                "title": "Usuario no encontrado",
+                "descripcion": (
+                    "No se encontró el usuario que registra "
+                    "la asignación."
                 )
             })
 
         except Exception as e:
+            print(e)
+
             return JsonResponse({
                 "estado": "fallo",
                 "icon": "error",
                 "title": "Error",
-                "descripcion": f"Ocurrió un error: {e}."
+                "descripcion": (
+                    "Ocurrió un error al registrar "
+                    "la asignación."
+                )
             })
 
 # CONOCER LA CANTIDAD DE PERFILES ASIGNADO AL EMEPLEADO
@@ -464,16 +764,35 @@ def cantidad_perfiles_asignado(request):
             "descripcion": "No se ha seleccionado ningún empleado."
         })
 
-    # CANTIDAD TOTAL DE PERFILES ASIGNABLES
-    cantidad_perfiles = perfiles.objects.exclude(perfil="Administrador(a)").count()
+    # TOTAL DE PERFILES LABORALES DISPONIBLES
+    cantidad_perfiles = 4
 
-    # CANTIDAD DE PERFILES ASIGNADOS AL EMPLEADO
-    cantidad_asignados = perfil_usuario.objects.filter(
+    # CANTIDAD DE PERFILES VIGENTES DEL EMPLEADO
+    cantidad_asignados = 0
+
+    if supervisores_encargados.objects.filter(
         id_usuario_id=id_empleado,
         vigencia=True
-    ).values(
-        "id_perfil"
-    ).distinct().count()
+    ).exists():
+        cantidad_asignados += 1
+
+    if personal_limpieza.objects.filter(
+        id_usuario_id=id_empleado,
+        vigencia=True
+    ).exists():
+        cantidad_asignados += 1
+
+    if despachadores.objects.filter(
+        id_usuario_id=id_empleado,
+        vigencia=True
+    ).exists():
+        cantidad_asignados += 1
+
+    if vigilantes.objects.filter(
+        id_usuario_id=id_empleado,
+        vigencia=True
+    ).exists():
+        cantidad_asignados += 1
 
     # VERIFICAR SI TIENE TODOS LOS PERFILES
     if cantidad_asignados >= cantidad_perfiles:
@@ -488,7 +807,7 @@ def cantidad_perfiles_asignado(request):
             )
         })
 
-    # Todavía puede asignarse otro perfil
+    # TODAVÍA PUEDE ASIGNARSE OTRO PERFIL
     return JsonResponse({
         "estado": "exito",
         "todos_asignados": False
@@ -508,63 +827,21 @@ def cargar_perfiles_asignados(request):
             "perfiles": []
         })
 
-    perfiles_asignados = perfil_usuario.objects.filter(
-        id_usuario_id=id_empleado
-    ).select_related(
-        "id_perfil",
-        "id_turno"
-    )
-
     turnos = list(turnos_laborales.objects.all())
 
-    supervisor = perfiles.objects.filter(perfil="Supervisor Encargado").first()
-
     datos = []
-    for asignacion in perfiles_asignados:
+
+    # SUPERVISOR ENCARGADO
+    supervisor = supervisores_encargados.objects.filter(
+        id_usuario_id=id_empleado
+    ).select_related(
+        "id_turno"
+    ).first()
+
+    if supervisor:
         opciones_turnos = []
 
-        if (supervisor and asignacion.id_perfil_id == supervisor.id_perfil):
-            if not asignacion.vigencia:
-
-                opciones_turnos = [
-                    {
-                        "id_turno": turno.id_turno,
-                        "nombre": turno.nombre
-                    }
-                    for turno in turnos
-                ]
-
-            else:
-                for turno in turnos:
-                    if (turno.id_turno == asignacion.id_turno_id):
-
-                        opciones_turnos.append({
-                            "id_turno": turno.id_turno,
-                            "nombre": turno.nombre
-                        })
-
-                        continue
-
-                    supervisor_ocupado = (
-                        perfil_usuario.objects.filter(
-                            id_perfil=supervisor,
-                            id_turno=turno,
-                            vigencia=True
-                        )
-                        .exclude(
-                            id_perfil_usuario=
-                            asignacion.id_perfil_usuario
-                        )
-                        .exists()
-                    )
-                    
-                    if not supervisor_ocupado:
-                        opciones_turnos.append({
-                            "id_turno": turno.id_turno,
-                            "nombre": turno.nombre
-                        })
-
-        else:
+        if not supervisor.vigencia:
             opciones_turnos = [
                 {
                     "id_turno": turno.id_turno,
@@ -573,30 +850,153 @@ def cargar_perfiles_asignados(request):
                 for turno in turnos
             ]
 
+        else:
+            for turno in turnos:
+
+                # El turno actual siempre puede mantenerse
+                if (
+                    supervisor.id_turno and
+                    turno.id_turno == supervisor.id_turno_id
+                ):
+                    opciones_turnos.append({
+                        "id_turno": turno.id_turno,
+                        "nombre": turno.nombre
+                    })
+                    continue
+
+                # Verificar si otro supervisor ya ocupa el turno
+                supervisor_ocupado = supervisores_encargados.objects.filter(
+                    id_turno_id=turno.id_turno,
+                    vigencia=True
+                ).exclude(
+                    id_supervisor=supervisor.id_supervisor
+                ).exists()
+
+                if not supervisor_ocupado:
+                    opciones_turnos.append({
+                        "id_turno": turno.id_turno,
+                        "nombre": turno.nombre
+                    })
+
         datos.append({
-            "id_perfil_usuario":
-                asignacion.id_perfil_usuario,
-            "id_perfil":
-                asignacion.id_perfil.id_perfil,
-            "perfil":
-                asignacion.id_perfil.perfil,
+            "id_registro": supervisor.id_supervisor,
+            "id_perfil": "SUPERVISOR_ENCARGADO",
+            "perfil": "Supervisor Encargado",
             "id_turno": (
-                asignacion.id_turno.id_turno
-                if asignacion.id_turno
+                supervisor.id_turno.id_turno
+                if supervisor.id_turno
                 else None
             ),
             "turno": (
-                asignacion.id_turno.nombre
-                if asignacion.id_turno
+                supervisor.id_turno.nombre
+                if supervisor.id_turno
                 else "Sin turno asignado"
             ),
-            "vigencia":
-                asignacion.vigencia,
-
-            "turnos":
-                opciones_turnos
+            "vigencia": supervisor.vigencia,
+            "turnos": opciones_turnos
         })
 
+    # PERSONAL DE LIMPIEZA
+    limpieza = personal_limpieza.objects.filter(
+        id_usuario_id=id_empleado
+    ).select_related(
+        "id_turno"
+    ).first()
+
+    if limpieza:
+        opciones_turnos = [
+            {
+                "id_turno": turno.id_turno,
+                "nombre": turno.nombre
+            }
+            for turno in turnos
+        ]
+
+        datos.append({
+            "id_registro": limpieza.id_personal,
+            "id_perfil": "PERSONAL_LIMPIEZA",
+            "perfil": "Personal de Limpieza",
+            "id_turno": (
+                limpieza.id_turno.id_turno
+                if limpieza.id_turno
+                else None
+            ),
+            "turno": (
+                limpieza.id_turno.nombre
+                if limpieza.id_turno
+                else "Sin turno asignado"
+            ),
+            "vigencia": limpieza.vigencia,
+            "turnos": opciones_turnos
+        })
+
+    # DESPACHADOR
+    despachador = despachadores.objects.filter(
+        id_usuario_id=id_empleado
+    ).select_related(
+        "id_turno"
+    ).first()
+
+    if despachador:
+        opciones_turnos = [
+            {
+                "id_turno": turno.id_turno,
+                "nombre": turno.nombre
+            }
+            for turno in turnos
+        ]
+
+        datos.append({
+            "id_registro": despachador.id_despachador,
+            "id_perfil": "DESPACHADOR",
+            "perfil": "Despachador",
+            "id_turno": (
+                despachador.id_turno.id_turno
+                if despachador.id_turno
+                else None
+            ),
+            "turno": (
+                despachador.id_turno.nombre
+                if despachador.id_turno
+                else "Sin turno asignado"
+            ),
+            "vigencia": despachador.vigencia,
+            "turnos": opciones_turnos
+        })
+
+    # VIGILANTE
+    vigilante = vigilantes.objects.filter(
+        id_usuario_id=id_empleado
+    ).select_related(
+        "id_turno"
+    ).first()
+
+    if vigilante:
+        opciones_turnos = [
+            {
+                "id_turno": turno.id_turno,
+                "nombre": turno.nombre
+            }
+            for turno in turnos
+        ]
+
+        datos.append({
+            "id_registro": vigilante.id_vigilante,
+            "id_perfil": "VIGILANTE",
+            "perfil": "Vigilante",
+            "id_turno": (
+                vigilante.id_turno.id_turno
+                if vigilante.id_turno
+                else None
+            ),
+            "turno": (
+                vigilante.id_turno.nombre
+                if vigilante.id_turno
+                else "Sin turno asignado"
+            ),
+            "vigencia": vigilante.vigencia,
+            "turnos": opciones_turnos
+        })
 
     return JsonResponse({
         "estado": "exito",
@@ -607,55 +1007,118 @@ def cargar_perfiles_asignados(request):
 
 def buscar_datos_perfil(request):
     if request.method == "POST":
+        id_perfil = request.POST.get("id_perfil")
         id_perfil_usuario = request.POST.get("id_perfil_usuario")
+        
+        print(id_perfil)
 
-        if not id_perfil_usuario:
+        if id_perfil == "SUPERVISOR_ENCARGADO":
+            try:
+                info_perfil = (
+                    supervisores_encargados.objects
+                    .select_related("id_usuario", "id_turno")
+                    .get(id_supervisor=id_perfil_usuario)
+                )
+
+            except supervisores_encargados.DoesNotExist:
+                return JsonResponse({
+                    "estado": "fallo",
+                    "icon": "warning",
+                    "title": "Perfil no disponible",
+                    "descripcion": "El Supervisor Encargado seleccionado no existe."
+                })
+
+        elif id_perfil == "PERSONAL_LIMPIEZA":
+
+            try:
+                info_perfil = (
+                    personal_limpieza.objects
+                    .select_related("id_usuario", "id_turno")
+                    .get(id_personal=id_perfil_usuario)
+                )
+
+            except personal_limpieza.DoesNotExist:
+                return JsonResponse({
+                    "estado": "fallo",
+                    "icon": "warning",
+                    "title": "Perfil no disponible",
+                    "descripcion": "El Personal de Limpieza seleccionado no existe."
+                })
+
+        elif id_perfil == "DESPACHADOR":
+
+            try:
+                info_perfil = (
+                    despachadores.objects
+                    .select_related("id_usuario", "id_turno")
+                    .get(id_despachador=id_perfil_usuario)
+                )
+
+            except despachadores.DoesNotExist:
+                return JsonResponse({
+                    "estado": "fallo",
+                    "icon": "warning",
+                    "title": "Perfil no disponible",
+                    "descripcion": "El Despachador seleccionado no existe."
+                })
+
+        elif id_perfil == "VIGILANTE":
+
+            try:
+                info_perfil = (
+                    vigilantes.objects
+                    .select_related("id_usuario", "id_turno")
+                    .get(id_vigilante=id_perfil_usuario)
+                )
+
+            except vigilantes.DoesNotExist:
+                return JsonResponse({
+                    "estado": "fallo",
+                    "icon": "warning",
+                    "title": "Perfil no disponible",
+                    "descripcion": "El Vigilante seleccionado no existe."
+                })
+
+        else:
             return JsonResponse({
                 "estado": "fallo",
                 "icon": "warning",
-                "title": "Dato faltante",
-                "descripcion": "No se recibió el perfil seleccionado."
+                "title": "Perfil inválido",
+                "descripcion": "El tipo de personal seleccionado no es válido."
             })
 
-        try:
-            info_perfil = perfil_usuario.objects.select_related(
-                "id_usuario",
-                "id_perfil",
-                "id_turno"
-            ).get(
-                id_perfil_usuario=id_perfil_usuario
-            )
-
-            return JsonResponse({
-                "estado": "exito",
-                "id_perfil_usuario": info_perfil.id_perfil_usuario,
-                "id_turno":  info_perfil.id_turno.id_turno,
-                "turno":  info_perfil.id_turno.nombre,
-                "vigencia": info_perfil.vigencia
-            })
-
-        except perfil_usuario.DoesNotExist:
-            return JsonResponse({
-                "estado": "fallo",
-                "icon": "warning",
-                "title": "Perfil no disponible",
-                "descripcion": "El perfil seleccionado no existe."
-            })
+        return JsonResponse({
+            "estado": "exito",
+            "id_registro": id_perfil_usuario,
+            "id_perfil": id_perfil,
+            "id_turno": (
+                info_perfil.id_turno.id_turno
+                if info_perfil.id_turno
+                else None
+            ),
+            "turno": (
+                info_perfil.id_turno.nombre
+                if info_perfil.id_turno
+                else "Sin turno asignado"
+            ),
+            "vigencia": info_perfil.vigencia
+        })
 
 # ACTUALIZAR PERFILES ASIGNADOS
 
 def actualizar_vigencia_perfil(request):
     if request.method == "POST":
-        id_perfil_asignado = request.POST.get("id_perfil_asignado")
+        id_registro = request.POST.get("id_perfil_asignado")
+        id_perfil = request.POST.get("id_perfil")
         turno = request.POST.get("actualizar_turno")
         vigencia = request.POST.get("vigencia")
 
-        if not id_perfil_asignado:
+        if not id_registro or not id_perfil:
             return JsonResponse({
                 "estado": "fallo",
                 "icon": "warning",
                 "title": "Dato faltante",
-                "descripcion": "No se recibió el perfil seleccionado."
+                "descripcion": "No se recibió el personal seleccionado."
             })
 
         if not turno:
@@ -675,29 +1138,258 @@ def actualizar_vigencia_perfil(request):
             })
 
         try:
+            id_registro = int(id_registro)
+            id_turno = int(turno)
+        except (TypeError, ValueError):
+            return JsonResponse({
+                "estado": "fallo",
+                "icon": "warning",
+                "title": "Datos inválidos",
+                "descripcion": (
+                    "El registro o turno seleccionado no es válido."
+                )
+            })
+
+        try:
             with transaction.atomic():
+                # OBTENER REGISTRO SEGÚN EL TIPO DE PERSONAL
+                if id_perfil == "SUPERVISOR_ENCARGADO":
+                    try:
+                        info_perfil = (
+                            supervisores_encargados.objects
+                            .select_related("id_usuario", "id_turno")
+                            .select_for_update()
+                            .get(id_supervisor=id_registro)
+                        )
+                    except supervisores_encargados.DoesNotExist:
+                        return JsonResponse({
+                            "estado": "fallo",
+                            "icon": "warning",
+                            "title": "Perfil no disponible",
+                            "descripcion": (
+                                "El Supervisor Encargado seleccionado "
+                                "no existe."
+                            )
+                        })
 
-                info_perfil = perfil_usuario.objects.select_related(
-                    "id_usuario",
-                    "id_perfil",
-                    "id_turno"
-                ).get(
-                    id_perfil_usuario=id_perfil_asignado
-                )
+                    modelo = "supervisor"
 
-                turno_nuevo = turnos_laborales.objects.get(
-                    id_turno=turno
-                )
+                elif id_perfil == "PERSONAL_LIMPIEZA":
+                    try:
+                        info_perfil = (
+                            personal_limpieza.objects
+                            .select_related("id_usuario", "id_turno")
+                            .select_for_update()
+                            .get(id_personal=id_registro)
+                        )
+                    except personal_limpieza.DoesNotExist:
+                        return JsonResponse({
+                            "estado": "fallo",
+                            "icon": "warning",
+                            "title": "Perfil no disponible",
+                            "descripcion": (
+                                "El Personal de Limpieza seleccionado "
+                                "no existe."
+                            )
+                        })
 
-                usuario_accion = usuarios.objects.get(
-                    cedula_identidad=request.session.get(
-                        "cedula_identidad"
+                    modelo = "limpieza"
+
+                elif id_perfil == "DESPACHADOR":
+                    try:
+                        info_perfil = (
+                            despachadores.objects
+                            .select_related("id_usuario", "id_turno")
+                            .select_for_update()
+                            .get(id_despachador=id_registro)
+                        )
+                    except despachadores.DoesNotExist:
+                        return JsonResponse({
+                            "estado": "fallo",
+                            "icon": "warning",
+                            "title": "Perfil no disponible",
+                            "descripcion": (
+                                "El Despachador seleccionado "
+                                "no existe."
+                            )
+                        })
+
+                    modelo = "despachador"
+
+                elif id_perfil == "VIGILANTE":
+                    try:
+                        info_perfil = (
+                            vigilantes.objects
+                            .select_related("id_usuario", "id_turno")
+                            .select_for_update()
+                            .get(id_vigilante=id_registro)
+                        )
+                    except vigilantes.DoesNotExist:
+                        return JsonResponse({
+                            "estado": "fallo",
+                            "icon": "warning",
+                            "title": "Perfil no disponible",
+                            "descripcion": (
+                                "El Vigilante seleccionado "
+                                "no existe."
+                            )
+                        })
+
+                    modelo = "vigilante"
+
+                else:
+                    return JsonResponse({
+                        "estado": "fallo",
+                        "icon": "warning",
+                        "title": "Perfil inválido",
+                        "descripcion": (
+                            "El tipo de personal seleccionado "
+                            "no es válido."
+                        )
+                    })
+
+                # TURNO
+                try:
+                    turno_nuevo = turnos_laborales.objects.get(
+                        id_turno=id_turno
                     )
-                )
+                except turnos_laborales.DoesNotExist:
+                    return JsonResponse({
+                        "estado": "fallo",
+                        "icon": "warning",
+                        "title": "Turno no disponible",
+                        "descripcion": (
+                            "El turno seleccionado no existe."
+                        )
+                    })
+
+                # USUARIO QUE REALIZA LA ACCIÓN
+                try:
+                    usuario_accion = usuarios.objects.get(
+                        cedula_identidad=request.session.get(
+                            "cedula_identidad"
+                        )
+                    )
+                except usuarios.DoesNotExist:
+                    return JsonResponse({
+                        "estado": "fallo",
+                        "icon": "error",
+                        "title": "Usuario no disponible",
+                        "descripcion": (
+                            "No se pudo identificar al usuario "
+                            "que realiza la acción."
+                        )
+                    })
 
                 usuario_afectado = info_perfil.id_usuario
 
-                # La acción determina la vigencia
+                # NOMBRES DE LOS PERFILES
+                nombres_perfiles = {
+                    "SUPERVISOR_ENCARGADO": "Supervisor Encargado",
+                    "PERSONAL_LIMPIEZA": "Personal de Limpieza",
+                    "DESPACHADOR": "Despachador",
+                    "VIGILANTE": "Vigilante"
+                }
+
+                nombre_perfil = nombres_perfiles[id_perfil]
+
+                # VALIDAR QUE EL EMPLEADO NO TENGA OTRO PERFIL ACTIVO
+                if vigencia == "REASIGNAR":
+
+                    # Bloquear los perfiles activos del empleado
+                    supervisores_activos = (
+                        supervisores_encargados.objects
+                        .select_for_update()
+                        .filter(
+                            id_usuario=usuario_afectado,
+                            vigencia=True
+                        )
+                    )
+
+                    limpiezas_activas = (
+                        personal_limpieza.objects
+                        .select_for_update()
+                        .filter(
+                            id_usuario=usuario_afectado,
+                            vigencia=True
+                        )
+                    )
+
+                    despachadores_activos = (
+                        despachadores.objects
+                        .select_for_update()
+                        .filter(
+                            id_usuario=usuario_afectado,
+                            vigencia=True
+                        )
+                    )
+
+                    vigilantes_activos = (
+                        vigilantes.objects
+                        .select_for_update()
+                        .filter(
+                            id_usuario=usuario_afectado,
+                            vigencia=True
+                        )
+                    )
+
+                    # Determinar cuál perfil activo tiene actualmente
+                    perfil_activo = None
+
+                    if supervisores_activos.exists():
+                        perfil_activo = "Supervisor Encargado"
+
+                    elif limpiezas_activas.exists():
+                        perfil_activo = "Personal de Limpieza"
+
+                    elif despachadores_activos.exists():
+                        perfil_activo = "Despachador"
+
+                    elif vigilantes_activos.exists():
+                        perfil_activo = "Vigilante"
+
+                    # Si existe cualquier perfil activo,
+                    # NO se permite activar/reasignar otro.
+                    if perfil_activo:
+                        return JsonResponse({
+                            "estado": "fallo",
+                            "icon": "warning",
+                            "title": "Perfil activo",
+                            "descripcion": (
+                                f"El empleado ya tiene el perfil "
+                                f"{perfil_activo} activo. "
+                                "Debe deshabilitarlo antes de "
+                                "activar otro perfil."
+                            )
+                        })
+
+                # VALIDACIÓN ESPECIAL PARA SUPERVISOR
+                if modelo == "supervisor" and vigencia == "REASIGNAR":
+                    supervisor_ocupado = (
+                        supervisores_encargados.objects
+                        .select_for_update()
+                        .filter(
+                            id_turno=turno_nuevo,
+                            vigencia=True
+                        )
+                        .exclude(
+                            id_supervisor=info_perfil.id_supervisor
+                        )
+                        .exists()
+                    )
+
+                    if supervisor_ocupado:
+                        return JsonResponse({
+                            "estado": "fallo",
+                            "icon": "warning",
+                            "title": "Turno ocupado",
+                            "descripcion": (
+                                "El turno seleccionado ya tiene un "
+                                "Supervisor Encargado vigente."
+                            )
+                        })
+
+                # ACTUALIZAR VIGENCIA Y TURNO
                 nueva_vigencia = vigencia == "REASIGNAR"
 
                 info_perfil.vigencia = nueva_vigencia
@@ -710,31 +1402,26 @@ def actualizar_vigencia_perfil(request):
                     ]
                 )
 
+                nombres_completos = (
+                    f"{usuario_afectado.nombres} "
+                    f"{usuario_afectado.apellidos}"
+                )
+
                 if nueva_vigencia:
                     descripcion = (
                         f"Se reasignó el perfil "
-                        f"{info_perfil.id_perfil.perfil} "
-                        f"al empleado "
-                        f"{usuario_afectado.nombres} "
-                        f"{usuario_afectado.apellidos} "
+                        f"{nombre_perfil} al empleado "
+                        f"{nombres_completos} "
                         f"en el turno {turno_nuevo.nombre}."
                     )
                 else:
                     descripcion = (
                         f"Se deshabilitó el perfil "
-                        f"{info_perfil.id_perfil.perfil} "
-                        f"del empleado "
-                        f"{usuario_afectado.nombres} "
-                        f"{usuario_afectado.apellidos}."
+                        f"{nombre_perfil} del empleado "
+                        f"{nombres_completos}."
                     )
 
-                historial_perfiles_usuario.objects.create(
-                    id_usuario=info_perfil.id_usuario,
-                    id_perfil=info_perfil.id_perfil,
-                    id_turno=turno_nuevo,
-                    accion=vigencia
-                )
-
+                # BITÁCORA
                 bitacora.objects.create(
                     id_usuario=usuario_accion,
                     accion=descripcion
@@ -746,33 +1433,6 @@ def actualizar_vigencia_perfil(request):
                     "title": "Éxito",
                     "descripcion": descripcion
                 })
-
-        except perfil_usuario.DoesNotExist:
-            return JsonResponse({
-                "estado": "fallo",
-                "icon": "warning",
-                "title": "Perfil no disponible",
-                "descripcion": "El perfil seleccionado no existe."
-            })
-
-        except turnos_laborales.DoesNotExist:
-            return JsonResponse({
-                "estado": "fallo",
-                "icon": "warning",
-                "title": "Turno no disponible",
-                "descripcion": "El turno seleccionado no existe."
-            })
-
-        except usuarios.DoesNotExist:
-            return JsonResponse({
-                "estado": "fallo",
-                "icon": "error",
-                "title": "Usuario no disponible",
-                "descripcion": (
-                    "No se pudo identificar al usuario "
-                    "que realiza la acción."
-                )
-            })
 
         except Exception as e:
             print(e)
@@ -786,297 +1446,6 @@ def actualizar_vigencia_perfil(request):
                     "el perfil."
                 )
             })
-       
+        
 def gestionar_perfiles_empleado(request):
-    return render(request, "Modulos/gestionar_perfiles_empleado.html")
-
-# HISTORIAL DE GESTIÓN DE PERFILES
-
-def fechas_historial_asignaciones(request):
-    fechas = (
-        historial_perfiles_usuario.objects
-        .values_list("fecha_accion__date", flat=True)
-        .distinct()
-        .order_by("-fecha_accion__date")
-    )
-
-    return JsonResponse({
-        "estado": "exito",
-        "fechas": [
-            {
-                "valor": fecha.strftime("%Y-%m-%d"),
-                "texto": fecha.strftime("%d/%m/%Y")
-            }
-            for fecha in fechas
-        ]
-    })
-
-def historial_perfiles(request):
-    if request.method == "POST":
-        fecha = request.POST.get("fecha")
-        perfil = request.POST.get("perfil")
-
-        historial = historial_perfiles_usuario.objects.select_related(
-            "id_usuario",
-            "id_perfil",
-            "id_turno"
-        ).order_by("-fecha_accion")
-
-        if fecha:
-            historial = historial.filter(
-                fecha_accion__date=fecha
-            )
-
-        if perfil:
-            historial = historial.filter(
-                id_perfil=perfil
-            )
-
-        datos = [
-            {
-                "id_historial": registro.id_historial,
-                "usuario": (
-                    f"{registro.id_usuario.nombres} "
-                    f"{registro.id_usuario.apellidos}"
-                ),
-                "perfil": registro.id_perfil.perfil,
-                "turno": registro.id_turno.nombre,
-                "accion": registro.get_accion_display(),
-                "fecha_accion": registro.fecha_accion.strftime(
-                    "%d/%m/%Y %H:%M:%S"
-                ),
-            }
-            for registro in historial
-        ]
-
-        return JsonResponse({
-            "estado": "exito",
-            "historial": datos
-        })
-
-    return render(request, "Modulos/historial_gestiones_perfiles.html")
-
-# REPORTE DE TODOS HISTORIAL DE ASIGNACIONES PERFILES
-
-def lista_historial_perfiles_pdf(request):
-    fecha = request.POST.get("fecha", "").strip()
-    perfil = request.POST.get("perfil", "").strip()
-
-    historial = historial_perfiles_usuario.objects.select_related(
-        "id_usuario",
-        "id_perfil",
-        "id_turno"
-    ).order_by("-fecha_accion")
-
-    if fecha:
-        historial = historial.filter(
-            fecha_accion__date=fecha
-        )
-
-    if perfil:
-        historial = historial.filter(
-            id_perfil=perfil
-        )
-
-    datos = [
-        {
-            "id_historial": registro.id_historial,
-            "usuario": (
-                f"{registro.id_usuario.nombres} "
-                f"{registro.id_usuario.apellidos}"
-            ),
-            "perfil": registro.id_perfil.perfil,
-            "turno": registro.id_turno.nombre,
-            "accion": registro.get_accion_display(),
-            "fecha_accion": registro.fecha_accion.strftime(
-                "%d/%m/%Y %H:%M:%S"
-            ),
-        }
-        for registro in historial
-    ]
-
-    # RESPUESTA PDF
-    response = HttpResponse(content_type="application/pdf")
-
-    response["Content-Disposition"] = ('inline; filename="historial_perfiles.pdf"')
-
-    # DOCUMENTO
-    documento = SimpleDocTemplate(
-        response,
-        pagesize=letter,
-        rightMargin=30,
-        leftMargin=30,
-        topMargin=130,
-        bottomMargin=30
-    )
-
-    # LOGO
-    ruta_logo = os.path.join(
-        settings.BASE_DIR,
-        "static",
-        "Imagenes",
-        "logo_hielo_caipe.png"
-    )
-
-    # DATOS DE LA TABLA
-    datos_tabla = [
-        # ENCABEZADO PRINCIPAL
-        ["HISTORIAL DE GESTIONES DE PERFILES", "", "", "", "",],
-        # ENCABEZADO DE COLUMNAS
-        ["N.º", "Empleado", "Perfil", "Turno Laboral", "Estado", "Fecha",],
-    ]
-
-    # REGISTROS
-    for numero, dato in enumerate(datos, start=1):
-        datos_tabla.append([
-            numero,
-            dato["usuario"],
-            dato["perfil"],
-            dato["turno"],
-            dato["accion"],
-            dato["fecha_accion"],
-        ])
-
-    # TABLA
-    tabla = Table(
-        datos_tabla,
-        colWidths=[
-            30,
-            140,
-            80,
-            70,
-            60,
-            100
-        ],
-        repeatRows=2
-    )
-
-    # ESTILOS DE TABLA
-    tabla.setStyle(TableStyle([
-        # ENCABEZADO PRINCIPAL
-        ("SPAN", (0, 0), (-1, 0)),
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#00445F")),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("FONTNAME", (0, 0), (-1, 0), "Times-Bold"),
-        ("FONTSIZE", (0, 0), (-1, 0), 14),
-        ("ALIGN", (0, 0), (-1, 0), "CENTER"),
-        ("VALIGN", (0, 0), (-1, 0), "MIDDLE"),
-
-        # ENCABEZADO DE COLUMNAS
-        ("BACKGROUND", (0, 1), (-1, 1), colors.HexColor("#00445F")),
-        ("TEXTCOLOR", (0, 1), (-1, 1), colors.white),
-        ("FONTNAME", (0, 1), (-1, 1), "Times-Bold"),
-        ("FONTSIZE", (0, 1), (-1, 1), 9),
-        ("ALIGN", (0, 1), (-1, 1), "CENTER"),
-        ("VALIGN", (0, 1), (-1, 1), "MIDDLE"),
-
-        # CONTENIDO
-        ("FONTNAME", (0, 2), (-1, -1), "Times-Roman"),
-        ("FONTSIZE", (0, 2), (-1, -1), 9),
-        ("TEXTCOLOR", (0, 2), (-1, -1), colors.black),
-        ("ALIGN", (0, 2), (-1, -1), "CENTER"),
-        ("VALIGN", (0, 2), (-1, -1), "MIDDLE"),
-
-        # BORDES
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-
-        # ESPACIADO
-        ("TOPPADDING", (0, 0), (-1, -1), 7),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
-    ]))
-
-    elementos = [
-        tabla
-    ]
-
-    # GENERAR PDF
-    documento.build(
-        elementos,
-        onFirstPage=lambda canvas, documento:
-            encabezado_historial_perfiles_pdf(
-                canvas,
-                documento,
-                ruta_logo
-            ),
-
-        onLaterPages=lambda canvas, documento:
-            encabezado_historial_perfiles_pdf(
-                canvas,
-                documento,
-                ruta_logo
-            )
-    )
-
-    return response
-
-def encabezado_historial_perfiles_pdf(canvas, documento, ruta_logo):
-    canvas.saveState()
-
-    # LOGO
-    x_logo = 30
-    y_logo = letter[1] - 150
-
-    ancho_logo = 160
-    alto_logo = 160
-
-    canvas.drawImage(
-        ruta_logo,
-        x_logo,
-        y_logo,
-        width=ancho_logo,
-        height=alto_logo,
-        preserveAspectRatio=True,
-        mask="auto"
-    )
-
-    # TITULO EMPRESA
-    x_titulo = 185
-    y_titulo = letter[1] - 70
-
-    canvas.setFont("Times-Bold", 18)
-    canvas.setFillColor(colors.HexColor("#00445F"))
-
-    canvas.drawString(
-        x_titulo,
-        y_titulo,
-        "EMPRESA HIELO CAIPE C.A"
-    )
-
-    # FECHA EN ESPAÑOL
-    meses = [
-        "Enero",
-        "Febrero",
-        "Marzo",
-        "Abril",
-        "Mayo",
-        "Junio",
-        "Julio",
-        "Agosto",
-        "Septiembre",
-        "Octubre",
-        "Noviembre",
-        "Diciembre"
-    ]
-
-    fecha = datetime.now()
-
-    fecha_actual = (
-        f"{fecha.day} de "
-        f"{meses[fecha.month - 1]} de "
-        f"{fecha.year}"
-    )
-
-    # FECHA
-    x_fecha = 210
-    y_fecha = letter[1] - 120
-
-    canvas.setFont("Times-Bold", 11)
-    canvas.setFillColor(colors.HexColor("#072F3F"))
-
-    canvas.drawString(
-        x_fecha,
-        y_fecha,
-        f"Fecha Generado {fecha_actual}"
-    )
-
-    canvas.restoreState()
+    return render(request, "Modulos/Perfiles/gestionar_perfiles_empleado.html")

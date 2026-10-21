@@ -1,0 +1,107 @@
+.modulo_ventas {
+    width: 100%;
+    min-width: 0;
+    padding: 20px 24px;
+    background: #ffffff;
+    border: 2px solid #00779e;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 68, 95, 0.08);
+}
+
+.formulario_venta {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 16px;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+}
+
+.formulario_venta .campo_formulario {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+}
+
+.formulario_venta .campo_formulario label {
+    margin: 0;
+    color: #102f4e;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.formulario_venta .campo_formulario input[type="file"],
+.formulario_venta .campo_formulario input,
+.formulario_venta .campo_formulario select {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    height: 38px;
+    box-sizing: border-box;
+    padding: 8px 10px;
+    border: 1px solid #cbd8e2;
+    border-radius: 7px;
+    background-color: #ffffff;
+    color: #102f4e;
+    font-family: inherit;
+    font-size: 14px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.formulario_venta .campo_formulario input::placeholder {
+    color: #8495a3;
+    opacity: 1;
+    font-size: 13px;
+}
+
+.formulario_venta .campo_formulario input[type="file"]:focus,
+.formulario_venta .campo_formulario input:focus,
+.formulario_venta .campo_formulario select:focus {
+    outline: none;
+    border-color: #00779e;
+    box-shadow: 0 0 0 2px rgba(0, 119, 158, 0.12);
+}
+
+#controles_individuo,
+#control_empresa {
+    display: none;
+}
+
+#controles_individuo.activo,
+#control_empresa.activo {
+    display: contents;
+}
+
+@media (max-width: 650px) {
+    .modulo_ventas {
+        padding: 12px;
+    }
+
+    .formulario_venta {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+}
+
+@media (max-width: 380px) {
+    .formulario_venta .campo_formulario label {
+        font-size: 13px;
+    }
+
+    .formulario_venta .campo_formulario input,
+    .formulario_venta .campo_formulario select {
+        font-size: 13px;
+    }
+
+    .formulario_venta .campo_formulario input[type="file"] {
+        font-size: 12px;
+    }
+
+    .formulario_venta .campo_formulario input::placeholder {
+        font-size: 12px;
+    }
+}

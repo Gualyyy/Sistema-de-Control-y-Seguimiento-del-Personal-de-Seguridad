@@ -1,0 +1,117 @@
+{% extends 'Estructura/base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="contenedor_formulario">
+    <div class="contenedor_campos_amplio">
+        <h2>Visualizar Incidencias</h2>
+
+        <div class="modulo_buqueda">
+            <h3>Búsqueda Incidencia(s)</h3>
+
+            <form method="post" class="formulario_base">
+                {% csrf_token %}
+
+                <div class="campos_fila">
+                    <div class="campo_formulario">
+                        <label for="tipos_incidencias">Tipos de Incidencias:</label>
+                        <select name="tipos_incidencias" id="tipos_incidencias"></select>
+                    </div>
+
+                    <div class="campo_formulario">
+                        <label for="turno_laboral">Turno Laboral:</label>
+                        <select name="turno_laboral" id="turno_laboral"></select>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="modulo_visualizar detalle">
+            <div class="encabezado_registrados">
+                <button type="button" class="btn_pdf" id="lista_incidencias_pdf">
+                    <i class="fa-regular fa-file-pdf"></i>
+                    Reporte
+                </button>
+            </div>
+
+            <div class="contenedor_tabla">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>VIGILANTE</th>
+                            <th>TURNO</th>
+                            <th>TITULO</th>
+                            <th>TIPO DE INCIDENCIA</th>
+                            <th>FECHA Y HORA</th>
+                        </tr>
+                    </thead>
+                    <tbody id="contenedor_incidencias"></tbody>
+                </table>
+            </div>
+
+            <div class="botones_navegacion">
+                <button class="btn_secundario btn_retroceder" type="button">Retroceder</button>
+                <button class="btn_primario btn_avanzar" type="button">Avanzar</button>
+            </div>
+        </div>
+
+    </div>
+</section>
+
+<dialog id="dialogo_incidencia" class="dialogo">
+    <div class="contenedor_info_reducido">
+        <button type="button" id="btn_cerrar_incidencia" class="btn_cerrar">
+            <i class="fa-solid fa-square-xmark"></i>
+        </button>
+
+        <h2>Detalle Incidencia</h2>
+
+        <div class="modelo_dialogo_visualizar">
+            <form method="post" class="formulario_dialogo_visualizar">
+                {% csrf_token %}
+
+                <div class="campo_formulario">
+                    <label for="vigilante_incidencia">Vigilante:</label>
+                    <input type="text" id="vigilante_incidencia" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="ci_vigilante">Cedula de Identidad:</label>
+                    <input type="text" id="ci_vigilante" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="turno_laboral_vigilante">Turno Laboral:</label>
+                    <input type="text" id="turno_laboral_vigilante" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="tipo_incidencia_v">Tipo de Incidencia:</label>
+                    <input type="text" id="tipo_incidencia_v" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="titulo_incidencia_visualizar">Titulo Incidencia:</label>
+                    <input type="text" id="titulo_incidencia_visualizar" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="descripcion_incidencia_v">Descripción Incidencia:</label>
+                    <textarea id="descripcion_incidencia_v" readonly></textarea>
+                </div>
+                <div class="campo_formulario">
+                    <label for="fecha_incidencia_v">Fecha y Hora de la Incidencia:</label>
+                    <input type="text" id="fecha_incidencia_v" readonly>
+                </div>
+            </form>
+        </div>
+
+    </div>
+</dialog>
+
+<script src="{% static 'Funcionalidades_Asincronas/incidencias/administrativo/visualizar_incidencia.js' %}"></script>
+
+{% endblock %}

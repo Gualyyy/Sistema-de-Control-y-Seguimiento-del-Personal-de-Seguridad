@@ -2,10 +2,7 @@ from django.contrib import admin, messages
 from django import forms
 from django.contrib.auth.hashers import make_password
 from django.core.exceptions import ValidationError
-from .models import usuarios, contacto, credenciales, nacimiento, residencia, perfiles, perfil_usuario, categoria_equipo, equipos
-from asignaciones.models import asignacion_equipo
-from asistencias.models import asistencia
-from incidencias.models import tipo_incidencia, incidencia
+from .models import usuarios, contacto, credenciales, directiva_nacional, encargados_administrativos, supervisores_encargados, personal_limpieza, despachadores, vigilantes
 
 class UsuariosForm(forms.ModelForm):
 
@@ -145,19 +142,6 @@ class UsuariosAdmin(admin.ModelAdmin):
                 "Usuario registrado correctamente."
             )
 
-    class Media:
-        js = (
-            "https://cdn.jsdelivr.net/npm/sweetalert2@11",
-            "Funcionalidades/contrasenia_admin.js",
-        )
-
-        css = {
-            "all": (
-                "Estilos/Formulario/admin.css",
-                "Estilos/fontello.css",
-            )
-        }
-
 class CredencialesForm(forms.ModelForm):
 
     class Meta:
@@ -232,18 +216,6 @@ class CredencialesAdmin(admin.ModelAdmin):
         "id_usuario__apellidos",
         "id_usuario__cedula_identidad",
     )
-
-    class Media:
-        js = (
-            "https://cdn.jsdelivr.net/npm/sweetalert2@11",
-            "Funcionalidades/contrasenia_admin.js",
-        )
-        css = {
-            "all": (
-                "Estilos/Formulario/admin.css",
-                "Estilos/fontello.css",
-            )
-        }
 
 class TelefonoWidget(forms.MultiWidget):
     def __init__(self, attrs=None):
@@ -409,118 +381,11 @@ class ContactoAdmin(admin.ModelAdmin):
         ),
     )
 
-    class Media:
-        js = (
-            "Funcionalidades/telefono.js",
-        )
-        css = {
-            "all": {
-                "Estilos/admin.css",
-            }
-        }
-
-class TipoIncidenciaAdminForm(forms.ModelForm):
-    class Meta:
-        model = tipo_incidencia
-        fields = [
-            "nombre",
-        ]
-        widgets = {
-            "nombre": forms.TextInput(
-                attrs={
-                    "maxlength": "50",
-                    "placeholder": "Ingrese el tipo de incidencia"
-                }
-            )
-        }
-
-    def clean_nombre(self):
-        nombre = self.cleaned_data.get("nombre")
-        if len(nombre) < 3:
-            raise ValidationError(
-                "El nombre debe tener mínimo 3 caracteres."
-            )
-
-        if len(nombre) > 50:
-            raise ValidationError(
-                "El nombre no puede superar los 50 caracteres."
-            )
-        return nombre
-
-@admin.register(tipo_incidencia)
-class TipoIncidenciaAdmin(admin.ModelAdmin):
-    form = TipoIncidenciaAdminForm
-
-    list_display = (
-        "id_tipo",
-        "nombre",
-    )
-
-    class Media:
-        css = {
-            "all": (
-                "Estilos/admin.css",
-            )
-        }
-
-class PerfilAdminForm(forms.ModelForm):
-    class Meta:
-        model = perfiles
-
-        fields = [
-            "perfil",
-        ]
-
-        widgets = {
-            "perfil": forms.TextInput(
-                attrs={
-                    "maxlength": "30",
-                    "minlength": "3",
-                    "placeholder": "Ingrese el perfil"
-                }
-            )
-        }
-
-
-    def clean_perfil(self):
-
-        perfil = self.cleaned_data.get("perfil")
-
-        if len(perfil) < 3:
-            raise ValidationError(
-                "El perfil debe tener mínimo 3 caracteres."
-            )
-
-
-        if len(perfil) > 30:
-            raise ValidationError(
-                "El perfil no puede superar los 30 caracteres."
-            )
-
-
-        return perfil
-
-@admin.register(perfiles)
-class PerfilAdmin(admin.ModelAdmin):
-
-    form = PerfilAdminForm
-
-    list_display = (
-        "id_perfil",
-        "perfil",
-    )
-
-    class Media:
-        css = {
-            "all": (
-                "Estilos/admin.css",
-            )
-        }
 
 # Register your models here.
-admin.site.register(perfil_usuario)
-admin.site.register(categoria_equipo)
-admin.site.register(equipos)
-admin.site.register(asignacion_equipo)
-admin.site.register(asistencia)
-admin.site.register(incidencia)
+admin.site.register(directiva_nacional)
+admin.site.register(encargados_administrativos)
+admin.site.register(supervisores_encargados)
+admin.site.register(personal_limpieza)
+admin.site.register(despachadores)
+admin.site.register(vigilantes)

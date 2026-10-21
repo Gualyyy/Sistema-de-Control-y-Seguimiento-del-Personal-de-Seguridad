@@ -1,0 +1,61 @@
+{% extends 'Estructura/base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="contenedor_formulario">
+    <div class="contenedor_campos_amplio">
+        <h2>Inicios de Sesiones</h2>
+
+        <div class="modulo_buqueda">
+            <h3>Búsqueda</h3>
+
+            <form method="post" class="formulario_base">
+                {% csrf_token %}
+
+                <div class="campo_reducido">
+                    <label for="fechas_registradas">Fechas Registradas:</label>
+                    <select name="fechas_registradas" id="fechas_registradas"></select>
+                </div>
+            </form>
+        </div>
+
+        <div class="modulo_visualizar">
+            <div class="encabezado_registrados">
+                <button type="button" class="btn_pdf" id="inicios_sesiones_pdf">
+                    <i class="fa-regular fa-file-pdf"></i>
+                    Reporte
+                </button>
+            </div>
+
+            <div class="contenedor_tabla">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>EMPLEADO</th>
+                            <th>C.I</th>
+                            <th>FECHA INICIO</th>
+                            <th>FECHA FINALIZADA</th>
+                            <th>ACTIVO</th>
+                            <th>NAVEGADOR</th>
+                            <th>DIRECCIÓN IP</th>
+                        </tr>
+                    </thead>
+                    <tbody id="contenedor_inicios_sesiones"></tbody>
+                </table>
+            </div>
+
+            <div class="botones_navegacion">
+                <button class="btn_secundario btn_retroceder" type="button">Retroceder</button>
+                <button class="btn_primario btn_avanzar" type="button">Avanzar</button>
+            </div>
+        </div>
+
+    </div>
+</section>
+
+<script src="{% static 'Funcionalidades_Asincronas/seguridad/inicios_sesiones.js' %}"></script>
+
+{% endblock %}

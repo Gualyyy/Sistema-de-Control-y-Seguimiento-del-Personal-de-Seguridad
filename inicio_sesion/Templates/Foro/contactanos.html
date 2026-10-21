@@ -1,0 +1,50 @@
+{% extends 'Estructura/base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="contenedor_foro">
+    <div class="contenedor_descripcion_foro">
+        <h2>Contáctanos</h2>
+
+        <div class="contenedor_contactanos">
+            <div class="contactos">
+                <div class="contacto_item">
+                    <i class="fa-solid fa-phone"></i>
+                    <div class="contacto_info">
+                        <h3>Teléfono</h3>
+                        <p>0000000000</p>
+                    </div>
+                </div>
+
+                <div class="contacto_item">
+                    <i class="fa-solid fa-envelope"></i>
+                    <div class="contacto_info">
+                        <h3>Correo electrónico</h3>
+                        <p>ejemplo@gmail.com</p>
+                    </div>
+                </div>
+
+                <div class="contacto_item">
+                    <i class="fa-solid fa-location-dot"></i>
+                    <div class="contacto_info">
+                        <h3>Dirección</h3>
+                        <p>Carretera nacional, Barinas 5213, Barinas</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mapa_ifraim">
+                <iframe
+                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3944.2859911205364!2d-70.24406812595426!3d8.664328094592683!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x8e7ca9f7fd193621%3A0x4e894f961e2b2c10!2sHielo%20Caipe!5e0!3m2!1ses!2sve!4v1790886941326!5m2!1ses!2sve"
+                    width="600" height="450" allowfullscreen loading="lazy"
+                    referrerpolicy="strict-origin-when-cross-origin">
+                </iframe>
+            </div>
+        </div>
+
+    </div>
+</section>
+
+{% endblock %}

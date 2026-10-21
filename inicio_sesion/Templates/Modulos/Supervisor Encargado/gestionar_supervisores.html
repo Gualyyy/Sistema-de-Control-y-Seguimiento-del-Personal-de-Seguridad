@@ -1,0 +1,193 @@
+{% extends 'Estructura/base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="contenedor_formulario">
+    <div class="contenedor_campos_extra_amplio">
+        <h2>Supervisores Encargados</h2>
+
+        <div id="contenedor_supervisor_diurno" class="contenedor_turno turno_diurno">
+            <p class="supervisor_no_registrado" hidden>
+                Supervisor diurno no registrado.
+            </p>
+
+            <div class="encabezado_turno">
+                <div class="icono_turno">
+                    <i class="fa-regular fa-sun"></i>
+                </div>
+
+                <div>
+                    <h3>Supervisor Diurno</h3>
+                    <span class="badge_turno">Turno Mañana / Tarde</span>
+                </div>
+            </div>
+
+            <div id="lista_supervisores_diurnos" class="lista_supervisores">
+                <div class="tarjeta_supervisor" data-supervisor-card>
+                    <div class="datos_supervisor">
+                        <div class="avatar_supervisor" data-campo="iniciales"></div>
+
+                        <div class="info_texto">
+                            <h3 data-campo="nombre_completo"></h3>
+                            <span data-campo="estado"></span>
+                        </div>
+                    </div>
+
+                    <div class="acciones_supervisor">
+                        <button type="button" class="btn_actualizar_supervisor">Actualizar</button>
+
+                        <button type="button" class="btn_bloquear">Bloquear</button>
+
+                        <button type="button" class="btn_credenciales">Registrar credenciales</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="contenedor_supervisor_nocturno" class="contenedor_turno turno_nocturno">
+            <p class="supervisor_no_registrado" hidden>
+                Supervisor nocturno no registrado.
+            </p>
+
+            <div class="encabezado_turno">
+                <div class="icono_turno">
+                    <i class="fa-regular fa-moon"></i>
+                </div>
+
+                <div>
+                    <h3>Supervisor Nocturno</h3>
+                    <span class="badge_turno">Turno Noche / Madrugada</span>
+                </div>
+            </div>
+
+            <div id="lista_supervisores_nocturnos" class="lista_supervisores">
+                <div class="tarjeta_supervisor" data-supervisor-card>
+                    <div class="datos_supervisor">
+                        <div class="avatar_supervisor" data-campo="iniciales"></div>
+
+                        <div class="info_texto">
+                            <h3 data-campo="nombre_completo"></h3>
+                            <span data-campo="estado"></span>
+                        </div>
+                    </div>
+
+                    <div class="acciones_supervisor">
+                        <button type="button" class="btn_actualizar_supervisor">Actualizar</button>
+
+                        <button type="button" class="btn_bloquear">Bloquear</button>
+
+                        <button type="button" class="btn_credenciales">Registrar credenciales</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</section>
+
+<dialog id="dialogo_registrar" class="dialogo">
+    <div class="contenedor_info_reducido">
+        <button type="button" id="btn_cerrar_registrar" class="btn_cerrar">
+            <i class="fa-solid fa-square-xmark"></i>
+        </button>
+
+        <h2>Registrar Credenciales</h2>
+
+        <div id="contenedor_mensajes_registrar" class="contenedor_mensajes">
+            <i class="fa-solid fa-hourglass-half reloj_procesamiento"></i>
+            <p>Ingrese las credenciales para registrar.</p>
+        </div>
+
+        <div class="modulo_dialogo_controi">
+            <form method="post" id="formulario_registrar" class="formulario_dialogo_visualizar">
+                {% csrf_token %}
+                <input type="hidden" name="id_usuario" id="supervisor_registrar">
+
+                <div class="campo_formulario">
+                    <label for="nombre_usuario_registrar">Usuario</label>
+                    <input name="nombre_usuario" id="nombre_usuario_registrar" type="text"
+                        placeholder="Ingrese su usuario (30 caracteres)" autocomplete="off" maxlength="30" required>
+                    <small id="contenedor_mensaje_nombre_registrar" class="mensaje-feedback"></small>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="clave_registrar">Contraseña</label>
+                    <div class="password_contenedor">
+                        <input name="contrasenia" id="clave_registrar" type="password"
+                            placeholder="Ingrese su contraseña  (30 caracteres)" autocomplete="off" maxlength="30"
+                            required>
+                        <small id="contenedor_mensaje_password_registrar" class="mensaje-feedback"></small>
+
+                        <input type="checkbox" class="checkbox_ojo">
+                        <label class="icono_ojo" aria-label="Mostrar u ocultar contraseña">
+                            <i class="fa-sharp-duotone fa-regular fa-eye icono_mostrar"></i>
+                            <i class="fa-duotone fa-regular fa-eye-slash icono_ocultar"></i>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="contenedor_boton_submit">
+                    <button type="submit" class="btn_primario">Registrar</button>
+                </div>
+            </form>
+        </div>
+
+    </div>
+</dialog>
+
+<dialog id="dialogo_actualizar" class="dialogo">
+    <div class="contenedor_info_reducido">
+        <button type="button" id="btn_cerrar_actualizar" class="btn_cerrar">
+            <i class="fa-solid fa-square-xmark"></i>
+        </button>
+
+        <h2>Actualizar Credenciales</h2>
+
+        <div id="contenedor_mensajes_actualizar" class="contenedor_mensajes">
+            <i class="fa-solid fa-hourglass-half reloj_procesamiento"></i>
+            <p>Ingrese las credenciales para actualizarlo.</p>
+        </div>
+
+        <div class="modulo_dialogo_controi">
+            <form method="post" id="formulario_actualizar" class="formulario_dialogo_visualizar">
+                {% csrf_token %}
+                <input type="hidden" name="id_usuario" id="supervisor_actualizar">
+
+                <div class="campo_formulario">
+                    <label for="nombre_usuario_actualizar">Usuario</label>
+                    <input name="nombre_usuario" id="nombre_usuario_actualizar" type="text"
+                        placeholder="Ingrese su usuario (30 caracteres)" autocomplete="off" maxlength="30" required>
+                    <small id="contenedor_mensaje_nombre_actualizar" class="mensaje-feedback"></small>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="clave_actualizar">Contraseña</label>
+                    <div class="password_contenedor">
+                        <input name="contrasenia" id="clave_actualizar" type="password"
+                            placeholder="Ingrese su contraseña  (30 caracteres)" autocomplete="off" maxlength="30"
+                            required>
+                        <small id="contenedor_mensaje_password_actualizar" class="mensaje-feedback"></small>
+
+                        <input type="checkbox" class="checkbox_ojo">
+                        <label class="icono_ojo" aria-label="Mostrar u ocultar contraseña">
+                            <i class="fa-sharp-duotone fa-regular fa-eye icono_mostrar"></i>
+                            <i class="fa-duotone fa-regular fa-eye-slash icono_ocultar"></i>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="contenedor_boton_submit">
+                    <button type="submit" class="btn_primario">Actualizar</button>
+                </div>
+            </form>
+        </div>
+
+    </div>
+</dialog>
+
+<script src="{% static 'Funcionalidades/contrasenia.js' %}"></script>
+<script src="{% static 'Funcionalidades_Asincronas/supervisores_encargados/gestion_supervisores.js' %}"></script>
+
+{% endblock %}
