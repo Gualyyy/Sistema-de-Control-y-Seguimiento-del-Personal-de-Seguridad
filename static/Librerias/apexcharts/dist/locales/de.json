@@ -1,0 +1,67 @@
+{
+  "name": "de",
+  "options": {
+    "months": [
+      "Januar",
+      "Februar",
+      "März",
+      "April",
+      "Mai",
+      "Juni",
+      "Juli",
+      "August",
+      "September",
+      "Oktober",
+      "November",
+      "Dezember"
+    ],
+    "shortMonths": [
+      "Jan",
+      "Feb",
+      "Mär",
+      "Apr",
+      "Mai",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Okt",
+      "Nov",
+      "Dez"
+    ],
+    "days": [
+      "Sonntag",
+      "Montag",
+      "Dienstag",
+      "Mittwoch",
+      "Donnerstag",
+      "Freitag",
+      "Samstag"
+    ],
+    "shortDays": ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"],
+    "toolbar": {
+      "exportToSVG": "SVG speichern",
+      "exportToPNG": "PNG speichern",
+      "exportToCSV": "CSV speichern",
+      "menu": "Menü",
+      "selection": "Auswahl",
+      "selectionZoom": "Auswahl vergrößern",
+      "zoomIn": "Vergrößern",
+      "zoomOut": "Verkleinern",
+      "pan": "Verschieben",
+      "reset": "Zoom zurücksetzen",
+      "measure": "Messen",
+      "wheelZoomHint": "Zum Zoomen {key} + Scrollen verwenden"
+    },
+    "a11y": {
+      "legendItem": "{name}, {state}. Zum Umschalten Eingabetaste oder Leertaste drücken.",
+      "visible": "sichtbar",
+      "hidden": "ausgeblendet",
+      "zoomedIn": "Vergrößert",
+      "zoomedOut": "Verkleinert",
+      "zoomReset": "Zoom zurückgesetzt",
+      "pannedLeft": "Nach links verschoben",
+      "pannedRight": "Nach rechts verschoben"
+    }
+  }
+}

@@ -6,4 +6,16 @@
 
 {% include 'Usuarios/panel_supervisor_encargado.html' %}
 
+{% elif request.session.perfil == "Atención al Cliente" %}
+
+{% include 'Usuarios/panel_atención_cliente.html' %}
+
+{% elif request.session.perfil == "Cliente" %}
+
+{% include 'Usuarios/panel_cliente.html' %}
+
+{% elif request.session.perfil == "Propietario" %}
+
+{% include 'Usuarios/panel_propietario.html' %}
+
 {% endif %}

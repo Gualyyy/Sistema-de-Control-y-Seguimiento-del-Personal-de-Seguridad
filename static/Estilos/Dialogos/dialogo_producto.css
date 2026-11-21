@@ -1,0 +1,358 @@
+.contenedor_producto {
+    position: relative;
+    width: 100%;
+    min-width: 0;
+    margin: 0 auto;
+    padding: 30px;
+    background-color: #ffffff;
+    border: 1px solid #dce6ec;
+    border-radius: 14px;
+    box-shadow: 0 8px 28px rgba(0, 48, 70, 0.12);
+    box-sizing: border-box;
+    font-family: Arial, sans-serif;
+}
+
+.contenedor_producto *,
+.contenedor_producto *::before,
+.contenedor_producto *::after {
+    box-sizing: border-box;
+}
+
+.contenedor_producto h2 {
+    margin: 0 35px 25px 0;
+    padding-bottom: 15px;
+    color: #00445f;
+    font-size: 24px;
+    line-height: 1.4;
+    border-bottom: 2px solid #e3edf2;
+}
+
+.contenedor_producto .btn_cerrar {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    color: #647985;
+    background-color: transparent;
+    border: none;
+    border-radius: 8px;
+    font-size: 25px;
+    cursor: pointer;
+    transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.contenedor_producto .btn_cerrar:hover {
+    color: #c62828;
+    background-color: #fff0f0;
+}
+
+.contenedor_producto .btn_cerrar:focus-visible {
+    outline: 3px solid rgba(198, 40, 40, 0.2);
+    outline-offset: 3px;
+}
+
+.contenedor_producto .contenedor_btn_pdf {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    width: 100%;
+    min-width: 0;
+    margin: 0 0 20px;
+}
+
+.contenedor_producto .btn_pdf_dialog {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    min-width: 125px;
+    min-height: 43px;
+    padding: 11px 18px;
+    color: #ffffff;
+    background-color: #00445f;
+    border: 1px solid #00445f;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 1.4;
+    text-align: center;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease,
+        box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.contenedor_producto .btn_pdf_dialog i {
+    font-size: 17px;
+}
+
+.contenedor_producto .btn_pdf_dialog:hover {
+    background-color: #00779e;
+    border-color: #00779e;
+    box-shadow: 0 4px 10px rgba(0, 68, 95, 0.12);
+}
+
+.contenedor_producto .btn_pdf_dialog:active {
+    transform: scale(0.98);
+}
+
+.contenedor_producto .btn_pdf_dialog:focus-visible {
+    outline: 3px solid rgba(0, 119, 158, 0.3);
+    outline-offset: 3px;
+}
+
+.contenedor_producto .modelo_dialogo_producto {
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding: 22px;
+    background-color: #f7fafc;
+    border: 1px solid #dce5eb;
+    border-radius: 12px;
+    overflow: visible;
+}
+
+.contenedor_producto .formulario_dialogo_producto {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+}
+
+.contenedor_producto .formulario_dialogo_producto input[type="hidden"] {
+    display: none;
+}
+
+.contenedor_producto .contenedor_imagen_producto {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-width: 0;
+    min-height: 220px;
+    margin: 0 0 4px;
+    padding: 20px;
+    background-color: #ffffff;
+    border: 1px solid #d8e3e9;
+    border-radius: 9px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.contenedor_producto .contenedor_imagen_producto:hover {
+    border-color: #a9c8d5;
+    box-shadow: 0 2px 7px rgba(0, 68, 95, 0.04);
+}
+
+.contenedor_producto .contenedor_imagen_producto img {
+    display: block;
+    width: 100%;
+    max-width: 260px;
+    height: 190px;
+    margin: 0 auto;
+    object-fit: contain;
+    object-position: center;
+}
+
+.contenedor_producto .formulario_dialogo_producto .campo_formulario {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 9px;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding: 15px;
+    background-color: #ffffff;
+    border: 1px solid #d8e3e9;
+    border-radius: 9px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.contenedor_producto .formulario_dialogo_producto .campo_formulario:hover {
+    border-color: #a9c8d5;
+    box-shadow: 0 2px 7px rgba(0, 68, 95, 0.04);
+}
+
+.contenedor_producto .formulario_dialogo_producto .campo_formulario label {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    color: #244454;
+    font-size: 14px;
+
+    line-height: 1.5;
+}
+
+.contenedor_producto .formulario_dialogo_producto .campo_formulario input {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    min-height: 45px;
+    margin: 0;
+    padding: 11px 13px;
+    color: #365361;
+    background-color: #f3f7f9;
+    border: 1px solid #dce5eb;
+    border-radius: 8px;
+    outline: none;
+    font-family: inherit;
+    font-size: 14px;
+
+    line-height: 1.5;
+    box-shadow: none;
+    cursor: default;
+    opacity: 1;
+    -webkit-text-fill-color: #365361;
+}
+
+.contenedor_producto .formulario_dialogo_producto .campo_formulario input[readonly] {
+    color: #365361;
+    background-color: #f3f7f9;
+    border-color: #dce5eb;
+    cursor: default;
+}
+
+.contenedor_producto h2,
+.contenedor_producto .btn_cerrar,
+.contenedor_producto .btn_pdf_dialog,
+.contenedor_producto .formulario_dialogo_producto .campo_formulario label,
+.contenedor_producto .formulario_dialogo_producto .campo_formulario input,
+.contenedor_producto .contenedor_mensajes p {
+    font-weight: 400;
+}
+
+.contenedor_producto .formulario_dialogo_producto .campo_formulario input:focus {
+    border-color: #8ab9cc;
+    box-shadow: 0 0 0 3px rgba(0, 119, 158, 0.08);
+}
+
+.contenedor_producto .contenedor_mensajes {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    width: 100%;
+    min-width: 0;
+    margin: 10px 0;
+    padding: 22px 18px;
+    color: #365361;
+    background-color: #f3f7f9;
+    border: 1px solid #dce5eb;
+    border-radius: 10px;
+    text-align: center;
+    box-sizing: border-box;
+}
+
+.contenedor_producto .contenedor_mensajes i {
+    color: #00779e;
+    font-size: 28px;
+}
+
+.contenedor_producto .contenedor_mensajes p {
+    margin: 0;
+    padding: 0;
+    color: #365361;
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+
+@media (max-width: 600px) {
+    .contenedor_producto {
+        padding: 23px 18px;
+        border-radius: 11px;
+    }
+
+    .contenedor_producto h2 {
+        margin: 0 35px 20px 0;
+        padding-bottom: 12px;
+        font-size: 21px;
+    }
+
+    .contenedor_producto .btn_cerrar {
+        top: 15px;
+        right: 13px;
+    }
+
+    .contenedor_producto .contenedor_btn_pdf {
+        margin-bottom: 16px;
+    }
+
+    .contenedor_producto .btn_pdf_dialog {
+        min-height: 41px;
+        padding: 10px 15px;
+    }
+
+    .contenedor_producto .modelo_dialogo_producto {
+        padding: 13px;
+        border-radius: 10px;
+    }
+
+    .contenedor_producto .formulario_dialogo_producto {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 12px;
+    }
+
+    .contenedor_producto .contenedor_imagen_producto {
+        grid-column: 1;
+        min-height: 175px;
+        padding: 13px;
+    }
+
+    .contenedor_producto .contenedor_imagen_producto img {
+        max-width: 220px;
+        height: 150px;
+    }
+
+    .contenedor_producto .formulario_dialogo_producto .campo_formulario {
+        gap: 7px;
+        padding: 12px;
+    }
+
+    .contenedor_producto .formulario_dialogo_producto .campo_formulario label {
+        font-size: 13px;
+    }
+
+    .contenedor_producto .formulario_dialogo_producto .campo_formulario input {
+        min-height: 42px;
+        padding: 10px;
+        font-size: 13px;
+    }
+
+    .contenedor_producto .contenedor_mensajes {
+        gap: 10px;
+        margin-top: 16px;
+        padding: 18px 13px;
+        border-radius: 9px;
+    }
+
+    .contenedor_producto .contenedor_mensajes i {
+        font-size: 25px;
+    }
+
+    .contenedor_producto .contenedor_mensajes p {
+        font-size: 13px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    .contenedor_producto .btn_cerrar,
+    .contenedor_producto .btn_pdf_dialog,
+    .contenedor_producto .contenedor_imagen_producto,
+    .contenedor_producto .formulario_dialogo_producto .campo_formulario {
+        transition: none;
+    }
+}

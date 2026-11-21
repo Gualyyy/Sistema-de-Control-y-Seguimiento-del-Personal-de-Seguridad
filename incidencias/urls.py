@@ -16,7 +16,6 @@ urlpatterns = [
     path('gestion_incidencia_administrativo/', incidencia_view.gestion_incidencia_administrativo, name='gestion_incidencia_administrativo'),
     path('incidencias_recibidos_vigilantes/', incidencia_view.incidencias_recibidos_vigilantes, name='incidencias_recibidos_vigilantes'),
     path('buscar_incidencia/', incidencia_view.buscar_incidencia, name='buscar_incidencia'),
-
-    path('lista_incidencias_pdf/', incidencia_view.lista_incidencias_pdf, name='lista_incidencias_pdf'),
+    
     path('lista_incidencias_admin_pdf/', incidencia_view.lista_incidencias_admin_pdf, name='lista_incidencias_admin_pdf'),
 ]

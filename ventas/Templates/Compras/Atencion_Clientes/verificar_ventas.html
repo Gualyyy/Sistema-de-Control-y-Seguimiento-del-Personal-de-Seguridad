@@ -1,0 +1,368 @@
+{% extends 'Estructura/base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="contenedor_formulario">
+    <div class="contenedor_campos_demasiado_amplio">
+        <h2>Verificar Compras</h2>
+
+        <div class="modulo_detalle_venta">
+
+            <form method="post" class="formulario_detalle_venta">
+                {% csrf_token %}
+
+                <!-- LISTADO DE VENTAS E INFORMACIÓN DEL CLIENTE -->
+                <div class="distribucion_informacion">
+
+                    <!-- FILTRO Y LISTADO DE VENTAS -->
+                    <div class="contenedor_navegacion">
+
+                        <div class="panel_lista_ventas">
+
+                            <div class="encabezado_panel">
+                                <i class="fa-solid fa-receipt"></i>
+                                <h3>Ventas Registradas</h3>
+                            </div>
+
+                            <div class="campo_formulario">
+                                <label for="metodos_pagos">Método de Pago:</label>
+                                <select name="metodos_pagos" id="metodos_pagos"> </select>
+                            </div>
+
+                            <div id="contenedor_compras"></div>
+                        </div>
+                    </div>
+
+                    <!-- INFORMACIÓN DEL CLIENTE: DEBAJO DE LA INFORMACIÓN GENERAL -->
+                    <div class="seccion_detalle informacion_cliente">
+
+                        <div class="encabezado_seccion">
+                            <i class="fa-solid fa-user"></i>
+                            <h3>Información del Cliente</h3>
+                        </div>
+
+                        <div class="campos_seccion">
+                            <input type="hidden" name="id_venta" id="id_venta">
+
+                            <div class="campo_formulario">
+                                <label for="razon_social">Nombre / Razón Social:</label>
+                                <input type="text" name="razon_social" id="razon_social" readonly>
+                            </div>
+
+                            <div class="campo_formulario">
+                                <label for="documento_identidad">Documento de Identidad:</label>
+                                <input type="text" name="documento_identidad" id="documento_identidad" readonly>
+                            </div>
+
+                            <div class="campo_formulario">
+                                <label for="telefono">Teléfono:</label>
+                                <input type="text" name="telefono" id="telefono" readonly>
+                            </div>
+
+                            <div class="campo_formulario">
+                                <label for="correo_electronico">Correo Electrónico:</label>
+                                <input type="email" name="correo_electronico" id="correo_electronico" readonly>
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <!-- PRODUCTOS DE LA VENTA -->
+                <div class="seccion_detalle informacion_venta">
+
+                    <div class="encabezado_seccion">
+                        <i class="fa-solid fa-boxes-stacked"></i>
+                        <h3>Productos de la Venta</h3>
+                    </div>
+
+                    <div class="contenedor_tabla_detalle">
+
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Producto</th>
+                                    <th>Cantidad</th>
+                                    <th>Unidad de Medida</th>
+                                    <th>Precio Unitario</th>
+                                    <th>Descuento</th>
+                                    <th>Subtotal</th>
+                                </tr>
+                            </thead>
+
+                            <tbody id="contenedor_detalles_venta"></tbody>
+                        </table>
+
+                    </div>
+
+                </div>
+
+                <!-- RESUMEN FINANCIERO E INFORMACIÓN DEL PAGO -->
+                <div class="distribucion_resumen_pago">
+
+                    <!-- RESUMEN FINANCIERO -->
+                    <div class="seccion_detalle resumen_financiero">
+
+                        <div class="encabezado_seccion">
+                            <i class="fa-solid fa-calculator"></i>
+                            <h3>Resumen Financiero</h3>
+                        </div>
+
+                        <div class="campos_seccion">
+
+                            <div class="campo_formulario">
+                                <label for="subtotal_venta">Subtotal:</label>
+                                <input type="text" name="subtotal_venta" id="subtotal_venta" readonly>
+                            </div>
+
+                            <div class="campo_formulario">
+                                <label for="descuento_venta">Descuento:</label>
+                                <input type="text" name="descuento_venta" id="descuento_venta" readonly>
+                            </div>
+
+                            <div class="campo_formulario">
+                                <label for="impuesto_venta">Impuesto:</label>
+                                <input type="text" name="impuesto_venta" id="impuesto_venta" readonly>
+                            </div>
+
+                            <div class="campo_formulario">
+                                <label for="total_venta">Total de la Venta:</label>
+                                <input type="text" name="total_venta" id="total_venta" readonly>
+                            </div>
+
+
+                        </div>
+
+                    </div>
+
+                    <!-- INFORMACIÓN DEL PAGO -->
+                    <div class="seccion_detalle informacion_pagos">
+
+                        <div class="encabezado_seccion">
+                            <i class="fa-solid fa-money-bill-transfer"></i>
+                            <h3>Información del Pago</h3>
+                        </div>
+
+                        <div class="campos_seccion">
+
+                            <div class="campo_formulario">
+                                <label for="metodo_pago">Método de Pago:</label>
+                                <input type="text" name="metodo_pago" id="metodo_pago" readonly>
+                            </div>
+
+                            <div class="campo_formulario">
+                                <label for="monto">Monto:</label>
+                                <input type="text" name="monto" id="monto" readonly>
+                            </div>
+
+                            <div class="campo_formulario">
+                                <label for="referencia">Referencia:</label>
+                                <input type="text" name="referencia" id="referencia" readonly>
+                            </div>
+
+                            <div class="campo_formulario">
+                                <label for="banco_origen">Banco de Origen:</label>
+                                <input type="text" name="banco_origen" id="banco_origen" readonly>
+                            </div>
+
+                            <div class="campo_formulario">
+                                <label for="telefono_origen">Teléfono de Origen:</label>
+                                <input type="text" name="telefono_origen" id="telefono_origen" readonly>
+                            </div>
+
+                            <div class="campo_formulario">
+                                <label for="fecha_pago_origen">Fecha del Pago Bancario:</label>
+                                <input type="text" name="fecha_pago_origen" id="fecha_pago_origen" readonly>
+                            </div>
+
+                            <div class="campo_formulario">
+                                <label>Capture del Pago:</label>
+
+                                <a id="capture_pago_enlace" href="#" target="_blank" rel="noopener noreferrer" hidden>
+                                    <i class="fa-solid fa-image"></i>
+                                    Ver capture del pago
+                                </a>
+
+                                <span id="capture_pago_no_disponible" hidden>
+                                    No hay capture adjunto.
+                                </span>
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <!-- INFORMACIÓN DE LA CUENTA RECEPTORA -->
+                <div class="distribucion_recepcion_pago">
+                    <div class="seccion_detalle informacion_receptor">
+
+                        <div class="encabezado_seccion">
+                            <i class="fa-solid fa-building-columns"></i>
+                            <h3>Información de la Cuenta Receptora</h3>
+                        </div>
+
+                        <div class="campos_seccion">
+
+                            <div class="campo_formulario">
+                                <label for="banco_receptor">Banco Receptor:</label>
+                                <input type="text" name="banco_receptor" id="banco_receptor" readonly>
+                            </div>
+
+                            <div class="campo_formulario">
+                                <label for="documento_titular">Documento del Titular:</label>
+                                <input type="text" name="documento_titular" id="documento_titular" readonly>
+                            </div>
+
+                            <div class="campo_formulario">
+                                <label for="numero_cuenta">Número de Cuenta:</label>
+                                <input type="text" name="numero_cuenta" id="numero_cuenta" readonly>
+                            </div>
+
+                            <div class="campo_formulario">
+                                <label for="tipo_cuenta_receptor">Tipo de Cuenta:</label>
+                                <input type="text" name="tipo_cuenta_receptor" id="tipo_cuenta_receptor" readonly>
+                            </div>
+
+                            <div class="campo_formulario">
+                                <label for="telefono_receptor">Teléfono del Receptor:</label>
+                                <input type="text" name="telefono_receptor" id="telefono_receptor" readonly>
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                    <!-- INFORMACIÓN GENERAL -->
+                    <div class="seccion_detalle informacion_general">
+
+                        <div class="encabezado_seccion">
+                            <i class="fa-solid fa-file-invoice"></i>
+                            <h3>Información General de la Venta</h3>
+                        </div>
+
+                        <div class="campos_seccion">
+
+                            <div class="campo_formulario">
+                                <label for="comprobante">Comprobante:</label>
+                                <input type="text" name="comprobante" id="comprobante" readonly>
+                            </div>
+
+                            <div class="campo_formulario">
+                                <label for="fecha_venta">Fecha de la Venta:</label>
+                                <input type="text" name="fecha_venta" id="fecha_venta" readonly>
+                            </div>
+
+                            <div class="campo_formulario">
+                                <label for="estado_venta">Estado de la Venta:</label>
+                                <input type="text" name="estado_venta" id="estado_venta" readonly>
+                            </div>
+
+                            <div class="campo_formulario">
+                                <label for="observacion_venta">Observación:</label>
+                                <textarea name="observacion_venta" id="observacion_venta" readonly></textarea>
+                            </div>
+
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- ACCIONES -->
+                <div class="contenedor_botones_submit">
+
+                    <button type="button" id="btn_rechazar_venta" class="btn_submit btn_rechazar">
+                        <i class="fa-solid fa-ban"></i>
+                        Rechazar
+                    </button>
+
+                    <button type="button" id="btn_aceptar_venta" class="btn_submit btn_aceptar">
+                        <i class="fa-solid fa-check"></i>
+                        Aceptar
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+</section>
+
+<dialog id="dialogo_rechazado" class="dialogo">
+    <div class="contenedor_datos">
+        <button type="button" id="btn_cerrar_rechazado" class="btn_cerrar">
+            <i class="fa-solid fa-square-xmark"></i>
+        </button>
+
+        <h2>Motivo del Rechazo</h2>
+
+        <div id="contenedor_mensajes_rechazado" class="contenedor_mensajes" hidden>
+            <i class="fa-solid fa-hourglass-half"></i>
+            <p>Acción a realizar....</p>
+        </div>
+
+        <div class="contenedor_rechazar_compra">
+            <form method="post" id="formulario_rechazar" class="formulario_rechazar_compra">
+                {% csrf_token %}
+
+                <div class="campo_formulario">
+                    <label>Seleccione el motivo del rechazo:</label>
+
+                    <div class="opciones_motivos_rechazo">
+
+                        <label>
+                            <input type="radio" name="motivo_rechazo" value="COMPROBANTE_INVALIDO" required>
+                            Comprobante de pago inválido o ilegible.
+                        </label>
+
+                        <label>
+                            <input type="radio" name="motivo_rechazo" value="PAGO_NO_VERIFICADO">
+                            Pago no recibido o no verificado.
+                        </label>
+
+                        <label>
+                            <input type="radio" name="motivo_rechazo" value="MONTO_INCORRECTO">
+                            El monto del pago no coincide con el total de la venta.
+                        </label>
+
+                        <label>
+                            <input type="radio" name="motivo_rechazo" value="COMPROBANTE_DUPLICADO">
+                            Comprobante de pago duplicado.
+                        </label>
+
+                        <label>
+                            <input type="radio" name="motivo_rechazo" value="DATOS_INCORRECTOS">
+                            Datos del pago incorrectos.
+                        </label>
+
+                        <label>
+                            <input type="radio" name="motivo_rechazo" value="CUENTA_INCORRECTA">
+                            El pago fue realizado a una cuenta bancaria incorrecta.
+                        </label>
+                    </div>
+                </div>
+
+                <div class="contenedor_boton_submit">
+                    <button type="submit" class="btn_submit">
+                        <i class="fa-regular fa-floppy-disk"></i>
+                        Registrar
+                    </button>
+                </div>
+            </form>
+        </div>
+
+    </div>
+</dialog>
+
+
+<script src="{% static 'Funcionalidades_Asincronas/ventas/compras/atencion_cliente/verificar_compra.js' %}"></script>
+
+{% endblock %}

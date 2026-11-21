@@ -20,9 +20,16 @@
                 {% csrf_token %}
                 <input type="hidden" name="id_producto" id="id_producto">
 
-                <div class="campo_formulario">
-                    <label for="productos_registrados">Productos Registrados:</label>
-                    <select name="producto_registrado" id="productos_registrados"></select>
+                <div class="campos_fila">
+                    <div class="campo_formulario">
+                        <label for="productos_registrados">Productos Registrados:</label>
+                        <select name="producto_registrado" id="productos_registrados"></select>
+                    </div>
+
+                    <div class="campo_formulario">
+                        <label for="precio_producto">Precio Producto:</label>
+                        <input type="text" name="precio_producto" id="precio_producto" autocomplete="off" readonly>
+                    </div>
                 </div>
 
                 <div class="campos_precio_volumen">
@@ -39,10 +46,11 @@
                         <small id="contenedor_msg_maximo" class="mensaje-feedback"></small>
                     </div>
                     <div class="campo_formulario">
-                        <label for="precio_unitario">Precio Unitario (USD $):</label>
-                        <input type="text" name="precio_unitario" id="precio_unitario"
-                            placeholder="Ingresa el Precio Unitario" autocomplete="off" required>
-                        <small id="contenedor_msg_precio" class="mensaje-feedback"></small>
+                        <label for="porcentaje_descuento">Descuento por volumen (%):</label>
+                        <input type="text" name="porcentaje_descuento" id="porcentaje_descuento"
+                            inputmode="decimal" maxlength="6" placeholder="Ingresa el porcentaje de descuento"
+                            autocomplete="off" required>
+                        <small id="contenedor_msg_descuento" class="mensaje-feedback"></small>
                     </div>
                 </div>
 
@@ -63,7 +71,7 @@
                         <th>PRODUCTO</th>
                         <th>MINIMA</th>
                         <th>MAXIMA</th>
-                        <th>PRECIO UNITARIO</th>
+                        <th>DESCUENTO</th>
                     </thead>
                     <tbody id="contenedor_precio_volumen"></tbody>
                 </table>

@@ -29,6 +29,53 @@ from reportlab.lib.pagesizes import letter, landscape
 
 # FILTRO O DATOS REGISTRAR O BUSCAR
 
+def supervisores_registrados(request):
+    try:
+        supervisores = supervisores_encargados.objects.filter(
+            vigencia=True
+        ).select_related(
+            "id_usuario",
+            "id_turno"
+        ).order_by(
+            "id_turno__nombre",
+            "id_usuario__nombres"
+        )
+
+        datos = [
+            {
+                "id_supervisor": supervisor.id_supervisor,
+                "id_usuario": supervisor.id_usuario.id_usuario,
+                "nombres": supervisor.id_usuario.nombres,
+                "apellidos": supervisor.id_usuario.apellidos,
+                "nombre_completo": (
+                    f"{supervisor.id_usuario.nombres} "
+                    f"{supervisor.id_usuario.apellidos}"
+                ),
+                "cedula": supervisor.id_usuario.cedula_identidad,
+                "turno": supervisor.id_turno.nombre,
+                "id_turno": supervisor.id_turno.id_turno,
+                "vigencia": supervisor.vigencia
+            }
+            for supervisor in supervisores
+        ]
+
+        return JsonResponse({
+            "estado": "exito",
+            "supervisores": datos,
+            "total": len(datos)
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            "estado": "fallo",
+            "title": "Error",
+            "descripcion": (
+                "Ocurrio un error al momento de visualizar los supervisores"
+                f" {e}"
+            ),
+            "icon": "warning"
+        })
+
 def categorias_equipos_entregados(request):
     if request.method == "POST":
         id_supervisor = request.POST.get("supervisores_encargados", "").strip()
@@ -52,7 +99,8 @@ def categorias_equipos_entregados(request):
         categorias = (
             categoria_equipo.objects
             .filter(
-                equipos__entregas_supervisores__supervisor_encargado_id=int(id_supervisor)
+                equipos__entregas_supervisores__supervisor_encargado_id=int(id_supervisor),
+                equipos__entregas_supervisores__estado="ASIGNADO"
             )
             .distinct()
             .order_by("nombre")
@@ -72,13 +120,6 @@ def categorias_equipos_entregados(request):
         })
 
 def equipos_entregados(request):
-    if request.method != "POST":
-        return JsonResponse({
-            "estado": "fallo",
-            "title": "Método no permitido",
-            "descripcion": "La solicitud debe realizarse mediante POST.",
-            "icon": "warning"
-        }, status=405)
 
     id_supervisor = request.POST.get("supervisor", "").strip()
     id_categoria = request.POST.get("categoria", "").strip()
@@ -89,7 +130,7 @@ def equipos_entregados(request):
             "title": "Datos inválidos",
             "descripcion": "Debe seleccionar un supervisor y una categoría válidos.",
             "icon": "warning"
-        }, status=400)
+        })
 
     entregas = (
         entrega_equipos.objects
@@ -99,10 +140,13 @@ def equipos_entregados(request):
         )
         .filter(
             supervisor_encargado_id=int(id_supervisor),
-            id_equipo__id_categoria_id=int(id_categoria)
-        ).exclude(
+            id_equipo__id_categoria_id=int(id_categoria),
+            estado="ASIGNADO"
+        )
+        .exclude(
             motivo_incidencia="ERROR_HUMANO"
-        ).order_by("-fecha_entrega")
+        )
+        .order_by("-fecha_entrega")
     )
 
     datos = []
@@ -145,7 +189,7 @@ def equipos_entregados(request):
         return JsonResponse({
             "estado": "fallo",
             "title": "Sin resultados",
-            "descripcion": "No se encontraron equipos para el supervisor y la categoría seleccionados.",
+            "descripcion": "No se encontraron equipos asignados al supervisor y la categoría seleccionados.",
             "icon": "info"
         })
 
@@ -412,6 +456,8 @@ def registrar_entrega_equipos(request):
 
     bitacora.objects.create(
         id_usuario=info_usuario,
+        nombre_modulo="Entrega de equipos",
+        cargo_usuario=request.session.get("perfil", "No especificado"),
         accion=(
             f"Entrega de {cantidad} unidad(es) del equipo "
             f"{equipo.nombre} ({equipo.codigo}) al supervisor "
@@ -444,8 +490,7 @@ def entregas_equipos_registradas(request):
 
         entregas = (
             entrega_equipos.objects
-            .filter(estado="ASIGNADO")
-            .exclude(motivo_incidencia="ERROR_HUMANO")
+            .all()
             .select_related(
                 "supervisor_encargado__id_usuario",
                 "supervisor_encargado__id_turno",
@@ -564,7 +609,256 @@ def busca_entrega_equipos(request):
 def visualizar_entrega_equipos(request):
     return render(request, "Entrega_Equipos/Administrador/visualizar_entrega.html")
 
+# HISTORIAL ENTREGAS DE EQUIPOS
+
+def historial_entregas_equipos(request):
+    if request.method != "POST":
+        return render(request, "Entrega_Equipos/Administrador/historial_entrega.html")
+
+    id_supervisor = request.POST.get("supervisor", "").strip()
+    id_categoria = request.POST.get("categoria", "").strip()
+
+    try:
+
+        historial = historial_entrega_equipo.objects.select_related(
+            "entrega_equipo",
+            "entrega_equipo__supervisor_encargado",
+            "entrega_equipo__supervisor_encargado__id_usuario",
+            "entrega_equipo__supervisor_encargado__id_turno",
+            "entrega_equipo__id_equipo",
+            "entrega_equipo__id_equipo__id_categoria"
+        )
+
+        if id_supervisor:
+
+            if not id_supervisor.isdigit():
+                return JsonResponse({
+                    "estado": "fallo",
+                    "title": "Supervisor inválido",
+                    "icon": "warning",
+                    "descripcion": "Debe seleccionar un supervisor válido."
+                })
+
+            supervisor = supervisores_encargados.objects.filter(
+                id_supervisor=int(id_supervisor)
+            ).first()
+
+            if not supervisor:
+                return JsonResponse({
+                    "estado": "fallo",
+                    "title": "Supervisor no encontrado",
+                    "icon": "warning",
+                    "descripcion": "El supervisor seleccionado no existe."
+                })
+
+            historial = historial.filter(
+                entrega_equipo__supervisor_encargado=supervisor
+            )
+
+        if id_categoria:
+
+            if not id_categoria.isdigit():
+                return JsonResponse({
+                    "estado": "fallo",
+                    "title": "Categoría inválida",
+                    "icon": "warning",
+                    "descripcion": "Debe seleccionar una categoría válida."
+                })
+
+            categoria = categoria_equipo.objects.filter(
+                id_categoria=int(id_categoria)
+            ).first()
+
+            if not categoria:
+                return JsonResponse({
+                    "estado": "fallo",
+                    "title": "Categoría no encontrada",
+                    "icon": "warning",
+                    "descripcion": "La categoría seleccionada no existe."
+                })
+
+            historial = historial.filter(
+                entrega_equipo__id_equipo__id_categoria=categoria
+            )
+
+        historial = historial.order_by("-fecha_actualizacion")
+
+        datos_historial = []
+
+        for registro in historial:
+
+            entrega = registro.entrega_equipo
+            equipo = entrega.id_equipo
+            supervisor = entrega.supervisor_encargado
+            usuario = supervisor.id_usuario
+
+            datos_historial.append({
+                "id_historial": registro.id_historial,
+                "equipo": equipo.nombre,
+                "nombres": usuario.nombres,
+                "apellidos": usuario.apellidos,
+                "turno": supervisor.id_turno.nombre,
+           })
+
+        return JsonResponse({
+            "estado": "exito",
+            "historial": datos_historial
+        })
+
+    except Exception:
+        return JsonResponse({
+            "estado": "fallo",
+            "title": "Error al consultar historial",
+            "icon": "error",
+            "descripcion": "No fue posible obtener el historial de entregas. Intente nuevamente."
+        })
+
+def detalle_historial_entrega(request):
+    id_historial = request.POST.get("id_historial", "").strip()
+
+    if not id_historial:
+        return JsonResponse({
+            "estado": "fallo",
+            "title": "Dato requerido",
+            "icon": "warning",
+            "descripcion": "No se recibió el identificador del historial."
+        })
+
+    if not id_historial.isdigit():
+        return JsonResponse({
+            "estado": "fallo",
+            "title": "Identificador inválido",
+            "icon": "warning",
+            "descripcion": "El identificador del historial no es válido."
+        })
+
+    try:
+        historial = historial_entrega_equipo.objects.select_related(
+            "entrega_equipo",
+            "entrega_equipo__supervisor_encargado",
+            "entrega_equipo__supervisor_encargado__id_usuario",
+            "entrega_equipo__supervisor_encargado__id_turno",
+            "entrega_equipo__id_equipo",
+            "entrega_equipo__id_equipo__id_categoria"
+        ).get(id_historial=int(id_historial))
+
+        entrega = historial.entrega_equipo
+        supervisor = entrega.supervisor_encargado
+        usuario = supervisor.id_usuario
+        equipo = entrega.id_equipo
+
+        return JsonResponse({
+            "estado": "exito",
+            "historial": {
+                "id_historial": historial.id_historial,
+                "id_entrega": entrega.id_entrega,
+
+                "supervisor": {
+                    "id_supervisor": supervisor.id_supervisor,
+                    "nombres": usuario.nombres,
+                    "apellidos": usuario.apellidos,
+                    "cedula": usuario.cedula_identidad,
+                    "turno": supervisor.id_turno.nombre
+                },
+
+                "equipo": {
+                    "id_equipo": equipo.id_equipo,
+                    "nombre": equipo.nombre,
+                    "codigo": equipo.codigo,
+                    "categoria": equipo.id_categoria.nombre
+                },
+
+                "cantidad_entregada_anterior": historial.cantidad_entregada_anterior,
+                "cantidad_entregada_nueva": historial.cantidad_entregada_nueva,
+
+                "cantidad_disponible_anterior": historial.cantidad_disponible_anterior,
+                "cantidad_disponible_nueva": historial.cantidad_disponible_nueva,
+
+                "estado_anterior": historial.estado_anterior,
+                "estado_nuevo": historial.estado_nuevo,
+
+                "motivo_incidencia_anterior": historial.motivo_incidencia_anterior,
+                "motivo_incidencia_nuevo": historial.motivo_incidencia_nuevo,
+
+                "observacion_anterior": historial.observacion_anterior,
+                "observacion_nueva": historial.observacion_nueva,
+
+                "motivo_actualizacion": historial.motivo_actualizacion,
+
+                "fecha_actualizacion": historial.fecha_actualizacion.strftime("%d/%m/%Y")
+            }
+        })
+
+    except historial_entrega_equipo.DoesNotExist:
+        return JsonResponse({
+            "estado": "fallo",
+            "title": "Historial no encontrado",
+            "icon": "warning",
+            "descripcion": "El registro de historial solicitado no existe."
+        })
+
+    except Exception:
+        return JsonResponse({
+            "estado": "fallo",
+            "title": "Error al consultar el historial",
+            "icon": "error",
+            "descripcion": "No fue posible obtener los detalles del historial. Intente nuevamente."
+        })
+
 # CORREGIR EL REGISTRO DEL EQUIPO ENTREGADO (ERROR_HUMANO)
+
+def tipo_correccion(request):
+    if request.method != "POST":
+        return JsonResponse({
+            "estado": "fallo",
+            "mensaje": "Método de solicitud no permitido."
+        }, status=405)
+
+    id_equipo = request.POST.get("id_equipo", "").strip()
+
+    if not id_equipo or not id_equipo.isdigit():
+        return JsonResponse({
+            "estado": "fallo",
+            "mensaje": "Debe seleccionar un equipo válido."
+        })
+
+    try:
+        equipo = equipos.objects.get(id_equipo=int(id_equipo))
+
+        # Verificar si existen unidades asignadas pendientes de devolución.
+        asignado = asignacion_equipo.objects.filter(
+            id_entrega__id_equipo=equipo,
+            cantidad_asignada__gt=F("cantidad_devuelta")
+        ).exists()
+
+        return JsonResponse({
+            "estado": "exito",
+            "asignado": asignado,
+            "equipo": {
+                "id_equipo": equipo.id_equipo,
+                "nombre": equipo.nombre,
+                "codigo": equipo.codigo,
+                "cantidad_disponible": equipo.cantidad_disponible,
+                "categoria": equipo.id_categoria.nombre
+            },
+            "mensaje": (
+                "El equipo tiene unidades asignadas al personal."
+                if asignado
+                else "El equipo no tiene unidades asignadas al personal."
+            )
+        })
+
+    except equipos.DoesNotExist:
+        return JsonResponse({
+            "estado": "fallo",
+            "mensaje": "El equipo seleccionado no existe."
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            "estado": "fallo",
+            "mensaje": f"No fue posible consultar el equipo: {str(e)}"
+        })
 
 def correccion_entrega_equipos(request):
     if request.method != "POST":
@@ -593,7 +887,7 @@ def correccion_entrega_equipos(request):
             "fallo",
             "Sesión expirada",
             "Debe iniciar sesión nuevamente.",
-            "warning",
+            "warning"
         )
 
     campos = [
@@ -630,7 +924,7 @@ def correccion_entrega_equipos(request):
             "warning"
         )
 
-    if tipo_correccion not in ("ACTUALIZAR", "ERROR_HUMANO"):
+    if tipo_correccion not in ("ACTUALIZAR", "ERROR_HUMANO", "RETIRAR"):
         return respuesta(
             "fallo",
             "Tipo de corrección inválido",
@@ -659,12 +953,10 @@ def correccion_entrega_equipos(request):
     try:
         with transaction.atomic():
 
-            # Verificar que la sesión corresponde a un administrador.
             encargados_administrativos.objects.get(
                 id_usuario__cedula_identidad=cedula_administrador
             )
 
-            # Bloquear la entrega durante la corrección.
             entrega = (
                 entrega_equipos.objects
                 .select_for_update()
@@ -687,25 +979,26 @@ def correccion_entrega_equipos(request):
                     "warning"
                 )
 
+            # Consultar las unidades que siguen asignadas al personal.
             asignaciones = (
                 asignacion_equipo.objects
-                .filter(id_entrega=entrega)
+                .filter(
+                    id_entrega=entrega,
+                    cantidad_asignada__gt=F("cantidad_devuelta")
+                )
                 .aggregate(
                     pendiente=Sum(
                         ExpressionWrapper(
-                            F("cantidad_asignada") -
-                            F("cantidad_devuelta"),
+                            F("cantidad_asignada") - F("cantidad_devuelta"),
                             output_field=IntegerField()
                         )
                     )
                 )
             )
 
-            cantidad_asignada = max(
-                0,
-                asignaciones["pendiente"] or 0
-            )
+            cantidad_asignada = asignaciones["pendiente"] or 0
 
+            # Guardar los datos anteriores para el historial.
             cantidad_anterior = entrega.cantidad_entregada
             disponible_anterior = entrega.cantidad_disponible
             estado_anterior = entrega.estado
@@ -724,6 +1017,22 @@ def correccion_entrega_equipos(request):
                     "error"
                 )
 
+            cantidad_disponible_calculada = (
+                cantidad_anterior - cantidad_asignada
+            )
+
+            if entrega.cantidad_disponible > entrega.cantidad_entregada:
+                return respuesta(
+                    "fallo",
+                    "Inconsistencia en la entrega",
+                    (
+                        "La cantidad disponible supera la cantidad "
+                        "originalmente entregada. Debe revisar los registros."
+                    ),
+                    "error"
+                )
+
+            # ACTUALIZAR
             if tipo_correccion == "ACTUALIZAR":
 
                 if cantidad_nueva < cantidad_asignada:
@@ -751,12 +1060,7 @@ def correccion_entrega_equipos(request):
                     )
 
                 entrega.cantidad_entregada = cantidad_nueva
-
-                # Calcular las unidades disponibles para asignar.
-                entrega.cantidad_disponible = (
-                    cantidad_nueva - cantidad_asignada
-                )
-
+                entrega.cantidad_disponible = cantidad_nueva - cantidad_asignada
                 entrega.observacion = observacion_entrega
 
                 campos_actualizados = [
@@ -765,16 +1069,17 @@ def correccion_entrega_equipos(request):
                     "observacion"
                 ]
 
-            else:  # ERROR_HUMANO
+            # RETIRAR: devolver la entrega del supervisor al inventario.
+            elif tipo_correccion == "RETIRAR":
 
                 if cantidad_asignada > 0:
                     return respuesta(
                         "fallo",
                         "Equipo asignado al personal",
                         (
-                            f"No se puede devolver la entrega porque existen "
-                            f"{cantidad_asignada} unidades pendientes de devolución "
-                            f"por parte del personal."
+                            f"No se puede retirar la entrega porque existen "
+                            f"{cantidad_asignada} unidades asignadas a empleados "
+                            f"que todavía no han sido devueltas."
                         ),
                         "warning"
                     )
@@ -785,8 +1090,73 @@ def correccion_entrega_equipos(request):
                     .get(pk=entrega.id_equipo_id)
                 )
 
+                cantidad_devolver = cantidad_disponible_calculada
+
+                if cantidad_devolver <= 0:
+                    return respuesta(
+                        "fallo",
+                        "Sin equipos para devolver",
+                        "La entrega no tiene unidades disponibles para devolver al inventario.",
+                        "warning"
+                    )
+
                 cantidad_inventario_anterior = equipo.cantidad_disponible
-                cantidad_devolver = entrega.cantidad_disponible
+
+                equipo.cantidad_disponible = (
+                    cantidad_inventario_anterior + cantidad_devolver
+                )
+
+                equipo.save(update_fields=["cantidad_disponible"])
+
+                historial_inventario_equipo.objects.create(
+                    id_equipo=equipo,
+                    tipo_movimiento="CORRECCION",
+                    cantidad_anterior=cantidad_inventario_anterior,
+                    cantidad_movimiento=cantidad_devolver,
+                    cantidad_nueva=equipo.cantidad_disponible,
+                    observacion=(
+                        f"Retiro de entrega al supervisor. "
+                        f"Entrega #{entrega.id_entrega}. "
+                        f"Motivo: {motivo_correccion}. "
+                        f"Observación: {observacion_entrega}"
+                    )
+                )
+
+                entrega.cantidad_entregada = 0
+                entrega.cantidad_disponible = 0
+                entrega.estado = "RETIRADO"
+                entrega.observacion = observacion_entrega
+
+                campos_actualizados = [
+                    "cantidad_entregada",
+                    "cantidad_disponible",
+                    "estado",
+                    "observacion"
+                ]
+
+            # ERROR_HUMANO: devolver las unidades por error de registro,
+            # conservando el estado ASIGNADO.
+            elif tipo_correccion == "ERROR_HUMANO":
+
+                if cantidad_asignada > 0:
+                    return respuesta(
+                        "fallo",
+                        "Equipo asignado al personal",
+                        (
+                            f"No se puede corregir por error humano porque "
+                            f"existen {cantidad_asignada} unidades pendientes "
+                            f"de devolución por parte del personal."
+                        ),
+                        "warning"
+                    )
+
+                equipo = (
+                    equipos.objects
+                    .select_for_update()
+                    .get(pk=entrega.id_equipo_id)
+                )
+
+                cantidad_devolver = cantidad_disponible_calculada
 
                 if cantidad_devolver <= 0:
                     return respuesta(
@@ -796,14 +1166,14 @@ def correccion_entrega_equipos(request):
                         "warning"
                     )
 
-                # Devolver las unidades al inventario general.
+                cantidad_inventario_anterior = equipo.cantidad_disponible
+
                 equipo.cantidad_disponible = (
                     cantidad_inventario_anterior + cantidad_devolver
                 )
 
                 equipo.save(update_fields=["cantidad_disponible"])
 
-                # Registrar el movimiento del inventario.
                 historial_inventario_equipo.objects.create(
                     id_equipo=equipo,
                     tipo_movimiento="CORRECCION",
@@ -818,19 +1188,21 @@ def correccion_entrega_equipos(request):
                     )
                 )
 
-                # Marcar la entrega como procesada para impedir nuevas asignaciones.
                 entrega.cantidad_entregada = 0
                 entrega.cantidad_disponible = 0
+                entrega.estado = "RETIRADO"
                 entrega.motivo_incidencia = "ERROR_HUMANO"
                 entrega.observacion = observacion_entrega
 
                 campos_actualizados = [
                     "cantidad_entregada",
                     "cantidad_disponible",
+                    "estado",
                     "motivo_incidencia",
                     "observacion"
                 ]
 
+            # Registrar el historial de la corrección.
             historial_entrega_equipo.objects.create(
                 entrega_equipo=entrega,
                 cantidad_entregada_anterior=cantidad_anterior,
@@ -847,6 +1219,7 @@ def correccion_entrega_equipos(request):
             )
 
             entrega.save(update_fields=campos_actualizados)
+
         return respuesta(
             "exito",
             "Corrección registrada",
@@ -879,259 +1252,12 @@ def correccion_entrega_equipos(request):
             "Error inesperado",
             (
                 "No fue posible registrar la corrección. "
-                f"Intente nuevamente {e}."
+                f"Intente nuevamente. {e}"
             ),
             "error"
         )
 
 # REPORTES PDF
-
-def lista_entrega_equipos_pdf(request):
-    if request.method != "POST":
-        return JsonResponse({
-            "estado": "fallo",
-            "title": "Método no permitido",
-            "descripcion": "La solicitud debe realizarse mediante POST.",
-            "icon": "warning"
-        }, status=405)
-
-    categoria = request.POST.get("categoria", "").strip()
-    supervisor = request.POST.get("supervisor", "").strip()
-
-    entregas = (
-        entrega_equipos.objects
-        .filter(estado="ASIGNADO")
-        .exclude(motivo_incidencia="ERROR_HUMANO")
-        .select_related(
-            "supervisor_encargado__id_usuario",
-            "supervisor_encargado__id_turno",
-            "id_equipo",
-            "id_equipo__id_categoria"
-        )
-    )
-
-    if categoria.isdigit():
-        entregas = entregas.filter(
-            id_equipo__id_categoria_id=int(categoria)
-        )
-
-    if supervisor.isdigit():
-        entregas = entregas.filter(
-            supervisor_encargado_id=int(supervisor)
-        )
-
-    entregas = list(entregas.order_by("-fecha_entrega"))
-
-    if not entregas:
-        return JsonResponse({
-            "estado": "fallo",
-            "title": "Sin resultados",
-            "descripcion": (
-                "No existen entregas de equipos para generar el reporte "
-                "con los filtros seleccionados."
-            ),
-            "icon": "info"
-        })
-    
-    response = HttpResponse(content_type="application/pdf")
-
-    response["Content-Disposition"] = (
-        'inline; filename="entregas_equipos.pdf"'
-    )
-
-    documento = SimpleDocTemplate(
-        response,
-        pagesize=landscape(letter),
-        rightMargin=25,
-        leftMargin=25,
-        topMargin=130,
-        bottomMargin=30
-    )
-
-    estilos = getSampleStyleSheet()
-
-    estilo_encabezado = ParagraphStyle(
-        "EncabezadoEntregas",
-        parent=estilos["Normal"],
-        fontName="Times-Bold",
-        fontSize=8,
-        leading=10,
-        alignment=TA_CENTER,
-        textColor=colors.white
-    )
-
-    estilo_celda = ParagraphStyle(
-        "CeldaEntregas",
-        parent=estilos["Normal"],
-        fontName="Times-Roman",
-        fontSize=8,
-        leading=10,
-        alignment=TA_CENTER,
-        textColor=colors.black,
-        wordWrap="CJK"
-    )
-
-    ruta_logo = os.path.join(
-        settings.BASE_DIR,
-        "static",
-        "Imagenes",
-        "logo_hielo_caipe.png"
-    )
-
-    datos_tabla = [
-        [
-            Paragraph("Reporte de Entrega de Equipos", estilo_encabezado),
-            "", "", "", "", "", "", "", ""
-        ],
-        [
-            Paragraph("N.º", estilo_encabezado),
-            Paragraph("Supervisor Encargado", estilo_encabezado),
-            Paragraph("Cédula", estilo_encabezado),
-            Paragraph("Turno", estilo_encabezado),
-            Paragraph("Equipo", estilo_encabezado),
-            Paragraph("Código", estilo_encabezado),
-            Paragraph("Cant. Entregada", estilo_encabezado),
-            Paragraph("Cant. Disponible", estilo_encabezado),
-            Paragraph("Fecha de Entrega", estilo_encabezado)
-        ]
-    ]
-
-    for numero, entrega in enumerate(entregas, start=1):
-        supervisor_obj = entrega.supervisor_encargado
-        usuario_supervisor = supervisor_obj.id_usuario
-
-        datos_tabla.append([
-            Paragraph(str(numero), estilo_celda),
-            Paragraph(
-                f"{usuario_supervisor.nombres} "
-                f"{usuario_supervisor.apellidos}",
-                estilo_celda
-            ),
-            Paragraph(
-                str(usuario_supervisor.cedula_identidad or "No especificada"),
-                estilo_celda
-            ),
-            Paragraph(
-                supervisor_obj.id_turno.nombre or "No especificado",
-                estilo_celda
-            ),
-            Paragraph(
-                entrega.id_equipo.nombre or "No especificado",
-                estilo_celda
-            ),
-            Paragraph(
-                entrega.id_equipo.codigo or "No especificado",
-                estilo_celda
-            ),
-            Paragraph(str(entrega.cantidad_entregada), estilo_celda),
-            Paragraph(str(entrega.cantidad_disponible), estilo_celda),
-            Paragraph(
-                entrega.fecha_entrega.strftime("%d/%m/%Y %H:%M")
-                if entrega.fecha_entrega else "No especificada",
-                estilo_celda
-            )
-        ])
-
-    tabla = Table(
-        datos_tabla,
-        colWidths=[28, 125, 75, 65, 115, 70, 75, 75, 100],
-        repeatRows=2,
-        hAlign="CENTER"
-    )
-
-    tabla.setStyle(TableStyle([
-        ("SPAN", (0, 0), (-1, 0)),
-        ("BACKGROUND", (0, 0), (-1, 1), colors.HexColor("#00445F")),
-        ("TEXTCOLOR", (0, 0), (-1, 1), colors.white),
-        ("FONTNAME", (0, 0), (-1, 1), "Times-Bold"),
-        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("BOX", (0, 0), (-1, -1), 1, colors.HexColor("#00445F")),
-        ("INNERGRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#58A5C4")),
-        ("TOPPADDING", (0, 0), (-1, -1), 6),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-        ("LEFTPADDING", (0, 0), (-1, -1), 3),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 3)
-    ]))
-
-    elementos = [
-        tabla
-    ]
-
-    documento.build(
-        elementos,
-        onFirstPage=lambda canvas, doc: encabezado_lista_entrega_equipos_pdf(
-            canvas, doc, ruta_logo
-        ),
-        onLaterPages=lambda canvas, doc: encabezado_lista_entrega_equipos_pdf(
-            canvas, doc, ruta_logo
-        )
-    )
-
-    return response
-
-def encabezado_lista_entrega_equipos_pdf(canvas, documento, ruta_logo):
-    canvas.saveState()
-
-    # LOGO
-    x_logo = 30
-    y_logo = landscape(letter)[1] - 150
-
-    ancho_logo = 160
-    alto_logo = 160
-
-    canvas.drawImage(
-        ruta_logo,
-        x_logo,
-        y_logo,
-        width=ancho_logo,
-        height=alto_logo,
-        preserveAspectRatio=True,
-        mask="auto"
-    )
-
-    # TITULO EMPRESA
-    x_titulo = 255
-    y_titulo = landscape(letter)[1] - 70
-
-    canvas.setFont("Times-Bold", 18)
-    canvas.setFillColor(colors.HexColor("#00445F"))
-
-    canvas.drawString(
-        x_titulo,
-        y_titulo,
-        "EMPRESA HIELO CAIPE C.A"
-    )
-
-    # FECHA EN ESPAÑOL
-    meses = [
-        "Enero", "Febrero", "Marzo", "Abril",
-        "Mayo", "Junio", "Julio", "Agosto",
-        "Septiembre", "Octubre", "Noviembre", "Diciembre"
-    ]
-
-    fecha = datetime.now()
-
-    fecha_actual = (
-        f"{fecha.day} de "
-        f"{meses[fecha.month - 1]} de "
-        f"{fecha.year}"
-    )
-
-    # FECHA
-    x_fecha = 280
-    y_fecha = landscape(letter)[1] - 120
-
-    canvas.setFont("Times-Bold", 11)
-    canvas.setFillColor(colors.HexColor("#072F3F"))
-
-    canvas.drawString(
-        x_fecha,
-        y_fecha,
-        f"Fecha Generado {fecha_actual}"
-    )
-
-    canvas.restoreState()
 
 def datos_entrega_equipo_pdf(request):
     if request.method != "POST":
@@ -1432,4 +1558,3 @@ def encabezado_datos_entrega_pdf(canvas, documento, ruta_logo):
     )
 
     canvas.restoreState()
-

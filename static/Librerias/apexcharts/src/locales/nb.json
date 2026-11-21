@@ -1,0 +1,67 @@
+{
+  "name": "nb",
+  "options": {
+    "months": [
+      "Januar",
+      "Februar",
+      "Mars",
+      "April",
+      "Mai",
+      "Juni",
+      "Juli",
+      "August",
+      "September",
+      "Oktober",
+      "November",
+      "Desember"
+    ],
+    "shortMonths": [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "Mai",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Okt",
+      "Nov",
+      "Des"
+    ],
+    "days": [
+      "Søndag",
+      "Mandag",
+      "Tirsdag",
+      "Onsdag",
+      "Torsdag",
+      "Fredag",
+      "Lørdag"
+    ],
+    "shortDays": ["Sø", "Ma", "Ti", "On", "To", "Fr", "Lø"],
+    "toolbar": {
+      "exportToSVG": "Last ned SVG",
+      "exportToPNG": "Last ned PNG",
+      "exportToCSV": "Last ned CSV",
+      "menu": "Menu",
+      "selection": "Velg",
+      "selectionZoom": "Zoom: Velg",
+      "zoomIn": "Zoome inn",
+      "zoomOut": "Zoome ut",
+      "pan": "Skyving",
+      "reset": "Start på nytt",
+      "measure": "Mål",
+      "wheelZoomHint": "Bruk {key} + rulling for å zoome"
+    },
+    "a11y": {
+      "legendItem": "{name}, {state}. Trykk Enter eller mellomrom for å veksle.",
+      "visible": "synlig",
+      "hidden": "skjult",
+      "zoomedIn": "Zoomet inn",
+      "zoomedOut": "Zoomet ut",
+      "zoomReset": "Zoom tilbakestilt",
+      "pannedLeft": "Panorert til venstre",
+      "pannedRight": "Panorert til høyre"
+    }
+  }
+}

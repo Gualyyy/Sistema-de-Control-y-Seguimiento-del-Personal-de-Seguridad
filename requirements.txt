@@ -1,0 +1,33 @@
+
+# Hielo Caipe C.A. - Dependencia para Servidor cPanel
+# Python 3.14.3 / Django 6.0.3 / Postgres 18.3
+
+# Framework principal para las páginas, modelos, usuarios y administración del sistema.
+Django==6.0.3
+
+# Procesa imágenes cargadas, como fotos de perfil y productos.
+Pillow==13.0.0
+
+# Añade soporte para comunicación en tiempo real mediante WebSockets.
+channels==4.3.2
+
+# Usa Redis como backend de canales en configuraciones sin modo DEBUG.
+channels-redis==4.3.0
+
+# Servidor ASGI usado por Django Channels para atender peticiones y WebSockets.
+daphne==4.2.3
+
+# Personaliza la interfaz del panel de administración de Django.
+django-jazzmin==3.0.4
+
+# Adaptador de PostgreSQL para conectar Django con la base de datos.
+psycopg[binary]==3.3.6
+
+# Genera códigos QR, por ejemplo, para enlaces de verificación.
+qrcode==8.2
+
+# Crea reportes y documentos PDF del sistema.
+reportlab==4.5.1
+
+# Sirve archivos estáticos de forma eficiente en despliegues.
+whitenoise==6.12.0

@@ -1,0 +1,72 @@
+{% extends 'Estructura/Base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="pagina_menu_recuperar">
+    <div class="contenedor_menu_recuperar">
+
+        <div class="encabezado_menu_recuperar">
+            <h2>Menú Recuperar Credenciales</h2>
+            <p>Selecciona la opción que deseas utilizar</p>
+        </div>
+
+        <form id="formulario_csrf" hidden>
+            {% csrf_token %}
+        </form>
+
+        <div class="opciones_recuperacion">
+
+            <div class="contenedor_recuperar_usuario">
+
+                <div class="imagen_recuperacion">
+                    <img src="{% static 'Imagenes/recuperar_user.png' %}" alt="Recuperar usuario">
+                </div>
+
+                <h3>Recuperar Usuario</h3>
+
+                <p>
+                    Recupera tu nombre de usuario para volver a acceder
+                    al sistema.
+                </p>
+
+                <a href="{% url 'recuperar_nombre_usuario' %}" class="boton_recuperacion" id="btn_recuperar_usuario">
+
+                    <i class="fa-solid fa-user-check"></i>
+                    <span>Ir al módulo</span>
+                    <i class="fa-solid fa-arrow-right flecha_boton"></i>
+                </a>
+
+            </div>
+
+            <div class="contenedor_cambiar_contrasenia">
+
+                <div class="imagen_recuperacion">
+                    <img src="{% static 'Imagenes/cambiar_password.png' %}" alt="Cambiar contraseña">
+                </div>
+
+                <h3>Cambiar Contraseña</h3>
+
+                <p>
+                    Restablece tu contraseña para mantener el acceso
+                    seguro a tu cuenta.
+                </p>
+
+                <a href="{% url 'cambiar_contrasenia' %}" class="boton_recuperacion">
+
+                    <i class="fa-solid fa-lock"></i>
+                    <span>Ir al módulo</span>
+                    <i class="fa-solid fa-arrow-right flecha_boton"></i>
+                </a>
+
+            </div>
+
+        </div>
+
+    </div>
+</section>
+
+<script src="{% static 'Funcionalidades_Asincronas/recuperar_credenciales/recuperar_usuario.js' %}?v=20261112-user-recovery-json-1"></script>
+
+{% endblock %}

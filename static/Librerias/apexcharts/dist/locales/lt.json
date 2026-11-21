@@ -1,0 +1,67 @@
+{
+  "name": "lt",
+  "options": {
+    "months": [
+      "Sausis",
+      "Vasaris",
+      "Kovas",
+      "Balandis",
+      "Gegužė",
+      "Birželis",
+      "Liepa",
+      "Rugpjūtis",
+      "Rugsėjis",
+      "Spalis",
+      "Lapkritis",
+      "Gruodis"
+    ],
+    "shortMonths": [
+      "Sau",
+      "Vas",
+      "Kov",
+      "Bal",
+      "Geg",
+      "Bir",
+      "Lie",
+      "Rgp",
+      "Rgs",
+      "Spl",
+      "Lap",
+      "Grd"
+    ],
+    "days": [
+      "Sekmadienis",
+      "Pirmadienis",
+      "Antradienis",
+      "Trečiadienis",
+      "Ketvirtadienis",
+      "Penktadienis",
+      "Šeštadienis"
+    ],
+    "shortDays": ["Sk", "Per", "An", "Tr", "Kt", "Pn", "Št"],
+    "toolbar": {
+      "exportToSVG": "Atsisiųsti SVG",
+      "exportToPNG": "Atsisiųsti PNG",
+      "exportToCSV": "Atsisiųsti CSV",
+      "menu": "Menu",
+      "selection": "Pasirinkimas",
+      "selectionZoom": "Zoom: Pasirinkimas",
+      "zoomIn": "Zoom: Priartinti",
+      "zoomOut": "Zoom: Atitolinti",
+      "pan": "Perkėlimas",
+      "reset": "Atstatyti",
+      "measure": "Matuoti",
+      "wheelZoomHint": "Norėdami keisti mastelį, naudokite {key} + slinkimą"
+    },
+    "a11y": {
+      "legendItem": "{name}, {state}. Paspauskite Enter arba tarpo klavišą, kad perjungtumėte.",
+      "visible": "matoma",
+      "hidden": "paslėpta",
+      "zoomedIn": "Priartinta",
+      "zoomedOut": "Nutolinta",
+      "zoomReset": "Mastelis atkurtas",
+      "pannedLeft": "Pastumta į kairę",
+      "pannedRight": "Pastumta į dešinę"
+    }
+  }
+}

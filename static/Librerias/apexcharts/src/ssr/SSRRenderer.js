@@ -1,0 +1,360 @@
+// @ts-check
+import ApexCharts from '../apexcharts.js'
+import { BrowserAPIs } from './BrowserAPIs.js'
+import { Environment } from '../utils/Environment.js'
+import { SSRRenderShim, querySelectorAll } from './RenderShim.js'
+import legendCSS from '../assets/apexcharts-legend.css'
+
+/**
+ * SSRRenderer - Server-Side Rendering API for ApexCharts
+ *
+ * Provides methods to render charts to SVG strings or hydration-ready HTML
+ * for use in Node.js, Next.js, Nuxt, SvelteKit, and other SSR frameworks.
+ */
+export class SSRRenderer {
+  /**
+   * Render chart to SVG string for server-side rendering. The legend is an
+   * HTML element beside the SVG, so this standalone SVG has none and its
+   * plot fills the chart; renderToHTML carries the legend.
+   *
+   * @param {Record<string, any>} options - Chart configuration (same as ApexCharts constructor)
+   * @param {{ width?: number, height?: number, scale?: number }} [ssrOptions] - SSR-specific options
+   * @returns {Promise<string>} SVG string
+   *
+   * @example
+   * const svgString = await SSRRenderer.renderToString({
+   *   series: [{ data: [30, 40, 35] }],
+   *   chart: { type: 'bar' }
+   * }, {
+   *   width: 500,
+   *   height: 300
+   * });
+   */
+  static async renderToString(options, ssrOptions = {}) {
+    return (await this._render(options, ssrOptions, false)).svg
+  }
+
+  /**
+   * @param {Record<string, any>} options
+   * @param {{ width?: number, height?: number, scale?: number }} ssrOptions
+   * @param {boolean} withLegend whether the HTML legend is emitted too
+   * @returns {Promise<{ svg: string, legend: string }>}
+   */
+  static async _render(options, ssrOptions, withLegend) {
+    // Initialize BrowserAPIs shim if in SSR
+    if (Environment.isSSR()) {
+      BrowserAPIs.init(new SSRRenderShim({ legend: withLegend }))
+    }
+
+    const { width = 400, height = 300, scale = 1 } = ssrOptions
+
+    // Create virtual element context for SSR
+    const virtualEl = this._createVirtualElement(width, height)
+
+    // Merge config with SSR overrides
+    const ssrConfig = {
+      ...options,
+      chart: {
+        ...options.chart,
+        width,
+        height,
+        // Disable interactive features for SSR
+        toolbar: { show: false },
+        animations: { enabled: false },
+      },
+    }
+
+    // Create chart instance
+    const chart = new ApexCharts(
+      /** @type {HTMLElement} */ (virtualEl),
+      ssrConfig,
+    )
+
+    try {
+      // Render the chart
+      await chart.render()
+
+      // A trellis host draws its panels in the browser only, so it has no
+      // SVG here. Emit an empty one of the requested size: the page still
+      // renders, and renderToHTML's hydration draws the panels on the client.
+      const svgString =
+        !chart.w?.dom?.Paper && chart.trellis?.isActive()
+          ? `<svg xmlns="http://www.w3.org/2000/svg" class="apexcharts-svg apexcharts-ssr-placeholder" width="${width * scale}" height="${height * scale}"/>`
+          : this._extractSVGString(chart, scale)
+      const legend = withLegend ? this._extractLegend(chart) : ''
+
+      // Clean up
+      chart.destroy()
+
+      return { svg: svgString, legend }
+    } catch (error) {
+      // Ensure cleanup on error
+      chart.destroy()
+      throw new Error(
+        `SSR rendering failed: ${/** @type {any} */ (error).message}`,
+      )
+    }
+  }
+
+  /**
+   * Generate hydration-ready HTML with embedded configuration
+   *
+   * @param {Record<string, any>} options - Chart configuration
+   * @param {{ width?: number, height?: number, scale?: number, className?: string }} [ssrOptions] - SSR-specific options
+   * @returns {Promise<string>} HTML string with SVG and hydration data
+   *
+   * @example
+   * const html = await SSRRenderer.renderToHTML({
+   *   series: [{ data: [30, 40, 35] }],
+   *   chart: { type: 'bar' }
+   * }, {
+   *   width: 500,
+   *   height: 300
+   * });
+   */
+  static async renderToHTML(options, ssrOptions = {}) {
+    const { className = '', width = 400, height = 300, scale = 1 } = ssrOptions
+
+    // Render to SVG string, with the HTML legend beside it on a box the
+    // legend is positioned in, as the browser's chart wrapper does
+    const { svg, legend } = await this._render(options, ssrOptions, true)
+    const svgString = legend
+      ? `<div style="position:relative;width:${width * scale}px;height:${height * scale}px">${svg}${legend}</div>`
+      : svg
+
+    // Encode configuration for client-side hydration
+    const dataConfig = this._encodeConfig(options)
+
+    // Generate hydration-ready HTML
+    const wrapperClass = `apexcharts-ssr-wrapper${className ? ' ' + className : ''}`
+
+    return `<div class="${wrapperClass}" data-apexcharts-hydrate data-apexcharts-config="${dataConfig}">
+${svgString}
+</div>`
+  }
+
+  /**
+   * The legend is an HTML element beside the SVG (#5168), so only
+   * renderToHTML can carry it: renderToString's standalone SVG has none. Its
+   * stylesheet comes along, since the page may not load the chart's CSS.
+   * @private
+   * @param {any} chart
+   */
+  static _extractLegend(chart) {
+    const w = chart.w
+    const el = w?.dom?.elLegendWrap
+    if (!w.config.legend.show || !el?.children.length) return ''
+    const nonce = w.config.chart.nonce
+    const css =
+      w.config.chart.injectStyleSheet === false
+        ? ''
+        : `<style${nonce ? ` nonce="${String(nonce).replace(/"/g, '&quot;')}"` : ''}>${legendCSS}</style>`
+    return css + el.outerHTML
+  }
+
+  /**
+   * Create a virtual DOM element for SSR rendering
+   * @private
+   * @param {number} width
+   * @param {number} height
+   */
+  static _createVirtualElement(width, height) {
+    if (Environment.isBrowser()) {
+      // In browser, create real element
+      const el = document.createElement('div')
+      el.style.width = `${width}px`
+      el.style.height = `${height}px`
+      return el
+    }
+
+    // In SSR, create virtual element
+    return {
+      _ssrWidth: width,
+      _ssrHeight: height,
+      _ssrMode: true,
+      nodeType: 1,
+      nodeName: 'DIV',
+      children: /** @type {any[]} */ ([]),
+      style: {},
+      classList: {
+        add: () => {},
+        remove: () => {},
+        contains: () => false,
+      },
+      /**
+       * @param {any} child
+       */
+      appendChild(child) {
+        this.children.push(child)
+      },
+      /**
+       * @param {any} child
+       */
+      removeChild(child) {
+        const index = this.children.indexOf(child)
+        if (index > -1) this.children.splice(index, 1)
+      },
+      // The post-draw passes find what they drew by selector: x-axis label
+      // rotation, annotation label boxes and vertical annotation labels.
+      /** @param {string} selector */
+      querySelector(selector) {
+        return querySelectorAll(this, selector)[0] || null
+      },
+      /** @param {string} selector */
+      querySelectorAll(selector) {
+        return querySelectorAll(this, selector)
+      },
+      getElementsByClassName() {
+        return []
+      },
+      getAttribute() {
+        return null
+      },
+      setAttribute() {},
+      removeAttribute() {},
+      hasAttribute() {
+        return false
+      },
+      getBoundingClientRect() {
+        return {
+          width: this._ssrWidth,
+          height: this._ssrHeight,
+          top: 0,
+          left: 0,
+          right: this._ssrWidth,
+          bottom: this._ssrHeight,
+          x: 0,
+          y: 0,
+        }
+      },
+      get parentNode() {
+        return null
+      },
+      get isConnected() {
+        return true
+      },
+      getRootNode() {
+        return this
+      },
+    }
+  }
+
+  /**
+   * Extract SVG string from rendered chart
+   * @private
+   * @param {any} chart
+   */
+  static _extractSVGString(chart, scale = 1) {
+    const w = chart.w
+
+    if (!w || !w.dom || !w.dom.Paper) {
+      throw new Error('Chart not properly initialized')
+    }
+
+    const svgNode = w.dom.Paper.node
+
+    // If we have a real SVG element (browser), serialize it
+    if (Environment.isBrowser() && svgNode instanceof SVGElement) {
+      const serializer = new XMLSerializer()
+      let svgString = serializer.serializeToString(svgNode)
+
+      // Apply scale if needed
+      if (scale !== 1) {
+        svgString = this._applyScale(svgString, scale)
+      }
+
+      return svgString
+    }
+
+    // In SSR, use the toString() method from SSRElement
+    if (svgNode && typeof svgNode.toString === 'function') {
+      let svgString = svgNode.toString()
+
+      // Apply scale if needed
+      if (scale !== 1) {
+        svgString = this._applyScale(svgString, scale)
+      }
+
+      return svgString
+    }
+
+    throw new Error('Unable to extract SVG string from chart')
+  }
+
+  /**
+   * Apply scale transformation to SVG string
+   * @private
+   * @param {string} svgString
+   * @param {number} scale
+   */
+  static _applyScale(svgString, scale) {
+    // Parse width and height from SVG
+    const widthMatch = svgString.match(/width="([^"]+)"/)
+    const heightMatch = svgString.match(/height="([^"]+)"/)
+
+    if (widthMatch && heightMatch) {
+      const width = parseFloat(widthMatch[1])
+      const height = parseFloat(heightMatch[1])
+      const scaledWidth = width * scale
+      const scaledHeight = height * scale
+
+      // Replace width and height attributes
+      svgString = svgString
+        .replace(/width="[^"]+"/, `width="${scaledWidth}"`)
+        .replace(/height="[^"]+"/, `height="${scaledHeight}"`)
+    }
+
+    return svgString
+  }
+
+  /**
+   * Encode configuration for client-side hydration
+   * @private
+   * @param {Record<string, any>} config
+   */
+  static _encodeConfig(config) {
+    try {
+      // Base64 of the UTF-8 bytes, the same on the server and in a browser.
+      // btoa takes one char per byte, so the bytes go through a binary
+      // string: a bare btoa(json) throws on anything above U+00FF.
+      const bytes = new TextEncoder().encode(JSON.stringify(config))
+      let binary = ''
+      for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i])
+      }
+      return btoa(binary)
+    } catch (error) {
+      throw new Error(
+        `Failed to encode config: ${/** @type {any} */ (error).message}`,
+      )
+    }
+  }
+
+  /**
+   * Decode configuration from hydration data
+   * @private
+   * @param {string} encodedConfig
+   */
+  static _decodeConfig(encodedConfig) {
+    try {
+      return this._parseConfig(encodedConfig)
+    } catch (error) {
+      throw new Error(
+        `Failed to decode config: ${/** @type {any} */ (error).message}`,
+      )
+    }
+  }
+
+  /**
+   * The inverse of _encodeConfig, shared with Hydration: atob yields one char
+   * per byte, which TextDecoder reads back as UTF-8 (a bare atob would turn
+   * "Café" into "CafÃ©").
+   * @param {string} encodedConfig
+   * @returns {any}
+   */
+  static _parseConfig(encodedConfig) {
+    const binary = atob(encodedConfig)
+    const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0))
+    return JSON.parse(new TextDecoder().decode(bytes))
+  }
+}

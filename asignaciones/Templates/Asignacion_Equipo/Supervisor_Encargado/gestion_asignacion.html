@@ -36,12 +36,6 @@
         </div>
 
         <div class="modulo_visualizar detalle">
-            <div class="encabezado_registrados">
-                <button type="button" class="btn_pdf" id="lista_asignacion_pdf">
-                    <i class="fa-regular fa-file-pdf"></i>
-                    Reporte
-                </button>
-            </div>
 
             <div class="contenedor_tabla">
                 <table>
@@ -64,22 +58,15 @@
 </section>
 
 <dialog id="dialogo_asignacion" class="dialogo">
-    <div class="contenedor_info_reducido">
+    <div class="contenedor_datos">
         <button type="button" id="btn_cerrar_asignacion" class="btn_cerrar">
             <i class="fa-solid fa-square-xmark"></i>
         </button>
 
         <h2>Datos de la Asignación del Equipo</h2>
 
-        <div class="contenedor_btn_pdf">
-            <button type="button" class="btn_pdf_dialog" id="equipo_asignado_pdf">
-                <i class="fa-regular fa-file-pdf"></i>
-                Reporte
-            </button>
-        </div>
-
-        <div class="modelo_dialogo_visualizar">
-            <form method="post" class="formulario_dialogo_visualizar">
+        <div class="modulo_dialogo_datos">
+            <form method="post" class="formulario_dialogo_datos">
                 <input type="hidden" name="id_asignacion" id="id_asignacion_visualizar">
 
                 <div class="campo_formulario">
@@ -138,15 +125,15 @@
 </dialog>
 
 <dialog id="dialogo_devolucion" class="dialogo_amplio">
-    <div class="contenedor_info_amplio">
+    <div class="contenedor_gestion_datos">
         <button type="button" id="btn_cerrar_devolucion" class="btn_cerrar">
             <i class="fa-solid fa-square-xmark"></i>
         </button>
 
         <h2>Devolución del Equipo Asignado</h2>
 
-        <div class="modulo_dialogo">
-            <form method="post" id="formulario_devolucion" class="formulario_dialogo">
+        <div class="modulo_dialogo_gestion">
+            <form method="post" id="formulario_devolucion" class="formulario_gestion_datos">
                 {% csrf_token %}
                 <input type="hidden" name="id_asignacion" id="id_asignacion_devolucion">
                 <input type="hidden" name="ci_usuario" id="ci_usuario_devolucion">
@@ -179,7 +166,7 @@
                 </div>
 
                 <div id="contenedor_mensajes_devolucion" class="contenedor_mensajes">
-                    <i class="fa-solid fa-hourglass-half" reloj_procesamiento></i>
+                    <i class="fa-solid fa-hourglass-half reloj_procesamiento"></i>
                     <p>Realizar la devolución del Equipo.</p>
                 </div>
 

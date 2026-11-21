@@ -5,13 +5,14 @@ from django.utils import timezone
 from django.core.exceptions import ValidationError
 from django.core.files.images import get_image_dimensions
 from django.utils.text import get_valid_filename
+from django.db.models import Q
 
 from ventas.models import categoria_producto, unidad_medida, producto, existencia_inventario, tipo_movimiento, movimiento_inventario, precio_volumen
 from inicio_sesion.models import bitacora, usuarios
 
 import os
 import re
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from django.conf import settings
 from datetime import datetime
@@ -27,12 +28,167 @@ from reportlab.platypus import (
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.enums import TA_CENTER
 from reportlab.lib import colors
-from reportlab.lib.pagesizes import letter
+from reportlab.lib.pagesizes import letter, landscape
 from xml.sax.saxutils import escape
 
 # Create your views here.
 
-#
+# GESTION DE CATEGORIAS DE PRODUCTOS
+
+def buscar_categoria(request):
+    if request.method == "POST":
+        id_categoria = request.POST.get("id_categoria")
+
+        if not id_categoria:
+            return JsonResponse({
+                "estado": "fallo",
+                "icon": "warning",
+                "title": "Dato requerido",
+                "descripcion": "No se recibió el identificador de la categoría."
+            })
+
+        try:
+            categoria = categoria_producto.objects.get(id_categoria=id_categoria)
+
+            return JsonResponse({
+                "estado": "exito",
+                "id_categoria": categoria.id_categoria,
+                "nombre": categoria.nombre,
+                "activo": categoria.activo
+            })
+
+        except categoria_producto.DoesNotExist:
+            return JsonResponse({
+                "estado": "fallo",
+                "icon": "warning",
+                "title": "Categoría no encontrada",
+                "descripcion": "La categoría solicitada no existe."
+            })
+
+def gestionar_categorias(request):
+    return render(request, "Productos/gestionar_categorias.html")
+
+def registrar_categorias(request):
+    if request.method == "POST":
+        nombre_categoria = request.POST.get("nombre_categoria", "").strip()
+
+        if not nombre_categoria:
+            return JsonResponse({
+                "estado": "fallo",
+                "icon": "warning",
+                "title": "Campo obligatorio",
+                "descripcion": "Debe ingresar el nombre de la categoría."
+            })
+
+        if len(nombre_categoria) > 50:
+            return JsonResponse({
+                "estado": "fallo",
+                "icon": "warning",
+                "title": "Nombre demasiado largo",
+                "descripcion": "El nombre de la categoría no puede superar los 50 caracteres."
+            })
+
+        if categoria_producto.objects.filter(nombre__iexact=nombre_categoria).exists():
+            return JsonResponse({
+                "estado": "fallo",
+                "icon": "warning",
+                "title": "Categoría existente",
+                "descripcion": "Ya existe una categoría con ese nombre."
+            })
+
+        try:
+            categoria_producto.objects.create(
+                nombre=nombre_categoria,
+                activo=True
+            )
+
+            return JsonResponse({
+                "estado": "exito",
+                "icon": "success",
+                "title": "Categoría registrada",
+                "descripcion": "La categoría se registró correctamente."
+            })
+
+        except IntegrityError:
+            return JsonResponse({
+                "estado": "fallo",
+                "icon": "error",
+                "title": "Error al registrar",
+                "descripcion": "No fue posible registrar la categoría."
+            })
+
+def actualizar_categoria(request):
+    if request.method == "POST":
+        id_categoria = request.POST.get("id_categoria", "").strip()
+        nombre_categoria = request.POST.get("nuevo_nombre", "").strip()
+
+        if not id_categoria or not id_categoria.isdigit():
+            return JsonResponse({
+                "estado": "fallo",
+                "icon": "warning",
+                "title": "Categoría no válida",
+                "descripcion": "No se recibió un identificador de categoría válido."
+            })
+
+        if not nombre_categoria:
+            return JsonResponse({
+                "estado": "fallo",
+                "icon": "warning",
+                "title": "Campo obligatorio",
+                "descripcion": "Debe ingresar el nombre de la categoría."
+            })
+
+        if len(nombre_categoria) > 50:
+            return JsonResponse({
+                "estado": "fallo",
+                "icon": "warning",
+                "title": "Nombre demasiado largo",
+                "descripcion": "El nombre de la categoría no puede superar los 50 caracteres."
+            })
+
+        try:
+            categoria = categoria_producto.objects.get(
+                id_categoria=id_categoria
+            )
+
+            # Verificar que no exista otra categoría con el mismo nombre.
+            if categoria_producto.objects.filter(
+                nombre__iexact=nombre_categoria
+            ).exclude(
+                id_categoria=id_categoria
+            ).exists():
+                return JsonResponse({
+                    "estado": "fallo",
+                    "icon": "warning",
+                    "title": "Categoría existente",
+                    "descripcion": "Ya existe otra categoría con ese nombre."
+                })
+
+            categoria.nombre = nombre_categoria
+            categoria.save(update_fields=["nombre"])
+
+            return JsonResponse({
+                "estado": "exito",
+                "icon": "success",
+                "title": "Categoría actualizada",
+                "descripcion": "La categoría se actualizó correctamente."
+            })
+
+        except categoria_producto.DoesNotExist:
+            return JsonResponse({
+                "estado": "fallo",
+                "icon": "warning",
+                "title": "Categoría no encontrada",
+                "descripcion": "La categoría que intenta actualizar no existe."
+            })
+
+        except IntegrityError:
+            return JsonResponse({
+                "estado": "fallo",
+                "icon": "error",
+                "title": "Error al actualizar",
+                "descripcion": "No fue posible actualizar la categoría."
+            })
 
 def categorias_productos(request):
     categorias = categoria_producto.objects.order_by("nombre")
@@ -40,12 +196,122 @@ def categorias_productos(request):
     datos = [
         {
             "id_categoria": categoria.id_categoria,
-            "nombre": categoria.nombre
+            "nombre": categoria.nombre,
+            "activo": categoria.activo
         }
         for categoria in categorias
     ]
 
     return JsonResponse(datos, safe=False)
+
+def estado_categoria(request):
+    if request.method == "POST":
+        id_categoria = request.POST.get("id_categoria", "").strip()
+        estado = request.POST.get("estado", "").strip()
+
+        if not id_categoria or not id_categoria.isdigit():
+            return JsonResponse({
+                "estado": "fallo",
+                "icon": "warning",
+                "title": "Categoría no válida",
+                "descripcion": "No se recibió un identificador de categoría válido."
+            })
+
+        if estado not in ["true", "false"]:
+            return JsonResponse({
+                "estado": "fallo",
+                "icon": "warning",
+                "title": "Estado no válido",
+                "descripcion": "El estado proporcionado no es válido."
+            })
+
+        try:
+            categoria = categoria_producto.objects.get(id_categoria=id_categoria)
+
+            nuevo_estado = estado == "true"
+
+            if categoria.activo == nuevo_estado:
+                return JsonResponse({
+                    "estado": "fallo",
+                    "icon": "info",
+                    "title": "Sin cambios",
+                    "descripcion": "La categoría ya se encuentra en ese estado."
+                })
+
+            categoria.activo = nuevo_estado
+            categoria.save(update_fields=["activo"])
+
+            return JsonResponse({
+                "estado": "exito",
+                "icon": "success",
+                "title": "Estado actualizado",
+                "descripcion": (
+                    "La categoría se activó correctamente."
+                    if nuevo_estado else
+                    "La categoría se desactivó correctamente."
+                )
+            })
+
+        except categoria_producto.DoesNotExist:
+            return JsonResponse({
+                "estado": "fallo",
+                "icon": "warning",
+                "title": "Categoría no encontrada",
+                "descripcion": "La categoría que intenta modificar no existe."
+            })
+
+# ACTUALIZAR ESTADO PRODUCTO
+
+def estado_producto(request):
+    codigo = request.POST.get("codigo", "").strip()
+
+    if not codigo:
+        return JsonResponse({
+            "estado": "fallo",
+            "titulo": "Producto no válido",
+            "icon": "warning",
+            "descripcion": "El código del producto no es válido."
+        })
+
+    try:
+        with transaction.atomic():
+            producto_obj = producto.objects.select_for_update().get(
+                codigo=codigo
+            )
+
+            producto_obj.activo = not producto_obj.activo
+            producto_obj.save(update_fields=["activo"])
+
+        return JsonResponse({
+            "estado": "exito",
+            "titulo": "Estado actualizado",
+            "icon": "success",
+            "descripcion": (
+                "El producto ha sido activado correctamente."
+                if producto_obj.activo
+                else "El producto ha sido desactivado correctamente."
+            ),
+            "activo": producto_obj.activo,
+            "id_producto": producto_obj.id_producto
+        })
+
+    except producto.DoesNotExist:
+        return JsonResponse({
+            "estado": "fallo",
+            "titulo": "Producto no encontrado",
+            "icon": "warning",
+            "descripcion": "El producto solicitado no existe."
+        })
+
+    except Exception:
+        return JsonResponse({
+            "estado": "fallo",
+            "titulo": "Error del sistema",
+            "icon": "error",
+            "descripcion": "No se pudo actualizar el estado del producto."
+        })
+
+# VALORES PREVIAMENTE ALMACENADO
 
 def unidades_medida(request):
     unidades = unidad_medida.objects.order_by("nombre")
@@ -62,7 +328,7 @@ def unidades_medida(request):
 
     return JsonResponse(datos, safe=False)
 
-#
+# REGISTRO DE PRODUCTOS
 
 def registrar_productos(request):
     if request.method != "POST":
@@ -288,6 +554,8 @@ def registrar_productos(request):
 
             bitacora.objects.create(
                 id_usuario=obj_usuario,
+                nombre_modulo="Gestión de productos",
+                cargo_usuario=request.session.get("perfil", "No especificado"),
                 accion=(
                     f"Registró el producto {obj_producto.nombre}, "
                     f"con código {obj_producto.codigo}."
@@ -338,7 +606,382 @@ def registrar_productos(request):
             "icon": "error"
         })
 
-#
+# MOVIMIENTO DE INVENTARIO
+
+def formatear_cantidad(cantidad, abreviatura):
+    cantidad = Decimal(str(cantidad))
+
+    if abreviatura.lower() == "kg":
+        return str(cantidad.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+
+    return str(int(cantidad))
+
+def movimiento_producto(request):
+    if request.method != "POST":
+        return render(request, "Productos/movimiento_inventario.html")
+
+    categoria = request.POST.get("categoria", "").strip()
+    unidad = request.POST.get("unidad", "").strip()
+
+    movimientos = movimiento_inventario.objects.select_related(
+        "id_producto",
+        "id_producto__id_categoria",
+        "id_producto__id_unidad",
+        "id_tipo_movimiento",
+        "id_venta"
+    ).order_by("-fecha_movimiento")
+
+    if categoria:
+        movimientos = movimientos.filter(
+            id_producto__id_categoria_id=categoria
+        )
+
+    if unidad:
+        movimientos = movimientos.filter(
+            id_producto__id_unidad_id=unidad
+        )
+
+    datos_movimientos = []
+
+    for registro in movimientos:
+        datos_movimientos.append({
+            "id_movimiento": registro.id_movimiento,
+            "id_producto": registro.id_producto_id,
+            "nombre_producto": registro.id_producto.nombre,
+            "codigo_producto": registro.id_producto.codigo,
+            "id_categoria": registro.id_producto.id_categoria_id,
+            "categoria": registro.id_producto.id_categoria.nombre,
+            "id_unidad": registro.id_producto.id_unidad_id,
+            "unidad": registro.id_producto.id_unidad.nombre,
+            "abreviatura": registro.id_producto.id_unidad.abreviatura,
+            "id_venta": registro.id_venta_id,
+            "id_tipo_movimiento": registro.id_tipo_movimiento_id,
+            "tipo_movimiento": registro.id_tipo_movimiento.nombre,
+            "cantidad": formatear_cantidad(
+                registro.cantidad,
+                registro.id_producto.id_unidad.abreviatura
+            ),
+            "costo_unitario": str(registro.costo_unitario),
+            "valor_total": str(registro.valor_total),
+            "fecha_movimiento": (
+                registro.fecha_movimiento.strftime("%d/%m/%Y %H:%M:%S")
+                if registro.fecha_movimiento
+                else ""
+            ),
+            "motivo": registro.motivo,
+            "reverso_de": registro.reverso_de_id
+        })
+
+    return JsonResponse({
+        "estado": "exito",
+        "movimientos": datos_movimientos
+    })
+
+def lista_inventario_pdf(request):
+    id_categoria = request.POST.get("id_categoria", "").strip()
+    id_unidad = request.POST.get("id_unidad", "").strip()
+
+    movimientos = movimiento_inventario.objects.select_related(
+        "id_producto",
+        "id_producto__id_categoria",
+        "id_producto__id_unidad",
+        "id_tipo_movimiento",
+        "id_venta",
+        "reverso_de"
+    ).all()
+
+    if id_categoria:
+        movimientos = movimientos.filter(
+            id_producto__id_categoria_id=id_categoria
+        )
+
+    if id_unidad:
+        movimientos = movimientos.filter(
+            id_producto__id_unidad_id=id_unidad
+        )
+
+    movimientos = movimientos.order_by("-fecha_movimiento", "-id_movimiento")
+
+    if not movimientos.exists():
+        return JsonResponse({
+            "title": "Movimientos no registrados",
+            "descripcion": (
+                "No hay movimientos de inventario para generar "
+                "el reporte PDF con los filtros seleccionados."
+            ),
+            "icon": "warning"
+        })
+
+    response = HttpResponse(content_type="application/pdf")
+    response["Content-Disposition"] = (
+        'inline; filename="lista_inventario.pdf"'
+    )
+
+    documento = SimpleDocTemplate(
+        response,
+        pagesize=landscape(letter),
+        rightMargin=30,
+        leftMargin=30,
+        topMargin=100,
+        bottomMargin=30
+    )
+
+    ruta_logo = os.path.join(
+        settings.BASE_DIR,
+        "static",
+        "Imagenes",
+        "logo_hielo_caipe.png"
+    )
+
+    if id_categoria and id_unidad:
+        titulo = "MOVIMIENTOS DE INVENTARIO POR CATEGORÍA Y UNIDAD"
+    elif id_categoria:
+        titulo = "MOVIMIENTOS DE INVENTARIO POR CATEGORÍA"
+    elif id_unidad:
+        titulo = "MOVIMIENTOS DE INVENTARIO POR UNIDAD DE MEDIDA"
+    else:
+        titulo = "LISTA DE MOVIMIENTOS DE INVENTARIO"
+
+    estilo_titulo = ParagraphStyle(
+        "TituloInventario",
+        fontName="Times-Bold",
+        fontSize=12,
+        leading=15,
+        alignment=TA_CENTER,
+        textColor=colors.white
+    )
+
+    estilo_encabezado = ParagraphStyle(
+        "EncabezadoInventario",
+        fontName="Times-Bold",
+        fontSize=8,
+        leading=10,
+        alignment=TA_CENTER,
+        textColor=colors.white
+    )
+
+    estilo_celda = ParagraphStyle(
+        "CeldaInventario",
+        fontName="Times-Roman",
+        fontSize=8,
+        leading=10,
+        alignment=TA_CENTER,
+        wordWrap="CJK"
+    )
+
+    datos_tabla = [
+        [
+            Paragraph(escape(titulo), estilo_titulo),
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
+        ],
+        [
+            Paragraph("ID", estilo_encabezado),
+            Paragraph("PRODUCTO", estilo_encabezado),
+            Paragraph("CÓDIGO", estilo_encabezado),
+            Paragraph("TIPO DE MOVIMIENTO", estilo_encabezado),
+            Paragraph("CANTIDAD", estilo_encabezado),
+            Paragraph("COSTO UNITARIO", estilo_encabezado),
+            Paragraph("VALOR TOTAL", estilo_encabezado),
+            Paragraph("FECHA Y HORA", estilo_encabezado),
+            Paragraph("MOTIVO", estilo_encabezado),
+            Paragraph("REVERSO DE", estilo_encabezado)
+        ]
+    ]
+
+    for registro in movimientos:
+        fecha_movimiento = (
+            timezone.localtime(
+                registro.fecha_movimiento
+            ).strftime("%d/%m/%Y %H:%M:%S")
+            if registro.fecha_movimiento
+            else "No registrada"
+        )
+
+        nombre_producto = (
+            registro.id_producto.nombre or "No registrado"
+        )
+
+        codigo_producto = (
+            registro.id_producto.codigo or "No registrado"
+        )
+
+        abreviatura = (
+            registro.id_producto.id_unidad.abreviatura
+            if registro.id_producto.id_unidad
+            else ""
+        )
+
+        cantidad = f"{registro.cantidad} {abreviatura}".strip()
+
+        tipo_movimiento = (
+            registro.id_tipo_movimiento.nombre or "No registrado"
+        )
+
+        motivo = registro.motivo or "No registrado"
+
+        reverso_de = (
+            str(registro.reverso_de_id)
+            if registro.reverso_de_id
+            else "No aplica"
+        )
+
+        datos_tabla.append([
+            str(registro.id_movimiento),
+            Paragraph(escape(str(nombre_producto)), estilo_celda),
+            Paragraph(escape(str(codigo_producto)), estilo_celda),
+            Paragraph(escape(str(tipo_movimiento)), estilo_celda),
+            Paragraph(escape(str(cantidad)), estilo_celda),
+            Paragraph(
+                escape(f"{registro.costo_unitario} $"),
+                estilo_celda
+            ),
+            Paragraph(
+                escape(f"{registro.valor_total} $"),
+                estilo_celda
+            ),
+            Paragraph(escape(fecha_movimiento), estilo_celda),
+            Paragraph(escape(str(motivo)), estilo_celda),
+            Paragraph(escape(reverso_de), estilo_celda)
+        ])
+
+    tabla = Table(
+        datos_tabla,
+        colWidths=[32, 105, 65, 80, 58, 68, 65, 95, 95, 49],
+        repeatRows=2
+    )
+
+    tabla.setStyle(TableStyle([
+        ("SPAN", (0, 0), (-1, 0)),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#00445F")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Times-Bold"),
+        ("ALIGN", (0, 0), (-1, 0), "CENTER"),
+        ("VALIGN", (0, 0), (-1, 0), "MIDDLE"),
+
+        ("BACKGROUND", (0, 1), (-1, 1), colors.HexColor("#00445F")),
+        ("TEXTCOLOR", (0, 1), (-1, 1), colors.white),
+        ("FONTNAME", (0, 1), (-1, 1), "Times-Bold"),
+        ("ALIGN", (0, 1), (-1, 1), "CENTER"),
+        ("VALIGN", (0, 1), (-1, 1), "MIDDLE"),
+
+        ("FONTNAME", (0, 2), (-1, -1), "Times-Roman"),
+        ("FONTSIZE", (0, 2), (-1, -1), 8),
+        ("TEXTCOLOR", (0, 2), (-1, -1), colors.black),
+        ("ALIGN", (0, 2), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 2), (-1, -1), "MIDDLE"),
+
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+
+        ("LEFTPADDING", (0, 0), (-1, -1), 4),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+        ("TOPPADDING", (0, 0), (-1, -1), 7),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+    ]))
+
+    elementos = [tabla]
+
+    documento.build(
+        elementos,
+        onFirstPage=lambda canvas, documento:
+            encabezado_inventario_pdf(
+                canvas,
+                documento,
+                ruta_logo
+            ),
+        onLaterPages=lambda canvas, documento:
+            encabezado_inventario_pdf(
+                canvas,
+                documento,
+                ruta_logo
+            )
+    )
+
+    return response
+
+def encabezado_inventario_pdf(canvas, documento, ruta_logo):
+    canvas.saveState()
+
+    ancho_pagina, alto_pagina = landscape(letter)
+
+    if os.path.exists(ruta_logo):
+        canvas.drawImage(
+            ruta_logo,
+            50,
+            alto_pagina - 135,
+            width=165,
+            height=165,
+            preserveAspectRatio=True,
+            mask="auto"
+        )
+
+    canvas.setFont("Times-Bold", 17)
+    canvas.setFillColor(
+        colors.HexColor("#00445F")
+    )
+
+    canvas.drawString(
+        270,
+        alto_pagina - 65,
+        "EMPRESA HIELO CAIPE C.A"
+    )
+
+    meses = [
+        "Enero",
+        "Febrero",
+        "Marzo",
+        "Abril",
+        "Mayo",
+        "Junio",
+        "Julio",
+        "Agosto",
+        "Septiembre",
+        "Octubre",
+        "Noviembre",
+        "Diciembre"
+    ]
+
+    fecha = datetime.now()
+
+    fecha_actual = (
+        f"{fecha.day} de "
+        f"{meses[fecha.month - 1]} de "
+        f"{fecha.year}"
+    )
+
+    canvas.setFont("Times-Bold", 11)
+    canvas.setFillColor(
+        colors.HexColor("#072F3F")
+    )
+
+    canvas.drawString(
+        280,
+        alto_pagina - 95,
+        f"Fecha de generación: {fecha_actual}"
+    )
+
+    canvas.setStrokeColor(
+        colors.HexColor("#00445F")
+    )
+    canvas.setLineWidth(1)
+
+    canvas.line(
+        30,
+        alto_pagina - 150,
+        ancho_pagina - 30,
+        alto_pagina - 150
+    )
+
+    canvas.restoreState()
+
+# VISUALIZAR LOS PRODUCTOS ALMACENADOS
 
 def visualizar_productos(request):
     return render(request, "Productos/visualizar_productos.html")
@@ -443,7 +1086,7 @@ def detalle_producto_registrado(request):
             "producto": datos_producto
         })
 
-#
+# BUSCAR Y ACTUALIZAR LOS DATOS DEL PRODUCTO
 
 def buscar_datos_producto(request):
     codigo = request.POST.get("codigo_producto", "").strip()
@@ -506,7 +1149,7 @@ def actualizar_producto(request):
     if request.method != "POST":
         return render(request, "Productos/actualizar_producto.html")
 
-    codigo = request.POST.get("id_codigo")
+    codigo = request.POST.get("id_codigo", "").strip()
     nombre_producto = request.POST.get("nombre_producto", "").strip()
     precio_base_str = request.POST.get("precio_base", "").strip()
     costo_base_str = request.POST.get("costo_base", "").strip()
@@ -514,10 +1157,9 @@ def actualizar_producto(request):
     categoria = request.POST.get("categoria_producto", "").strip()
     unidad = request.POST.get("unidad_producto", "").strip()
 
-    print(codigo)
-
     try:
         registro = producto.objects.get(codigo=codigo)
+
     except producto.DoesNotExist:
         return JsonResponse({
             "estado": "fallo",
@@ -572,6 +1214,7 @@ def actualizar_producto(request):
     try:
         precio_base = Decimal(precio_base_str)
         costo_base = Decimal(costo_base_str)
+
     except InvalidOperation:
         return JsonResponse({
             "estado": "fallo",
@@ -593,6 +1236,14 @@ def actualizar_producto(request):
             "estado": "fallo",
             "title": "Costo base",
             "descripcion": "El costo base no puede ser negativo.",
+            "icon": "warning"
+        })
+
+    if costo_base >= precio_base:
+        return JsonResponse({
+            "estado": "fallo",
+            "title": "Costo base inválido",
+            "descripcion": "El costo base debe ser menor que el precio base.",
             "icon": "warning"
         })
 
@@ -667,6 +1318,7 @@ def actualizar_producto(request):
         )
 
         with transaction.atomic():
+
             imagen_anterior = registro.imagen.name if registro.imagen else None
 
             registro.nombre = nombre_producto
@@ -677,17 +1329,34 @@ def actualizar_producto(request):
 
             if imagen_producto:
                 nombre_archivo = (
-                    f"{get_valid_filename(registro.codigo)}."
-                    f"{extension}"
+                    f"{get_valid_filename(registro.codigo)}.{extension}"
                 )
+
+                ruta_imagen = f"productos/{nombre_archivo}"
 
                 imagen_producto.seek(0)
 
-                registro.imagen.save(
-                    nombre_archivo,
-                    imagen_producto,
-                    save=False
-                )
+                almacenamiento = registro.imagen.storage
+
+                imagen_temporal = f"productos/temporal_{nombre_archivo}"
+
+                with almacenamiento.open(imagen_temporal, "wb") as archivo:
+                    for fragmento in imagen_producto.chunks():
+                        archivo.write(fragmento)
+
+                almacenamiento.delete(ruta_imagen)
+
+                almacenamiento.save = almacenamiento.save
+
+                with almacenamiento.open(imagen_temporal, "rb") as archivo:
+                    contenido = archivo.read()
+
+                almacenamiento.delete(imagen_temporal)
+
+                with almacenamiento.open(ruta_imagen, "wb") as archivo:
+                    archivo.write(contenido)
+
+                registro.imagen.name = ruta_imagen
 
             registro.save()
 
@@ -697,11 +1366,13 @@ def actualizar_producto(request):
                 and imagen_anterior != registro.imagen.name
             ):
                 transaction.on_commit(
-                    lambda: registro.imagen.storage.delete(imagen_anterior)
+                    lambda: almacenamiento.delete(imagen_anterior)
                 )
 
             bitacora.objects.create(
                 id_usuario=obj_usuario,
+                nombre_modulo="Gestión de productos",
+                cargo_usuario=request.session.get("perfil", "No especificado"),
                 accion=(
                     f"Actualizó el producto {registro.nombre}, "
                     f"con código {registro.codigo}."
@@ -739,7 +1410,7 @@ def actualizar_producto(request):
             "icon": "error"
         })
 
-#
+# REPORTES TODOS Y POR INDIVIDUAL
 
 def lista_productos_pdf(request):
     id_categoria = request.POST.get("id_categoria", "").strip()
@@ -1309,12 +1980,12 @@ def encabezado_detalle_producto_pdf(canvas, documento, ruta_logo):
 
     canvas.restoreState()
 
-#
+# ACTUALIZAR LA EXISTENCIA DEL PRODUCTO
 
 def actualizar_existencia(request):
     if request.method != "POST":
         return render(request, "Productos/existencia_producto.html")
-    
+
     id_producto_existencia = request.POST.get("id_producto_existencia", "").strip()
     nueva_cantidad = request.POST.get("nueva_cantidad", "").strip()
     motivo = request.POST.get("motivo", "").strip()
@@ -1342,11 +2013,11 @@ def actualizar_existencia(request):
         if not cantidad_nueva_decimal.is_finite():
             raise InvalidOperation
 
-        if cantidad_nueva_decimal < 0:
+        if cantidad_nueva_decimal <= 0:
             return JsonResponse({
                 "estado": "fallo",
                 "title": "Cantidad inválida",
-                "descripcion": "La cantidad no puede ser negativa.",
+                "descripcion": "La cantidad debe ser mayor que cero.",
                 "icon": "warning"
             })
 
@@ -1368,7 +2039,9 @@ def actualizar_existencia(request):
             "icon": "warning"
         })
 
-    obj_usuario = usuarios.objects.get(cedula_identidad=request.session.get("cedula_identidad"))
+    obj_usuario = usuarios.objects.get(
+        cedula_identidad=request.session.get("cedula_identidad")
+    )
 
     try:
         with transaction.atomic():
@@ -1396,22 +2069,11 @@ def actualizar_existencia(request):
 
             cantidad_actual = existencia.cantidad_actual
 
-            if cantidad_actual == cantidad_nueva:
-                return JsonResponse({
-                    "estado": "fallo",
-                    "title": "Sin cambios",
-                    "descripcion": "La nueva cantidad coincide con la existencia actual.",
-                    "icon": "info"
-                })
+            # SUMAR LA NUEVA CANTIDAD A LA EXISTENCIA ANTERIOR
+            cantidad_total = cantidad_actual + cantidad_nueva
 
-            diferencia = abs(cantidad_nueva - cantidad_actual)
-
-            if cantidad_nueva > cantidad_actual:
-                nombre_tipo = "Ajuste de inventario - Entrada"
-                direccion_esperada = tipo_movimiento.Direccion.ENTRADA
-            else:
-                nombre_tipo = "Ajuste de inventario - Salida"
-                direccion_esperada = tipo_movimiento.Direccion.SALIDA
+            nombre_tipo = "Ajuste de inventario - Entrada"
+            direccion_esperada = tipo_movimiento.Direccion.ENTRADA
 
             tipo = tipo_movimiento.objects.filter(
                 nombre=nombre_tipo,
@@ -1433,31 +2095,34 @@ def actualizar_existencia(request):
             costo_unitario = producto_obj.costo_base
 
             valor_total = (
-                Decimal(diferencia) * costo_unitario
+                Decimal(cantidad_nueva) * costo_unitario
             ).quantize(Decimal("0.01"))
 
             movimiento_inventario.objects.create(
                 id_producto=producto_obj,
                 id_tipo_movimiento=tipo,
-                cantidad=Decimal(diferencia),
+                cantidad=Decimal(cantidad_nueva),
                 costo_unitario=costo_unitario,
                 valor_total=valor_total,
                 motivo=motivo
             )
 
-            existencia.cantidad_actual = cantidad_nueva
+            # ACTUALIZAR EXISTENCIA ACUMULANDO LAS UNIDADES
+            existencia.cantidad_actual = cantidad_total
             existencia.save(
                 update_fields=["cantidad_actual", "fecha_actualizacion"]
             )
 
             bitacora.objects.create(
                 id_usuario=obj_usuario,
+                nombre_modulo="Control de inventario de productos",
+                cargo_usuario=request.session.get("perfil", "No especificado"),
                 accion=(
                     f"Actualizó la existencia del producto {producto_obj.nombre}, "
                     f"con código {producto_obj.codigo}. "
                     f"Cantidad anterior: {cantidad_actual}. "
-                    f"Cantidad nueva: {cantidad_nueva}. "
-                    f"Diferencia: {cantidad_nueva - cantidad_actual}. "
+                    f"Cantidad agregada: {cantidad_nueva}. "
+                    f"Existencia final: {cantidad_total}. "
                     f"Motivo: {motivo}."
                 )
             )
@@ -1466,11 +2131,12 @@ def actualizar_existencia(request):
             "estado": "exito",
             "title": "Existencia actualizada",
             "descripcion": (
-                f"La existencia de {producto_obj.nombre} se actualizó "
-                f"de {cantidad_actual} a {cantidad_nueva}."
+                f"Se agregaron {cantidad_nueva} unidades de {producto_obj.nombre}. "
+                f"Existencia anterior: {cantidad_actual}. "
+                f"Existencia actual: {cantidad_total}."
             ),
             "icon": "success",
-            "cantidad_actual": cantidad_nueva
+            "cantidad_actual": cantidad_total
         })
 
     except existencia_inventario.DoesNotExist:
@@ -1570,7 +2236,7 @@ def datos_producto_existencia(request):
         "producto": datos_producto
     })
 
-# 
+# PRECIO POR CANTIDAD
 
 def registrar_precio_volumen(request):
     if request.method != "POST":
@@ -1579,13 +2245,13 @@ def registrar_precio_volumen(request):
     producto_registrado = request.POST.get("producto_registrado", "").strip()
     cantidad_minima = request.POST.get("cantidad_minima", "").strip()
     cantidad_maxima = request.POST.get("cantidad_maxima", "").strip()
-    precio_unitario = request.POST.get("precio_unitario", "").strip()
+    porcentaje_descuento = request.POST.get("porcentaje_descuento", "").strip()
 
     campos = [
         (producto_registrado, "Producto Registrado", "Por favor, debe seleccionar un producto registrado."),
         (cantidad_minima, "Cantidad Mínima", "Por favor, debe ingresar la cantidad mínima."),
         (cantidad_maxima, "Cantidad Máxima", "Por favor, debe ingresar la cantidad máxima."),
-        (precio_unitario, "Precio Unitario", "Por favor, debe ingresar el precio unitario."),
+        (porcentaje_descuento, "Descuento por volumen", "Por favor, debe ingresar el porcentaje de descuento."),
     ]
 
     for valor, campo, mensaje in campos:
@@ -1634,22 +2300,25 @@ def registrar_precio_volumen(request):
             "icon": "warning"
         })
 
-    # Validar el formato del precio
-    if not re.fullmatch(r"\d{1,10}(?:\.\d{1,2})?", precio_unitario):
+    if not re.fullmatch(r"\d{1,3}(?:\.\d{1,2})?", porcentaje_descuento):
         return JsonResponse({
             "estado": "fallo",
-            "title": "Precio inválido",
-            "descripcion": "El precio debe ser numérico, con un máximo de 10 enteros y 2 decimales.",
+            "title": "Descuento inválido",
+            "descripcion": "El descuento debe ser numérico, con un máximo de 3 enteros y 2 decimales.",
             "icon": "warning"
         })
 
-    precio_unitario = Decimal(precio_unitario)
+    porcentaje_descuento = Decimal(porcentaje_descuento)
 
-    if not precio_unitario.is_finite() or precio_unitario <= 0:
+    if (
+        not porcentaje_descuento.is_finite()
+        or porcentaje_descuento <= 0
+        or porcentaje_descuento > 100
+    ):
         return JsonResponse({
             "estado": "fallo",
-            "title": "Precio inválido",
-            "descripcion": "El precio unitario debe ser mayor que cero.",
+            "title": "Descuento inválido",
+            "descripcion": "El porcentaje de descuento debe ser mayor que 0 y no superar el 100%.",
             "icon": "warning"
         })
     
@@ -1660,6 +2329,25 @@ def registrar_precio_volumen(request):
                 id_producto=int(producto_registrado),
                 activo=True
             )
+
+            ultimo_registro = precio_volumen.objects.filter(
+                id_producto=producto_registrado,
+                activo=True
+            ).order_by("-id_precio_volumen").first()
+
+            if (
+                ultimo_registro
+                and porcentaje_descuento <= ultimo_registro.porcentaje_descuento
+            ):
+                return JsonResponse({
+                    "estado": "fallo",
+                    "title": "Descuento inválido",
+                    "descripcion": (
+                        "El porcentaje de descuento debe ser mayor que el "
+                        "último descuento registrado para este producto."
+                    ),
+                    "icon": "warning"
+                })
 
             # Comprobar si ya existe exactamente el mismo registro activo
             duplicado = precio_volumen.objects.filter(
@@ -1673,7 +2361,7 @@ def registrar_precio_volumen(request):
                 return JsonResponse({
                     "estado": "fallo",
                     "title": "Registro duplicado",
-                    "descripcion": "Ya existe un precio por volumen activo para ese producto y ese rango de cantidades.",
+                    "descripcion": "Ya existe un descuento por volumen activo para ese producto y ese rango de cantidades.",
                     "icon": "warning"
                 })
 
@@ -1693,19 +2381,19 @@ def registrar_precio_volumen(request):
                     "icon": "warning"
                 })
 
-            # Registrar el precio por volumen
+            # Registrar el descuento por volumen
             precio_volumen.objects.create(
                 id_producto=producto_registrado,
                 cantidad_minima=cantidad_minima,
                 cantidad_maxima=cantidad_maxima,
-                precio_unitario=precio_unitario,
+                porcentaje_descuento=porcentaje_descuento,
                 activo=True
             )
 
         return JsonResponse({
             "estado": "exito",
             "title": "Registro exitoso",
-            "descripcion": "El precio por volumen se registró correctamente.",
+            "descripcion": "El descuento por volumen se registró correctamente.",
             "icon": "success"
         })
 
@@ -1761,7 +2449,7 @@ def precios_volumna_producto(request):
             "producto": precio.id_producto.nombre,
             "cantidad_minima": precio.cantidad_minima,
             "cantidad_maxima": precio.cantidad_maxima,
-            "precio_unitario": str(precio.precio_unitario),
+            "porcentaje_descuento": str(precio.porcentaje_descuento),
             "activo": precio.activo,
             "fecha_registro": precio.fecha_registro.strftime("%d/%m/%Y %H:%M")
         }
@@ -1807,7 +2495,7 @@ def ultimo_registro_volumen_producto(request):
                 "id_producto": ultimo_registro.id_producto_id,
                 "cantidad_minima": ultimo_registro.cantidad_minima,
                 "cantidad_maxima": ultimo_registro.cantidad_maxima,
-                "precio_unitario": str(ultimo_registro.precio_unitario),
+                "porcentaje_descuento": str(ultimo_registro.porcentaje_descuento),
                 "activo": ultimo_registro.activo
             }
         })
@@ -1830,4 +2518,61 @@ def ultimo_registro_volumen_producto(request):
             "precios": []
         })
 
+# PRODUCTO CON EXISTENCIA SUFICIENTE PARA REALIZAR COMPRAS
 
+def productos_exhibicion(request):
+    nombre_producto = request.POST.get("producto", "").strip()
+
+    productos = producto.objects.select_related(
+        "id_categoria",
+        "id_unidad",
+        "existencia"
+    ).filter(
+        activo=True,
+        existencia__cantidad_actual__gt=0
+    )
+
+    # BUSCAR PRODUCTOS POR NOMBRE O CÓDIGO
+    if nombre_producto:
+        productos = productos.filter(
+            Q(nombre__icontains=nombre_producto) |
+            Q(codigo__icontains=nombre_producto)
+        )
+
+    productos = productos.order_by("nombre")
+
+    datos_productos = []
+
+    for registro in productos:
+
+        datos_productos.append({
+            "id_producto": registro.id_producto,
+            "nombre": registro.nombre,
+            "codigo": registro.codigo,
+            "precio_base": str(registro.precio_base),
+            "costo_base": str(registro.costo_base),
+            "imagen": (
+                registro.imagen.url
+                if registro.imagen
+                else ""
+            ),
+            "activo": registro.activo,
+            "fecha_registro": (
+                registro.fecha_registro.strftime(
+                    "%d/%m/%Y %H:%M:%S"
+                )
+                if registro.fecha_registro
+                else ""
+            ),
+            "id_categoria": registro.id_categoria_id,
+            "categoria": registro.id_categoria.nombre,
+            "id_unidad": registro.id_unidad_id,
+            "unidad": registro.id_unidad.nombre,
+            "abreviatura": registro.id_unidad.abreviatura,
+            "cantidad_actual": registro.existencia.cantidad_actual
+        })
+
+    return JsonResponse({
+        "estado": "exito",
+        "productos": datos_productos
+    })

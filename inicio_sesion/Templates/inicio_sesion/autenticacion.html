@@ -4,13 +4,13 @@
 
 {% load static %}
 
-<section class="contenedor_login">
+<section class="contenedor_inicio_sesion">
     <div class="login_imagen">
         <img src="{% static 'Imagenes/inicio_sesion.png' %}" alt="Imagen de inicio de sesión">
         <div class="capa_overlay">
             <div class="mensaje_bienvenida">
                 <h2>Bienvenido</h2>
-                <p>Planta Procesadora y Distribuidora de Hielo</p>
+                <p>Sistema integral para la administración, distribución y comercialización de hielo.</p>
             </div>
         </div>
     </div>
@@ -43,13 +43,31 @@
                     </div>
                 </div>
 
-                <button type="submit" class="boton_login">Autenticar</button>
+                <div class="contenedor_boton_submit">
+                    <button type="submit" class="boton_login" id="btn_registrar">
+                        <i class="fa-solid fa-user-lock"></i>
+                        Autenticación
+                    </button>
+                </div>
             </form>
         </div>
+
+        <nav class="enlaces_login" aria-label="Opciones de acceso">
+            <a href="{% url 'menu_acceso' %}">
+                <i class="fa-solid fa-user-plus" aria-hidden="true"></i>
+                <span>Registro y Acceso</span>
+            </a>
+
+            <a href="{% url 'buscar_usuario' %}">
+                <i class="fa-solid fa-key" aria-hidden="true"></i>
+                <span>Recuperar Credenciales</span>
+            </a>
+        </nav>
+
     </div>
 </section>
 
-<script src="{% static 'Funcionalidades/contrasenia.js' %}"></script>
-<script src="{% static 'Funcionalidades_Asincronas/inicio_sesion/autenticacion.js' %}"></script>
+<script src="{% static 'Funcionalidades/contrasenia.js' %}?v=20261109"></script>
+<script src="{% static 'Funcionalidades_Asincronas/inicio_sesion/autenticacion.js' %}?v=20261109-2"></script>
 
 {% endblock %}

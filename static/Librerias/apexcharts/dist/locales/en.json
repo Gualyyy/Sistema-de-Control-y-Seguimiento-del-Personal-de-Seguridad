@@ -1,0 +1,67 @@
+{
+  "name": "en",
+  "options": {
+    "months": [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December"
+    ],
+    "shortMonths": [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec"
+    ],
+    "days": [
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday"
+    ],
+    "shortDays": ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+    "toolbar": {
+      "exportToSVG": "Download SVG",
+      "exportToPNG": "Download PNG",
+      "exportToCSV": "Download CSV",
+      "menu": "Menu",
+      "selection": "Selection",
+      "selectionZoom": "Selection Zoom",
+      "zoomIn": "Zoom In",
+      "zoomOut": "Zoom Out",
+      "pan": "Panning",
+      "reset": "Reset Zoom",
+      "measure": "Measure",
+      "wheelZoomHint": "Use {key} + scroll to zoom"
+    },
+    "a11y": {
+      "legendItem": "{name}, {state}. Press Enter or Space to toggle.",
+      "visible": "visible",
+      "hidden": "hidden",
+      "zoomedIn": "Zoomed in",
+      "zoomedOut": "Zoomed out",
+      "zoomReset": "Zoom reset",
+      "pannedLeft": "Panned left",
+      "pannedRight": "Panned right"
+    }
+  }
+}

@@ -66,16 +66,20 @@ document.addEventListener("DOMContentLoaded", () => {
                 "Supervisores",
                 "Personal de limpieza",
                 "Despachadores",
-                "Vigilantes"
+                "Vigilantes",
+                "Atención al cliente",
+                "Clientes"
             ],
             datasets: [{
                 label: "Personal registrado",
-                data: [0, 0, 0, 0],
+                data: [0, 0, 0, 0, 0, 0],
                 backgroundColor: [
                     "#00779e",
                     "#168039",
                     "#06d9a4",
-                    "#6855c5"
+                    "#6855c5",
+                    "#e67e22",
+                    "#d94f8a"
                 ],
                 borderRadius: 6,
                 maxBarThickness: 35
@@ -100,7 +104,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     },
                     title: {
                         display: true,
-                        text: "Cantidad de empleados"
+                        text: "Cantidad de registros"
                     },
                     grid: {
                         color: "#edf1f5"
@@ -118,22 +122,33 @@ document.addEventListener("DOMContentLoaded", () => {
     async function empleados_administrador() {
         try {
             const respuesta = await fetch("/empleados_administrador/");
+
+            if (!respuesta.ok) {
+                throw new Error("No se pudieron obtener los registros del sistema.");
+            }
+
             const resultado = await respuesta.json();
-            console.log(resultado);
+
+            if (resultado.estado !== "exito") {
+                throw new Error("Error al cargar los registros.");
+            }
 
             grafica_perfiles.data.datasets[0].data = [
                 resultado.total_supervisores,
                 resultado.total_limpieza,
                 resultado.total_despachadores,
-                resultado.total_vigilantes
+                resultado.total_vigilantes,
+                resultado.total_atencion_cliente,
+                resultado.total_clientes
             ];
 
             grafica_perfiles.update();
 
         } catch (error) {
-            console.error(error);
+            console.error("Error al cargar la gráfica de perfiles:", error);
         }
     }
+
     empleados_administrador();
 
     const grafica_categoria = new Chart(grafica_categoria_equipo, {

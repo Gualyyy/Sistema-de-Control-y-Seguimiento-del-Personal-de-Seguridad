@@ -1,0 +1,403 @@
+.contenedor_gestion_perfiles {
+    position: relative;
+    width: 100%;
+    margin: 0 auto;
+    padding: 30px;
+    background-color: #ffffff;
+    border: 1px solid #dce6ec;
+    border-radius: 14px;
+    box-shadow: 0 8px 28px rgba(0, 48, 70, 0.12);
+    box-sizing: border-box;
+    font-family: Arial, sans-serif;
+}
+
+.contenedor_gestion_perfiles h2 {
+    margin: 0 35px 25px 0;
+    padding-bottom: 15px;
+    color: #00445f;
+    font-size: 24px;
+
+    border-bottom: 2px solid #e3edf2;
+}
+
+.contenedor_gestion_perfiles .btn_cerrar {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    color: #647985;
+    background-color: transparent;
+    border: none;
+    border-radius: 8px;
+    font-size: 25px;
+    cursor: pointer;
+    transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.contenedor_gestion_perfiles .btn_cerrar:hover {
+    color: #c62828;
+    background-color: #fff0f0;
+}
+
+.modulo_dialogo_perfiles {
+    width: 100%;
+}
+
+.formulario_dialogo_perfiles {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    width: 100%;
+}
+
+.formulario_dialogo_perfiles .campo_formulario {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    min-width: 0;
+}
+
+.formulario_dialogo_perfiles .campo_formulario>label {
+    color: #244454;
+    font-size: 14px;
+
+}
+
+.formulario_dialogo_perfiles select {
+    width: 100%;
+    min-height: 45px;
+    padding: 10px 13px;
+    color: #263f4c;
+    background-color: #ffffff;
+    border: 1px solid #cbd9e1;
+    border-radius: 8px;
+    outline: none;
+    font-family: inherit;
+    font-size: 14px;
+    box-sizing: border-box;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.formulario_dialogo_perfiles select:focus {
+    border-color: #00779e;
+    box-shadow: 0 0 0 3px rgba(0, 119, 158, 0.12);
+}
+
+.formulario_dialogo_perfiles select:disabled {
+    color: #84939c;
+    background-color: #edf1f4;
+    border-color: #d5dfe5;
+    cursor: not-allowed;
+    opacity: 1;
+    box-shadow: none;
+}
+
+.contenedor_perfiles {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 13px;
+    width: 100%;
+}
+
+.campo_perfil {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-width: 0;
+    min-height: 60px;
+    padding: 13px 15px;
+    color: #365361;
+    background-color: #f7fafc;
+    border: 1px solid #d8e3e9;
+    border-radius: 9px;
+    box-sizing: border-box;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.campo_perfil:hover {
+    background-color: #edf7fb;
+    border-color: #8ab9cc;
+}
+
+.campo_perfil label {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 5px;
+    min-width: 0;
+    color: #365361;
+    font-size: 13px;
+
+    line-height: 1.5;
+    cursor: pointer;
+}
+
+.campo_perfil input[type="radio"] {
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    accent-color: #00779e;
+    cursor: pointer;
+}
+
+.campo_perfil:has(input[type="radio"]:checked) {
+    color: #00445f;
+    background-color: #e8f5fa;
+    border-color: #00779e;
+    box-shadow: 0 0 0 2px rgba(0, 119, 158, 0.08);
+}
+
+.campo_perfil:has(input[type="radio"]:disabled) {
+    color: #84939c;
+    background-color: #edf1f4;
+    border-color: #d5dfe5;
+    cursor: not-allowed;
+}
+
+.campo_perfil input[type="radio"]:disabled,
+.campo_perfil input[type="radio"]:disabled+label {
+    cursor: not-allowed;
+}
+
+.perfil_disponible {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: #16804a;
+    font-size: 11px;
+
+}
+
+.perfil_disponible:empty {
+    display: none;
+}
+
+.contenedor_gestion_perfiles .contenedor_mensajes {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    margin-bottom: 24px;
+    padding: 14px 16px;
+    color: #365361;
+    background-color: #f1f8fb;
+    border: 1px solid #d5e8f0;
+    border-radius: 9px;
+    box-sizing: border-box;
+}
+
+.contenedor_gestion_perfiles .contenedor_mensajes i {
+    flex-shrink: 0;
+    color: #00779e;
+    font-size: 20px;
+}
+
+.contenedor_gestion_perfiles .contenedor_mensajes p {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.contenedor_gestion_perfiles .reloj_procesamiento {
+    animation: girar_reloj_gestion 1.5s linear infinite;
+}
+
+.contenedor_gestion_perfiles h2,
+.contenedor_gestion_perfiles .btn_cerrar,
+.contenedor_gestion_perfiles .formulario_dialogo_perfiles label,
+.contenedor_gestion_perfiles .formulario_dialogo_perfiles select,
+.contenedor_gestion_perfiles .campo_perfil,
+.contenedor_gestion_perfiles .campo_perfil label,
+.contenedor_gestion_perfiles .perfil_disponible,
+.contenedor_gestion_perfiles .contenedor_mensajes p,
+.contenedor_gestion_perfiles .opcion_vigencia,
+.contenedor_gestion_perfiles .opcion_vigencia span {
+    font-weight: 400;
+}
+
+@keyframes girar_reloj_gestion {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.formulario_dialogo_perfiles .estado_perfil {
+    gap: 12px;
+}
+
+.formulario_dialogo_perfiles .opciones_vigencia {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 13px;
+    width: 100%;
+}
+
+.formulario_dialogo_perfiles .opcion_vigencia {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    min-width: 0;
+    min-height: 54px;
+    padding: 13px 15px;
+    color: #365361;
+    background-color: #f7fafc;
+    border: 1px solid #d8e3e9;
+    border-radius: 9px;
+    box-sizing: border-box;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.formulario_dialogo_perfiles .opcion_vigencia:hover {
+    background-color: #edf7fb;
+    border-color: #8ab9cc;
+}
+
+.formulario_dialogo_perfiles .opcion_vigencia input[type="radio"] {
+    appearance: none;
+    -webkit-appearance: none;
+    display: inline-grid;
+    place-content: center;
+    flex: 0 0 18px;
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+    min-height: 18px;
+    margin: 0;
+    padding: 0;
+    background-color: #ffffff;
+    border: 1.6px solid #aabdc7;
+    border-radius: 50%;
+    outline: none;
+    box-shadow: none;
+    cursor: pointer;
+    transition:
+        border-color 0.2s ease,
+        background-color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.formulario_dialogo_perfiles .opcion_vigencia input[type="radio"]::before {
+    content: "";
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background-color: #ffffff;
+    transform: scale(0);
+    transition: transform 0.15s ease;
+}
+
+.formulario_dialogo_perfiles .opcion_vigencia input[type="radio"]:checked {
+    background-color: #00779e;
+    border-color: #00779e;
+}
+
+.formulario_dialogo_perfiles .opcion_vigencia input[type="radio"]:checked::before {
+    transform: scale(1);
+}
+
+.formulario_dialogo_perfiles .opcion_vigencia input[type="radio"]:focus {
+    outline: none;
+    box-shadow: none;
+}
+
+.formulario_dialogo_perfiles .opcion_vigencia input[type="radio"]:focus-visible {
+    outline: 2px solid rgba(0, 119, 158, 0.35);
+    outline-offset: 3px;
+    border-radius: 50%;
+    box-shadow: none;
+}
+
+.formulario_dialogo_perfiles .opcion_vigencia span {
+    min-width: 0;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.formulario_dialogo_perfiles .opcion_vigencia:has(input[type="radio"]:checked) {
+    color: #00445f;
+    background-color: #e8f5fa;
+    border-color: #00779e;
+    box-shadow: 0 0 0 2px rgba(0, 119, 158, 0.08);
+}
+
+.formulario_dialogo_perfiles .opcion_vigencia:has(input[type="radio"]:focus-visible) {
+    outline: 3px solid rgba(0, 119, 158, 0.25);
+    outline-offset: 2px;
+}
+
+.formulario_dialogo_perfiles .opcion_vigencia:has(input[type="radio"]:disabled) {
+    color: #84939c;
+    background-color: #edf1f4;
+    border-color: #d5dfe5;
+    cursor: not-allowed;
+}
+
+.formulario_dialogo_perfiles .opcion_vigencia input[type="radio"]:disabled {
+    cursor: not-allowed;
+}
+
+@media (max-width: 520px) {
+    .dialogo {
+        width: calc(100% - 20px);
+        max-height: calc(100dvh - 20px);
+        border-radius: 11px;
+    }
+
+    .contenedor_gestion_perfiles .contenedor_mensajes {
+        gap: 10px;
+        margin-bottom: 20px;
+        padding: 12px;
+    }
+
+    .formulario_dialogo_perfiles .opciones_vigencia {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    .formulario_dialogo_perfiles .opcion_vigencia {
+        min-height: 50px;
+        padding: 12px;
+    }
+
+    .contenedor_gestion_perfiles {
+        padding: 23px 18px;
+        border-radius: 11px;
+    }
+
+    .contenedor_gestion_perfiles h2 {
+        margin-bottom: 20px;
+        font-size: 21px;
+    }
+
+    .contenedor_gestion_perfiles .btn_cerrar {
+        top: 15px;
+        right: 13px;
+    }
+
+    .formulario_dialogo_perfiles {
+        gap: 20px;
+    }
+
+    .contenedor_perfiles {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    .campo_perfil {
+        min-height: 52px;
+        padding: 12px;
+    }
+
+    .contenedor_boton_submit {
+        justify-content: stretch;
+    }
+}

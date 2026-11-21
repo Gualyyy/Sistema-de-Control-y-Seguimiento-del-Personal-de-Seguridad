@@ -1,0 +1,90 @@
+{% extends 'Estructura/base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="contenedor_formulario">
+    <div class="contenedor_campos_amplio">
+        <h2>Categorías Productos</h2>
+
+        <div class="contenedor_registrar_categorias">
+            <h3>Registrar</h3>
+
+            <form method="post" id="formulario_registrar" class="formulario_categoria">
+                {% csrf_token %}
+
+                <div class="campo_formulario">
+                    <label for="nombre_categoria">Nombre de la Categoría:</label>
+                    <input type="text" name="nombre_categoria" id="nombre_categoria" autocomplete="off" minlength="3"
+                        maxlength="25" placeholder="Ingrese el nombre la categoria (3 - 25 caracteres)" required>
+                </div>
+
+                <div class="contenedor_boton_submit">
+                    <button type="submit" class="btn_submit" id="btn_registrar">
+                        <i class="fa-regular fa-floppy-disk"></i>
+                        Registrar
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div class="modulo_visualizar">
+
+            <div class="contenedor_tabla">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>CATEGORÍA</th>
+                            <th>ESTADO</th>
+                            <th>MODIFICAR</th>
+                        </tr>
+                    </thead>
+                    <tbody id="contenedor_categorias"></tbody>
+                </table>
+            </div>
+
+            <div class="botones_navegacion">
+                <button class="btn_secundario btn_retroceder" type="button">Retroceder</button>
+                <button class="btn_primario btn_avanzar" type="button">Avanzar</button>
+            </div>
+        </div>
+    </div>
+</section>
+
+<dialog id="dialogo_categoria" class="dialogo">
+    <div class="contenedor_datos">
+        <button type="button" id="btn_cerrar" class="btn_cerrar">
+            <i class="fa-solid fa-square-xmark"></i>
+        </button>
+
+        <h2>Actualizar Categoría</h2>
+
+        <div class="modulo_dialogo_datos">
+            <form method="post" id="formulario_actualizar" class="formulario_dialogo_datos">
+                {% csrf_token %}
+
+                <input type="hidden" name="id_categoria" id="id_categoria">
+
+                <div class="campo_formulario">
+                    <label for="nuevo_nombre">Nombre de la Categoría:</label>
+                    <input type="text" name="nuevo_nombre" id="nuevo_nombre" autocomplete="off" minlength="3"
+                        maxlength="25" placeholder="Ingrese el nombre la categoria (3 - 25 caracteres)" required>
+                </div>
+
+                <div class="contenedor_boton_submit">
+                    <button type="submit" class="btn_submit">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                        Actualizar
+                    </button>
+                </div>
+            </form>
+        </div>
+
+    </div>
+</dialog>
+
+<script src="{% static 'Funcionalidades_Asincronas/ventas/productos/gestionar_categorias.js' %}"></script>
+
+{% endblock %}

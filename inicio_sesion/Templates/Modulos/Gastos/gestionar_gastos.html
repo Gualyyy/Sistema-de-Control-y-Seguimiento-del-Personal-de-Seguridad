@@ -1,0 +1,248 @@
+{% extends 'Estructura/base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="contenedor_formulario">
+    <div class="contenedor_campos_extra_amplio">
+        <h2>Gestionar Gastos</h2>
+        
+        <div class="gestionar_gastos">
+
+            <!-- ACTUALIZAR GASTOS -->
+            <div class="actualizar_gastos">
+                <h3>Actualizar los Gastos</h3>
+
+                <form method="post" id="formulario_actualizar" class="formulario_dialogo_datos">
+                    {% csrf_token %}
+
+                    <input type="hidden" name="id_gasto" id="id_gasto">
+
+                    <div class="campo_formulario">
+                        <label for="nueva_categoria">Categoría de gasto:</label>
+                        <select name="categoria_gastos" id="nueva_categoria" required>
+                            <option value="">Seleccione una categoría</option>
+                        </select>
+                    </div>
+
+                    <div class="campo_formulario">
+                        <label for="descripcion">Descripción del Gasto:</label>
+                        <input
+                            type="text"
+                            name="descripcion"
+                            id="descripcion"
+                            placeholder="Ingrese la descripción del gasto"
+                            maxlength="200"
+                            autocomplete="off"
+                            required
+                        >
+                    </div>
+
+                    <div class="campo_formulario">
+                        <label for="monto_gasto">Monto (USD $):</label>
+                        <input
+                            type="text"
+                            name="monto_gasto"
+                            id="monto_gasto"
+                            placeholder="Ingrese el monto del gasto"
+                            inputmode="decimal"
+                            maxlength="6"
+                            pattern="[0-9]{1,3}(\.[0-9]{1,2})?"
+                            title="Ingrese un monto mayor que cero, con hasta 3 dígitos enteros y 2 decimales."
+                            autocomplete="off"
+                            required
+                        >
+                    </div>
+
+                    <div class="campo_formulario">
+                        <label for="fecha_gasto">Fecha del Gasto:</label>
+                        <input type="date" name="fecha_gasto" id="fecha_gasto" required>
+                    </div>
+
+                    <div class="campo_formulario">
+                        <label for="es_recurrente">¿Es un gasto recurrente?</label>
+                        <select name="es_recurrente" id="es_recurrente" required>
+                            <option value="false" selected>No</option>
+                            <option value="true">Sí</option>
+                        </select>
+                    </div>
+                    
+                    <div class="campo_formulario" id="contenedor_frecuencia" hidden>
+                        <label for="frecuencia">Frecuencia del Gasto:</label>
+                        <select name="frecuencia" id="frecuencia" required disabled>
+                            <option value="">Seleccione una frecuencia</option>
+                            <option value="SEMANAL">Semanal</option>
+                            <option value="MENSUAL">Mensual</option>
+                            <option value="ANUAL">Anual</option>
+                        </select>
+                    </div>
+                    
+                    <div class="campo_formulario">
+                        <label for="referencia">Documento o referencia (opcional):</label>
+                        <input
+                            type="text"
+                            name="referencia"
+                            id="referencia"
+                            placeholder="Ej.: factura eléctrica, recibo o ref. bancaria"
+                            aria-describedby="ayuda_referencia"
+                            maxlength="100"
+                            autocomplete="off"
+                        >
+                        <small id="ayuda_referencia">
+                            Indique el tipo de comprobante y su número, folio o código.
+                        </small>
+                    </div>
+                    
+                    <div class="campo_formulario campo_observacion">
+                        <label for="observacion">Observaciones:</label>
+                        <textarea
+                            name="observacion"
+                            id="observacion"
+                            maxlength="250"
+                            placeholder="Ingrese información adicional sobre el gasto"
+                        ></textarea>
+                        <div class="contador_caracteres">
+                            <span id="contador_observacion">0</span> / 250 caracteres
+                        </div>
+                    </div>
+
+                    <div class="contenedor_boton_submit">
+                        <button type="submit" class="btn_primario">
+                            <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i>
+                            Actualizar gasto
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- VISUALIZAR GASTOS -->
+            <div class="visualizar_gastos">
+
+                <h3>Visualizar los Gastos</h3>
+
+                <!-- FILTROS DE BÚSQUEDA -->
+                <div class="filtro_gastos">
+
+                    <form method="post" class="formulario_base">
+                        {% csrf_token %}
+
+                        <div class="campos_fila">
+
+                            <div class="campos_reducido">
+                                <div class="campo_formulario">
+                                    <label for="categoria_gastos">Categoría de Gastos:</label>
+                                    <select name="categoria_gastos" id="categoria_gastos">
+                                    </select>
+                                </div>
+                            </div>
+
+                        </div>
+                    </form>
+
+                </div>
+
+                <!-- TABLA DE GASTOS -->
+                <div class="contenedor_tabla detalle">
+
+                    <table>
+                        <thead>
+                            <tr>
+                                <th scope="col">ID</th>
+                                <th scope="col">CATEGORÍA</th>
+                                <th scope="col">ESTADO</th>
+                                <th scope="col">ACCIÓN</th>
+                            </tr>
+                        </thead>
+
+                        <tbody id="contenedor_gastos"></tbody>
+                    </table>
+
+                </div>
+
+                <!-- PAGINACIÓN -->
+                <div class="botones_navegacion">
+
+                    <button class="btn_secundario btn_retroceder" type="button">
+                        <i class="fa-solid fa-chevron-left"></i>
+                        Retroceder
+                    </button>
+
+                    <button class="btn_primario btn_avanzar" type="button">
+                        Avanzar
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+    </div>
+</section>
+
+<dialog id="dialogo_gasto" class="dialogo">
+    <div class="contenedor_datos">
+        <button type="button" id="btn_cerrar" class="btn_cerrar" aria-label="Cerrar detalle del gasto">
+            <i class="fa-solid fa-square-xmark"></i>
+        </button>
+
+        <h2>Detalle del Gasto</h2>
+
+        <div class="modulo_dialogo_datos">
+            <div class="formulario_dialogo_datos">
+                <div class="campo_formulario">
+                    <label for="gasto_visualizar_categoria">Categoría:</label>
+                    <input type="text" id="gasto_visualizar_categoria" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="gasto_visualizar_descripcion">Descripción:</label>
+                    <input type="text" id="gasto_visualizar_descripcion" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="gasto_visualizar_monto">Monto (USD $):</label>
+                    <input type="text" id="gasto_visualizar_monto" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="gasto_visualizar_fecha">Fecha del Gasto:</label>
+                    <input type="text" id="gasto_visualizar_fecha" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="gasto_visualizar_estado">Estado:</label>
+                    <input type="text" id="gasto_visualizar_estado" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="gasto_visualizar_recurrente">Gasto recurrente:</label>
+                    <input type="text" id="gasto_visualizar_recurrente" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="gasto_visualizar_frecuencia">Frecuencia:</label>
+                    <input type="text" id="gasto_visualizar_frecuencia" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="gasto_visualizar_referencia">Documento o referencia:</label>
+                    <input type="text" id="gasto_visualizar_referencia" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="gasto_visualizar_observacion">Observaciones:</label>
+                    <textarea id="gasto_visualizar_observacion" readonly></textarea>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</dialog>
+
+<script src="{% static 'Funcionalidades_Asincronas/gastos/gestionar_gastos.js' %}?v=20261112-expense-table-actions-3"></script>
+
+{% endblock %}

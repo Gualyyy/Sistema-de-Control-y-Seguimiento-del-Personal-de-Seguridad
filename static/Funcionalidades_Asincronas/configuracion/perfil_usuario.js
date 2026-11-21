@@ -13,6 +13,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const input_genero_usuario = document.getElementById("genero_usuario");
     const input_estado_civil_usuario = document.getElementById("estado_civil_usuario");
 
+    const input_razon_social = document.getElementById("razon_social");
+
     const input_telefono_principal = document.getElementById("num_telefono_principal");
     const select_prefijo_principal = document.getElementById("prefijo_principal");
     const contenedor_mensaje_telefono_principal = document.getElementById("contenedor_mensaje_telefono_principal");
@@ -36,13 +38,122 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const contador_residencia = document.getElementById("contador_residencia");
 
-    const btn_actualizar = document.getElementById("btn_actualizar");
-
     configurarTelefono(input_telefono_principal, select_prefijo_principal);
     configurarTelefono(input_telefono_secundario, select_prefijo_secundario);
 
     configurarCorreo(input_correo_principal, select_dominio_principal);
     configurarCorreo(input_correo_secundario, select_dominio_secundaria);
+
+    let url_foto_temporal = null;
+
+    const url_foto_con_version = (url) => {
+        const url_foto = new URL(url, window.location.origin);
+        url_foto.searchParams.set("v", Date.now().toString());
+        return url_foto.toString();
+    };
+
+    // Abrir selector
+    imagen_perfil.addEventListener("click", () => {
+        input_foto_perfil.click();
+    });
+
+    // Seleccionar fotografía
+    input_foto_perfil.addEventListener("change", async () => {
+        const archivo = input_foto_perfil.files[0];
+
+        if (!archivo) return;
+
+        if (!["image/png", "image/jpeg"].includes(archivo.type) ||
+            archivo.size > 5 * 1024 * 1024) {
+
+            input_foto_perfil.value = "";
+
+            Swal.fire({
+                title: "Imagen no válida",
+                text: "Seleccione una imagen PNG o JPG que no supere los 5 MB.",
+                icon: "warning"
+            });
+
+            return;
+        }
+
+        const url_anterior = imagen_perfil.src;
+
+        if (url_foto_temporal) {
+            URL.revokeObjectURL(url_foto_temporal);
+        }
+
+        url_foto_temporal = URL.createObjectURL(archivo);
+        imagen_perfil.src = url_foto_temporal;
+
+        const confirmar = await Swal.fire({
+            title: "Fotografía seleccionada",
+            text: "¿Desea actualizar su fotografía de perfil?",
+            icon: "question",
+            showCancelButton: true,
+            confirmButtonText: "Actualizar",
+            cancelButtonText: "Cancelar"
+        });
+
+        if (!confirmar.isConfirmed) {
+            imagen_perfil.src = url_anterior;
+            URL.revokeObjectURL(url_foto_temporal);
+            url_foto_temporal = null;
+            input_foto_perfil.value = "";
+            return;
+        }
+
+        try {
+            const formulario = new FormData();
+            formulario.append("foto_perfil", archivo);
+
+            const respuesta = await fetch("/actualizar_img_perfil/", {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": document.querySelector(
+                        "[name=csrfmiddlewaretoken]"
+                    ).value
+                },
+                body: formulario
+            });
+
+            const resultado = await respuesta.json();
+
+            await Swal.fire({
+                title: resultado.title,
+                text: resultado.descripcion,
+                icon: resultado.icon
+            });
+
+            if (resultado.estado === "exito" && resultado.foto_perfil) {
+                const url_actualizada = url_foto_con_version(
+                    resultado.foto_perfil
+                );
+
+                imagen_perfil.src = url_actualizada;
+
+                const imagen_menu = document.getElementById("foto_usuario_menu");
+
+                if (imagen_menu) {
+                    imagen_menu.src = url_actualizada;
+                }
+            } else {
+                imagen_perfil.src = url_anterior;
+            }
+
+        } catch (error) {
+            console.error(error);
+
+            imagen_perfil.src = url_anterior;
+        } finally {
+            if (url_foto_temporal) {
+                URL.revokeObjectURL(url_foto_temporal);
+                url_foto_temporal = null;
+            }
+
+            input_foto_perfil.value = "";
+        }
+    });
 
     const municipios = [
         "Barinas", "Pedraza", "Antonio José de Sucre", "Ezequiel Zamora", "Bolívar", "Alberto Arvelo Torrealba", "Rojas", "Obispo", "Sosa", "Cruz Paredes", "Arismendi", "Andrés Eloy Blanco"
@@ -455,13 +566,49 @@ document.addEventListener("DOMContentLoaded", () => {
         );
     });
 
+    function configurarCamposPerfil(tipo_usuario) {
+        tipo_usuario = (tipo_usuario || "").trim().toUpperCase();
+
+        const campo_razon_social = input_razon_social.closest(".campo_formulario");
+        const campo_nombres = input_nombres_usuario.closest(".campo_formulario");
+        const campo_apellidos = input_apellidos_usuario.closest(".campo_formulario");
+
+        if (tipo_usuario === "NATURAL") {
+            campo_razon_social.style.display = "none";
+            campo_nombres.style.display = "";
+            campo_apellidos.style.display = "";
+        } else {
+            campo_razon_social.style.display = "";
+            campo_nombres.style.display = "none";
+            campo_apellidos.style.display = "none";
+        }
+    }
+
+    function seleccionarOpcionAlmacenada(select, valor, valorPredeterminado) {
+        const valorAlmacenado = (valor || "").trim();
+
+        if (!valorAlmacenado || valorAlmacenado.toUpperCase() === "N/A") {
+            select.value = valorPredeterminado;
+            return;
+        }
+
+        const existe = Array.from(select.options).some(
+            opcion => opcion.value === valorAlmacenado
+        );
+
+        if (!existe) {
+            select.add(new Option(valorAlmacenado, valorAlmacenado));
+        }
+
+        select.value = valorAlmacenado;
+    }
+
     async function datos_usuario() {
         try {
             const respuesta = await fetch("/datos_usuario_sistema/");
             const resultado = await respuesta.json();
-            console.log(resultado);
 
-            if (resultado.estado != "exito") {
+            if (resultado.estado !== "exito") {
                 await Swal.fire({
                     title: resultado.title,
                     text: resultado.descripcion,
@@ -470,16 +617,28 @@ document.addEventListener("DOMContentLoaded", () => {
                 return;
             }
 
+            configurarCamposPerfil(resultado.usuario.tipo_usuario);
+
             input_id_usuario.value = resultado.usuario.id_usuario;
 
+            input_razon_social.value = resultado.usuario.razon_social;
             input_nombres_usuario.value = resultado.usuario.nombres;
             input_apellidos_usuario.value = resultado.usuario.apellidos;
             input_ci_usuario.value = resultado.usuario.cedula_identidad;
-            input_genero_usuario.value = resultado.usuario.genero;
-            input_estado_civil_usuario.value = resultado.usuario.estado_civil;
+
+            seleccionarOpcionAlmacenada(
+                input_genero_usuario,
+                resultado.usuario.genero,
+                "Masculino"
+            );
+            seleccionarOpcionAlmacenada(
+                input_estado_civil_usuario,
+                resultado.usuario.estado_civil,
+                "Soltero/a"
+            );
 
             if (resultado.usuario.foto_perfil) {
-                imagen_perfil.src = resultado.usuario.foto_perfil;
+                imagen_perfil.src = url_foto_con_version(resultado.usuario.foto_perfil);
             } else {
                 imagen_perfil.src = imagen_perfil.dataset.fotoPredeterminada;
             }
@@ -495,10 +654,10 @@ document.addEventListener("DOMContentLoaded", () => {
             option_prefijo_principal.hidden = true;
             select_prefijo_principal.append(option_prefijo_principal);
 
-            if (resultado.contacto.telefono_secundario != "N/A") {
+            if (resultado.contacto.telefono_secundario !== "N/A") {
                 const [prefijo_secundaria, telefono_secundaria] = resultado.contacto.telefono_secundario.split("-");
 
-                input_telefono_principal.value = telefono_secundaria;
+                input_telefono_secundario.value = telefono_secundaria;
 
                 const option_prefijo_secundaria = document.createElement("option");
                 option_prefijo_secundaria.value = prefijo_secundaria;
@@ -519,7 +678,7 @@ document.addEventListener("DOMContentLoaded", () => {
             option_dominio_principal.hidden = true;
             select_dominio_principal.append(option_dominio_principal);
 
-            if (resultado.contacto.correo_secundario != "N/A") {
+            if (resultado.contacto.correo_secundario !== "N/A") {
                 const [correo_secundaria, dominio_secundaria] = resultado.contacto.correo_secundario.split("@");
 
                 input_correo_secundario.value = correo_secundaria;
@@ -558,40 +717,13 @@ document.addEventListener("DOMContentLoaded", () => {
             actualizarContador(textarea_direccion_domicilio, contador_residencia);
 
             cargarMunicipiosResidencia(resultado.residencia.municipio);
-
             cargarParroquiasResidencia(resultado.residencia.parroquia);
+
         } catch (error) {
             console.error(error);
         }
     }
     datos_usuario();
-
-    input_foto_perfil.addEventListener("change", function () {
-        const archivo = this.files[0];
-
-        if (!archivo) return;
-
-        const formatos_permitidos = ["image/png", "image/jpeg"];
-
-        if (!formatos_permitidos.includes(archivo.type)) {
-            this.value = "";
-            Swal.fire({
-                title: "Formato no permitido",
-                text: "Seleccione una imagen en formato PNG o JPG.",
-                icon: "warning"
-            });
-            return;
-        }
-
-        imagen_perfil.src = URL.createObjectURL(archivo);
-
-        Swal.fire({
-            title: "Fotografía seleccionada",
-            text: "Presione el botón Actualizar para guardar su foto de perfil.",
-            icon: "info",
-            confirmButtonText: "Entendido"
-        });
-    });
 
     formulario_actualizar.addEventListener("submit", async (e) => {
         e.preventDefault();

@@ -1,0 +1,383 @@
+.contenedor_cuadriculado {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 1250px;
+    max-height: 90vh;
+    background: #ffffff;
+    border-radius: 12px;
+}
+
+.contenedor_cuadriculado h2 {
+    position: absolute;
+    top: 20px;
+    left: 25px;
+    margin: 0;
+    color: #102f4e;
+    font-size: 22px;
+    font-weight: 700;
+}
+
+.contenedor_cuadriculado .btn_cerrar {
+    position: absolute;
+    top: 17px;
+    right: 20px;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 5px;
+    border: none;
+    background: transparent;
+    color: #102f4e;
+    font-size: 25px;
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+.contenedor_cuadriculado .btn_cerrar:hover {
+    color: #c0392b;
+}
+
+.modulo_dialogo_detalle_compra {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-width: 0;
+    padding: 65px 25px 25px;
+    overflow-y: auto;
+    box-sizing: border-box;
+}
+
+.formulario_dialogo_detalle_compra {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+    width: 100%;
+}
+
+/* CUADROS DE INFORMACIÓN */
+
+.informacion_general,
+.informacion_cliente,
+.informacion_venta,
+.informacion_pagos,
+.informacion_receptor,
+.resumen_financiero {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding: 18px;
+    border: 1px solid #d7e2e9;
+    border-radius: 10px;
+    background: #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 68, 95, 0.05);
+    box-sizing: border-box;
+}
+
+.informacion_general h3,
+.informacion_cliente h3,
+.informacion_venta h3,
+.informacion_pagos h3,
+.informacion_receptor h3,
+.resumen_financiero h3 {
+    margin: 0 0 18px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #00779e;
+    color: #102f4e;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+/* DISTRIBUCIÓN DE CAMPOS */
+
+.informacion_general,
+.informacion_cliente,
+.informacion_pagos,
+.informacion_receptor,
+.resumen_financiero {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 15px;
+    row-gap: 13px;
+    align-content: start;
+}
+
+.informacion_general h3,
+.informacion_cliente h3,
+.informacion_pagos h3,
+.informacion_receptor h3,
+.resumen_financiero h3 {
+    grid-column: 1 / -1;
+}
+
+.informacion_general .campo_formulario,
+.informacion_cliente .campo_formulario,
+.informacion_pagos .campo_formulario,
+.informacion_receptor .campo_formulario,
+.resumen_financiero .campo_formulario {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    gap: 6px;
+}
+
+.informacion_general .campo_formulario:last-child,
+.informacion_pagos .campo_formulario:last-child {
+    grid-column: 1 / -1;
+}
+
+/* ETIQUETAS */
+
+.formulario_dialogo_detalle_compra .campo_formulario label {
+    color: #34495e;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+/* CAMPOS DE SOLO LECTURA */
+
+.formulario_dialogo_detalle_compra .campo_formulario input,
+.formulario_dialogo_detalle_compra .campo_formulario textarea {
+    width: 100%;
+    min-width: 0;
+    padding: 10px 12px;
+    border: 1px solid #d5dfe6;
+    border-radius: 6px;
+    outline: none;
+    background: #f5f8fa;
+    color: #34495e;
+    font-family: inherit;
+    font-size: 13px;
+    box-sizing: border-box;
+}
+
+.formulario_dialogo_detalle_compra .campo_formulario input {
+    height: 39px;
+}
+
+.formulario_dialogo_detalle_compra .campo_formulario textarea {
+    min-height: 85px;
+    resize: vertical;
+}
+
+.formulario_dialogo_detalle_compra .campo_formulario input:read-only,
+.formulario_dialogo_detalle_compra .campo_formulario textarea:read-only {
+    cursor: default;
+}
+
+/* TABLA DE PRODUCTOS */
+
+.informacion_venta {
+    grid-column: 1 / -1;
+    overflow: hidden;
+}
+
+.informacion_venta table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.informacion_venta thead {
+    background: #102f4e;
+    color: #ffffff;
+}
+
+.informacion_venta th {
+    padding: 12px 10px;
+    font-weight: 600;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.informacion_venta td {
+    padding: 11px 10px;
+    border-bottom: 1px solid #e3eaf0;
+    color: #34495e;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.informacion_venta tbody tr:nth-child(even) {
+    background: #f5f8fa;
+}
+
+.informacion_venta tbody tr:hover {
+    background: #eaf3f7;
+}
+
+/* CAPTURE DEL PAGO */
+
+.informacion_pagos #capture_pago_enlace {
+    display: inline-flex;
+    width: fit-content;
+    color: #00779e;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.informacion_pagos #capture_pago_enlace:hover {
+    color: #00445f;
+    text-decoration: underline;
+}
+
+.informacion_pagos #capture_pago_no_disponible {
+    color: #7f8c8d;
+    font-size: 13px;
+}
+
+/* RESUMEN FINANCIERO */
+
+.resumen_financiero {
+    background: #f4f8fb;
+    border-color: #b9d3e0;
+}
+
+.resumen_financiero .campo_formulario:last-child,
+.resumen_financiero .campo_formulario:nth-last-child(2) {
+    grid-column: span 1;
+}
+
+.resumen_financiero .campo_formulario:last-child input,
+.resumen_financiero .campo_formulario:nth-last-child(2) input {
+    border-color: #a8cbd9;
+    background: #e8f2f6;
+    color: #102f4e;
+    font-weight: 700;
+}
+
+/* MENSAJES */
+
+.contenedor_mensajes {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 13px;
+    border: 1px solid #b9d3e0;
+    border-radius: 7px;
+    background: #eef6fa;
+    color: #102f4e;
+    font-size: 13px;
+}
+
+.contenedor_mensajes[hidden] {
+    display: none;
+}
+
+.contenedor_mensajes p {
+    margin: 0;
+}
+
+/* BOTONES */
+
+.contenedor_botones_submit {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding-top: 15px;
+    border-top: 1px solid #e0e7ec;
+}
+
+.contenedor_botones_submit .btn_submit {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-width: 125px;
+    padding: 11px 20px;
+    border: none;
+    border-radius: 6px;
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.contenedor_botones_submit .btn_rechazar {
+    background: #c0392b;
+}
+
+.contenedor_botones_submit .btn_rechazar:hover {
+    background: #a93226;
+}
+
+.contenedor_botones_submit .btn_aceptar {
+    background: #187a50;
+}
+
+.contenedor_botones_submit .btn_aceptar:hover {
+    background: #126440;
+}
+
+/* RESPONSIVE */
+
+@media (max-width: 768px) {
+    .contenedor_cuadriculado {
+        max-height: 95vh;
+    }
+
+    .formulario_dialogo_detalle_compra {
+        grid-template-columns: 1fr;
+    }
+
+    .informacion_venta {
+        grid-column: 1;
+        overflow-x: auto;
+    }
+
+    .informacion_general,
+    .informacion_cliente,
+    .informacion_pagos,
+    .informacion_receptor,
+    .resumen_financiero {
+        grid-template-columns: 1fr;
+    }
+
+    .informacion_general h3,
+    .informacion_cliente h3,
+    .informacion_pagos h3,
+    .informacion_receptor h3,
+    .resumen_financiero h3 {
+        grid-column: 1;
+    }
+
+    .informacion_general .campo_formulario:last-child,
+    .informacion_pagos .campo_formulario:last-child {
+        grid-column: 1;
+    }
+
+    .contenedor_botones_submit {
+        flex-direction: column-reverse;
+    }
+
+    .contenedor_botones_submit .btn_submit {
+        width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .contenedor_cuadriculado h2 {
+        left: 15px;
+        font-size: 18px;
+    }
+
+    .modulo_dialogo_detalle_compra {
+        padding: 60px 12px 15px;
+    }
+
+    .informacion_general,
+    .informacion_cliente,
+    .informacion_venta,
+    .informacion_pagos,
+    .informacion_receptor,
+    .resumen_financiero {
+        padding: 13px;
+    }
+}

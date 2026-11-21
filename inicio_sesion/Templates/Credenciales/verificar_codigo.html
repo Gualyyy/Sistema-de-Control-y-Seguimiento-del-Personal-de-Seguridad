@@ -1,0 +1,96 @@
+{% extends 'Estructura/Base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="pagina_validar_codigo">
+    <div class="contenedor_validar_codigo">
+
+        <div class="encabezado_formulario">
+            <img src="{% static 'Imagenes/validar_codigo.png' %}"
+                alt="Imagen para validar código recibido del correo electrónico">
+
+            <h2>Validar Código de Seguridad</h2>
+            <p>Debe ingresar el código que se le envio al Correo Electrónico.</p>
+
+            <p><span id="vigencia_codigo" aria-live="polite"></span></p>
+        </div>
+
+        <form method="post" id="formulario_validar" class="formulario_validacion">
+            {% csrf_token %}
+
+            <div class="campo_formulario">
+                <label for="codigo_recibido">Código Recibido:</label>
+                <input type="text" name="codigo_recibido" minlength="6" maxlength="6" id="codigo_recibido"
+                    placeholder="Ingrese el código recibido de 6 digitos." autocomplete="off" required>
+            </div>
+
+            <div class="contenedor_boton_submit">
+                <button type="submit" class="validar_codigo" id="btn_validar">
+                    <i class="fa-solid fa-circle-check"></i>
+                    <span>Validar código</span>
+                </button>
+            </div>
+
+            <div class="contenedor_boton_reenvio">
+                <button type="button" class="reenviar_codigo" id="btn_reenviar">
+                    <i class="fa-solid fa-rotate-right"></i>
+                    <span>Reenviar código</span>
+                </button>
+            </div>
+
+        </form>
+
+    </div>
+</section>
+
+<dialog id="correos_usuario" class="dialogo_reducido">
+    <div class="contenedor_correos">
+
+        <div class="contenedor_encabezado">
+            <h2>Correos Electrónicos Registrados</h2>
+            <p>
+                Selecciona uno de los correos electrónicos
+                al que deseas enviar el código de verificación.
+            </p>
+        </div>
+
+        <div id="contenedor_mensajes_seleccion" class="contenedor_mensajes">
+            <i class="fa-solid fa-hourglass-half reloj_procesamiento"></i>
+            <p>Realizar la acción del perfil.</p>
+        </div>
+
+        <form method="post" id="formulario_seleccion" class="formulario_seleccion">
+            {% csrf_token %}
+
+            <div class="campo_formulario">
+                <input type="radio" name="correo_seleccionado" id="correo_principal" value="principal" required>
+
+                <label for="correo_principal" id="nombre_principal">
+                    Correo principal
+                </label>
+            </div>
+
+            <div class="campo_formulario" id="contenedor_correo_secundario">
+                <input type="radio" name="correo_seleccionado" id="correo_secundario" value="secundario">
+
+                <label for="correo_secundario" id="nombre_secundario">
+                    Correo secundario
+                </label>
+            </div>
+
+            <div class="contenedor_boton_submit">
+                <button type="submit" class="boton_login" id="btn_enviar_codigo">
+                    Enviar código
+                </button>
+            </div>
+
+        </form>
+    </div>
+</dialog>
+
+
+<script src="{% static 'Funcionalidades_Asincronas/recuperar_credenciales/verificar_codigo.js' %}"></script>
+
+{% endblock %}

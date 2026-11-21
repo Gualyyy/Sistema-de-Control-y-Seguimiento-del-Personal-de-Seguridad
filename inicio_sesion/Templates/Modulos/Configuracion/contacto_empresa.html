@@ -1,0 +1,95 @@
+{% extends 'Estructura/base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="contenedor_formulario">
+    <div class="contenedor_campos_demasiado_amplio">
+        <h2>Datos del Usuario del Sistema</h2>
+
+        <div class="modulo_contacto_foro">
+
+            <div class="contenedor_datos_almacenado">
+                <h3>Datos de contacto actuales</h3>
+
+                <div class="datos_contacto">
+                    <div class="campo_dato">
+                        <span>Teléfono:</span>
+                        <p id="telefono"></p>
+                    </div>
+
+                    <div class="campo_dato">
+                        <span>Correo electrónico:</span>
+                        <p id="correo_electronico"></p>
+                    </div>
+
+                    <div class="campo_dato">
+                        <span>Dirección:</span>
+                        <p id="direccion"></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="contenedor_reemplazar_datos">
+                <h3>Actualizar información de contacto</h3>
+
+                <form method="post" id="formulario_registrar">
+                    {% csrf_token %}
+
+                    <div class="campo_formulario">
+                        <label for="num_telefono">Teléfono:</label>
+
+                        <div class="grupo_doble">
+                            <select name="prefijo" id="prefijo" class="select_prefijo"></select>
+
+                            <input type="text" name="num_telefono" id="num_telefono" minlength="7" maxlength="7"
+                                inputmode="numeric" autocomplete="off" placeholder="7 dígitos" class="campo_opcional">
+                        </div>
+
+                        <small id="contenedor_mensaje_telefono" class="mensaje-feedback"></small>
+                    </div>
+
+                    <div class="campo_formulario">
+                        <label for="correo">Correo electrónico:</label>
+
+                        <div class="grupo_doble">
+                            <input type="text" name="correo" id="correo" minlength="5" maxlength="20"
+                                placeholder="Nombre de usuario" autocomplete="off" required>
+
+                            <select name="dominio" id="dominio" class="select_dominio" required></select>
+                        </div>
+
+                        <small id="contenedor_mensaje_correo" class="mensaje-feedback"></small>
+                    </div>
+
+                    <div class="campo_formulario">
+                        <label for="direccion_domicilio">Dirección:</label>
+
+                        <textarea name="direccion" id="direccion_domicilio" maxlength="250"
+                            placeholder="Ingrese la dirección completa de la empresa" required></textarea>
+
+                        <div class="contador_caracteres">
+                            <span id="contador_residencia">0</span>
+                            <span>/ 250 caracteres</span>
+                        </div>
+                    </div>
+
+                    <div class="contenedor_boton_submit">
+                        <button type="submit" class="btn_submit">
+                            <i class="fa-regular fa-floppy-disk"></i>
+                            Actualizar información
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+        </div>
+    </div>
+</section>
+
+<script src="{% static 'Funcionalidades/correo_electronico.js' %}"></script>
+<script src="{% static 'Funcionalidades/telefono.js' %}"></script>
+<script src="{% static 'Funcionalidades_Asincronas/configuracion/reemplazar_contacto.js' %}"></script>
+
+{% endblock %}

@@ -5,7 +5,7 @@
 {% load static %}
 
 <section class="contenedor_formulario">
-    <div class="contenedor_campos_amplio">
+    <div class="contenedor_campos_intermedio">
         <h2>Inicios de Sesiones</h2>
 
         <div class="modulo_buqueda">
@@ -14,20 +14,50 @@
             <form method="post" class="formulario_base">
                 {% csrf_token %}
 
-                <div class="campo_reducido">
-                    <label for="fechas_registradas">Fechas Registradas:</label>
-                    <select name="fechas_registradas" id="fechas_registradas"></select>
+                <div class="campos_fila">
+                    <div class="campo_formulario">
+                        <label for="fechas_registradas">Fechas Registradas:</label>
+                        <select name="fechas_registradas" id="fechas_registradas"></select>
+                    </div>
                 </div>
             </form>
         </div>
 
         <div class="modulo_visualizar">
-            <div class="encabezado_registrados">
-                <button type="button" class="btn_pdf" id="inicios_sesiones_pdf">
-                    <i class="fa-regular fa-file-pdf"></i>
-                    Reporte
-                </button>
-            </div>
+            <section class="estadisticas_sesiones" aria-labelledby="titulo_estadisticas_sesiones">
+                <h3 id="titulo_estadisticas_sesiones">Estadísticas de inicios de sesión</h3>
+
+                <div class="resumen_sesiones" aria-live="polite">
+                    <article class="tarjeta_sesion">
+                        <span>Sesiones registradas</span>
+                        <strong id="total_sesiones">0</strong>
+                    </article>
+                    <article class="tarjeta_sesion">
+                        <span>Sesiones activas</span>
+                        <strong id="sesiones_activas">0</strong>
+                    </article>
+                    <article class="tarjeta_sesion">
+                        <span>Usuarios con sesión</span>
+                        <strong id="usuarios_con_sesion">0</strong>
+                    </article>
+                </div>
+
+                <div class="grafica_sesiones">
+                    <h4>Inicios de sesión por fecha</h4>
+                    <div class="contenedor_grafica_sesiones" id="contenedor_grafica_sesiones">
+                        <canvas
+                            id="grafica_sesiones"
+                            role="img"
+                            aria-label="Gráfica de inicios de sesión por fecha"
+                        ></canvas>
+                    </div>
+                    <p id="mensaje_grafica_sesiones" class="mensaje_grafica_sesiones" hidden>
+                        No hay datos para mostrar.
+                    </p>
+                </div>
+            </section>
+
+            <p id="estado_sesiones" class="estado_sesiones" role="alert" hidden></p>
 
             <div class="contenedor_tabla">
                 <table>
@@ -48,14 +78,14 @@
             </div>
 
             <div class="botones_navegacion">
-                <button class="btn_secundario btn_retroceder" type="button">Retroceder</button>
-                <button class="btn_primario btn_avanzar" type="button">Avanzar</button>
+                <button class="btn_secundario btn_ret" type="button">Retroceder</button>
+                <button class="btn_primario btn_av" type="button">Avanzar</button>
             </div>
         </div>
 
     </div>
 </section>
 
-<script src="{% static 'Funcionalidades_Asincronas/seguridad/inicios_sesiones.js' %}"></script>
+<script src="{% static 'Funcionalidades_Asincronas/seguridad/inicios_sesiones.js' %}?v=20261112-session-stats-1"></script>
 
 {% endblock %}

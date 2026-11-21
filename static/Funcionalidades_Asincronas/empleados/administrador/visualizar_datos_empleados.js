@@ -38,16 +38,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const btn_ret = document.querySelector(".botones_navegacion .btn_ret");
     const btn_av = document.querySelector(".botones_navegacion .btn_av");
 
-    const lista_empleados_pdf = document.getElementById("lista_empleados_pdf");
-    const datos_empleado_pdf = document.getElementById("datos_empleado_pdf");
-
-    let nacionalidad = "", cedula = "", cedulaUsuario = "", perfil = "";
+    let nacionalidad = select_nacionalidad.value, cedula = "", cedulaUsuario = "", perfil = "";
 
     let empleados_recibidos = [];
     let pagina_actual = 1;
     const filas_por_pagina = 10;
 
-    configurarPasos(".contenedor_datos_contenido");
     configurarCedula(input_cedula_identidad, select_nacionalidad);
 
     function perfiles_registrados() {
@@ -193,7 +189,7 @@ document.addEventListener("DOMContentLoaded", () => {
             formulario.append("nacionalidad", nacionalidad)
             formulario.append("cedula", cedula)
 
-            const respuesta = await fetch("/buscar_datos_usuario/", {
+            const respuesta = await fetch("/datos_empleado/", {
                 method: "POST",
                 headers: {
                     "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]").value
@@ -264,53 +260,14 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
+    const contenedor_dialogo = dialogo_empleado.querySelector(
+        ".contenedor_datos"
+    );
+
+    const navegacion_dialogo = configurarPasos(contenedor_dialogo);
+
     btn_cerrar.addEventListener("click", () => {
         dialogo_empleado.close();
-    });
-
-    lista_empleados_pdf.addEventListener("click", () => {
-        const formulario = document.createElement("form");
-
-        formulario.method = "POST";
-        formulario.action = "/lista_empleados_pdf/";
-        formulario.target = "_blank";
-        const tabId = document.body.dataset.tabId;
-
-        formulario.innerHTML = `
-            <input type="hidden" name="csrfmiddlewaretoken" 
-                value="${document.querySelector('[name=csrfmiddlewaretoken]').value}">
-
-            <input type="hidden" name="tab_id" value="${tabId}">
-
-            <input type="hidden" name="perfil"
-                value="${select_perfiles_registrados.value}">
-        `;
-
-        document.body.appendChild(formulario);
-        formulario.submit();
-        formulario.remove();
-    });
-
-    datos_empleado_pdf.addEventListener("click", () => {
-        const formulario = document.createElement("form");
-        formulario.method = "POST";
-        formulario.action = "/datos_empleados_pdf/";
-        formulario.target = "_blank";
-
-        const csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
-        const idUsuario = document.querySelector("#id_empleado").value;
-        const tabId = document.body.dataset.tabId;
-
-        formulario.innerHTML = `
-            <input type="hidden" name="csrfmiddlewaretoken" value="${csrf}">
-            
-            <input type="hidden" name="tab_id" value="${tabId}">
-
-            <input type="hidden" name="id_usuario" value="${idUsuario}">
-        `;
-
-        document.body.appendChild(formulario);
-        formulario.submit();
-        formulario.remove();
+        navegacion_dialogo.reiniciar();
     });
 });

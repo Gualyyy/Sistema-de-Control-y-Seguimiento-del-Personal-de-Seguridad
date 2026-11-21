@@ -1,0 +1,54 @@
+{% extends 'Estructura/Base.html' %}
+{% load static %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'Estilos/Modulos/formularios_personalizados/modulo_validacion_reporte.css' %}">
+
+<section class="validacion_reporte">
+    <article class="tarjeta_validacion_reporte" aria-live="polite">
+        {% if reporte %}
+        <div class="icono_validacion_reporte es_valido">
+            <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
+        </div>
+        <p class="estado_validacion es_valido">Firma válida</p>
+        <h1>Reporte auténtico</h1>
+        <p class="texto_validacion">
+            La firma confirma que los datos asociados a este código QR fueron emitidos
+            por Hielo Caipe C.A. y no han sido alterados.
+        </p>
+
+        <dl class="datos_validacion_reporte">
+            <div>
+                <dt>Tipo de reporte</dt>
+                <dd>{{ reporte.tipo }}</dd>
+            </div>
+            <div>
+                <dt>Fecha de emisión</dt>
+                <dd>{{ reporte.fecha_generacion }}</dd>
+            </div>
+            {% for dato in reporte.datos %}
+            <div>
+                <dt>{{ dato.etiqueta }}</dt>
+                <dd>{{ dato.valor }}</dd>
+            </div>
+            {% endfor %}
+        </dl>
+
+        <p class="nota_validacion_reporte">
+            Esta verificación certifica la firma y los datos incluidos en el QR;
+            no comprueba por sí sola el contenido adicional del archivo PDF.
+        </p>
+        {% else %}
+        <div class="icono_validacion_reporte no_valido">
+            <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>
+        </div>
+        <p class="estado_validacion no_valido">Firma no válida</p>
+        <h1>No se pudo verificar el reporte</h1>
+        <p class="texto_validacion">
+            El código QR está incompleto, fue alterado o no fue emitido por
+            Hielo Caipe C.A.
+        </p>
+        {% endif %}
+    </article>
+</section>
+{% endblock %}

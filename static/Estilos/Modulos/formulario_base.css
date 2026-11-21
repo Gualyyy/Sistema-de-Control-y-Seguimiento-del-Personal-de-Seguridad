@@ -1,15 +1,28 @@
-@import url('modulo_actualizar.css');
-@import url('modulo_visualizar.css');
-@import url('modulo_datos.css');
-@import url('modulo_busqueda.css');
-@import url('modulo_supervisores.css');
-@import url('modulo_equipo.css');
-@import url('modulo_ventas.css');
-@import url('modulo_perfil.css');
-@import url('modulo_incidencia.css');
-@import url('modulo_existencia.css');
-@import url('modulo_precio_volumen.css');
-@import url('modulo_compra.css');
+@import url('formularios_basicos/modulo_registro.css');
+@import url('formularios_basicos/modulo_busqueda.css');
+@import url('formularios_basicos/modulo_datos.css');
+@import url('formularios_basicos/modulo_visualizar.css?v=20261112-security-stats-3');
+
+@import url('formularios_personalizados/modulo_registro_tabla.css');
+@import url('formularios_personalizados/modulo_gestion_administrador.css');
+@import url('formularios_personalizados/modulo_equipo.css?v=20261112-equipment-table-actions-1');
+@import url('formularios_personalizados/modulo_incidencia.css');
+@import url('formularios_personalizados/modulo_miperfil.css');
+@import url('formularios_personalizados/modulo_gastos.css?v=20261112-expense-table-actions-3');
+@import url('formularios_personalizados/modulo_reporte.css?v=20261112-reports-all-1');
+
+@import url('formularios_ventas/modulo_cliente.css');
+@import url('formularios_ventas/modulo_compra.css?v=20261113-client-cart-controls-1');
+@import url('formularios_ventas/modulo_existencia.css');
+@import url('formularios_ventas/modulo_precio_volumen.css');
+@import url('formularios_ventas/modulo_producto.css');
+@import url('formularios_ventas/modulo_producto_foro.css');
+@import url('formularios_ventas/modulo_poco_campos.css');
+@import url('formularios_ventas/modulo_cuenta_bancaria.css');
+@import url('formularios_ventas/historial_compras.css');
+@import url('formularios_ventas/ganancias_ventas.css');
+@import url('formularios_ventas/detalle_venta.css');
+
 
 .contenedor_formulario {
     width: 100%;
@@ -25,7 +38,6 @@
     border-radius: 14px;
     padding: 20px 22px;
     border: 2px solid #00445f;
-    box-sizing: border-box;
 }
 
 .contenedor_formulario .contenedor_campos_amplio {
@@ -35,7 +47,15 @@
     border-radius: 14px;
     padding: 20px 22px;
     border: 2px solid #00445f;
-    box-sizing: border-box;
+}
+
+.contenedor_formulario .contenedor_campos_intermedio {
+    width: 95%;
+    max-width: 900px;
+    background: #ffffff;
+    border-radius: 14px;
+    padding: 20px 22px;
+    border: 2px solid #00445f;
 }
 
 .contenedor_formulario .contenedor_campos_extra_amplio {
@@ -47,8 +67,6 @@
     padding: 20px 22px;
 
     border: 2px solid #00445f;
-
-    box-sizing: border-box;
 }
 
 .contenedor_formulario .contenedor_campos_demasiado_amplio {
@@ -60,10 +78,9 @@
     padding: 20px 22px;
 
     border: 2px solid #00445f;
-
-    box-sizing: border-box;
 }
 
+.contenedor_formulario .contenedor_campos_intermedio h2,
 .contenedor_formulario .contenedor_campos_demasiado_amplio h2,
 .contenedor_formulario .contenedor_campos_extra_amplio h2,
 .contenedor_formulario .contenedor_campos_amplio h2,
@@ -72,182 +89,4 @@
     color: #001d2d;
     font-size: 1.6rem;
     margin-bottom: 18px;
-}
-
-.descripcion_modulo p {
-    color: #001d2d;
-    text-align: justify;
-    font-size: 0.95rem;
-    line-height: 1.5;
-    margin-bottom: 20px;
-}
-
-.formulario_base .paso {
-    display: none;
-}
-
-.formulario_base .paso.activo {
-    display: block;
-}
-
-/* Estilo de la tarjeta azul interna */
-.contenedor_formulario .bloque_paso {
-    background: #ffffff;
-    border-radius: 12px;
-    padding: 16px;
-    border: 1px solid #00779e;
-    margin-bottom: 15px;
-}
-
-.contenedor_formulario .bloque_paso h4,
-.contenedor_formulario .bloque_paso h3 {
-    color: #00445f;
-    font-size: 1.05rem;
-    margin-bottom: 12px;
-    padding-bottom: 6px;
-    border-bottom: 2px solid #00779e;
-}
-
-/* ETIQUETAS Y CAMPOS DE ENTRADA (INPUTS, SELECTS, TEXTAREAS) */
-
-.contenedor_formulario .campo_nacimiento,
-.contenedor_formulario .campo_formulario {
-    margin-bottom: 14px;
-}
-
-.contenedor_formulario [hidden] {
-    display: none !important;
-}
-
-.contenedor_formulario label {
-    display: block;
-    margin-top: 6px;
-    margin-bottom: 4px;
-    color: #001d2d;
-    font-size: 0.9rem;
-    font-weight: 600;
-}
-
-.contenedor_formulario input[type="text"],
-.contenedor_formulario input[type="password"],
-.contenedor_formulario input[type="number"],
-.contenedor_formulario input[type="datetime-local"],
-.contenedor_formulario input[type="date"],
-.contenedor_formulario select {
-    width: 100%;
-    padding: 9px 12px;
-    border-radius: 8px;
-    background: #ffffff;
-    color: #001d2d;
-    font-size: 0.92rem;
-    outline: none;
-    transition: 0.25s;
-    box-sizing: border-box;
-}
-
-.contenedor_formulario textarea {
-    width: 100%;
-    min-height: 100px;
-    padding: 9px 12px;
-    border-radius: 8px;
-    background: #ffffff;
-    color: #001d2d;
-    font-size: 0.92rem;
-    font-family: inherit;
-    outline: none;
-    resize: vertical;
-    transition: 0.25s;
-    box-sizing: border-box;
-}
-
-/* Interacciones Hover y Focus */
-.contenedor_formulario input:hover,
-.contenedor_formulario select:hover,
-.contenedor_formulario textarea:hover {
-    border-color: #00b6ea;
-}
-
-.contenedor_formulario input:focus,
-.contenedor_formulario select:focus,
-.contenedor_formulario textarea:focus {
-    border-color: #00445f;
-    box-shadow: 0 0 0 2px rgba(0, 119, 158, 0.15);
-}
-
-.contenedor_formulario textarea::placeholder,
-.contenedor_formulario input::placeholder {
-    color: #7a8a93;
-}
-
-/* BOTONES DE ACCIÓN Y NAVEGACIÓN */
-.contenedor_boton_submit {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-
-.botones_navegacion {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-top: 20px;
-}
-
-.btn_primario {
-    padding: 10px 24px;
-    border: none;
-    border-radius: 6px;
-    background: #00445f;
-    color: #ffffff;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.2s ease;
-}
-
-.btn_primario:hover {
-    background: #00648b;
-}
-
-.btn_secundario {
-    padding: 10px 18px;
-    border: 1px solid #00779e;
-    border-radius: 8px;
-    background: #ffffff;
-    color: #00445f;
-    font-size: 0.95rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: 0.2s ease;
-}
-
-.btn_secundario:hover {
-    background: #f0f9ff;
-}
-
-.btn_primario:disabled,
-.btn_secundario:disabled {
-    background: #b8c5ca;
-    border-color: #b8c5ca;
-    color: #ffffff;
-    cursor: not-allowed;
-    opacity: 0.7;
-}
-
-.btn_cerrar {
-    position: absolute;
-    top: 10px;
-    right: 30px;
-
-    padding: 8px 12px;
-    border: none;
-    border-radius: 4px;
-    background-color: #00779e;
-    color: #fff;
-    cursor: pointer;
-    font-size: 16px;
-}
-
-.btn_cerrar:hover {
-    background-color: #dc3545;
 }

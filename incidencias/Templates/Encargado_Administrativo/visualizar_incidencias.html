@@ -29,12 +29,6 @@
         </div>
 
         <div class="modulo_visualizar detalle">
-            <div class="encabezado_registrados">
-                <button type="button" class="btn_pdf" id="lista_incidencias_pdf">
-                    <i class="fa-regular fa-file-pdf"></i>
-                    Reporte
-                </button>
-            </div>
 
             <div class="contenedor_tabla">
                 <table>
@@ -62,15 +56,15 @@
 </section>
 
 <dialog id="dialogo_incidencia" class="dialogo">
-    <div class="contenedor_info_reducido">
+    <div class="contenedor_datos">
         <button type="button" id="btn_cerrar_incidencia" class="btn_cerrar">
             <i class="fa-solid fa-square-xmark"></i>
         </button>
 
         <h2>Detalle Incidencia</h2>
 
-        <div class="modelo_dialogo_visualizar">
-            <form method="post" class="formulario_dialogo_visualizar">
+        <div class="modulo_dialogo_datos">
+            <form method="post" class="formulario_dialogo_datos">
                 {% csrf_token %}
 
                 <div class="campo_formulario">

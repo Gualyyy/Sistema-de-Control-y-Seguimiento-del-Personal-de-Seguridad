@@ -1,0 +1,303 @@
+{% extends 'Estructura/base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="panel_usuario">
+    <div class="encabezado_panel_usuario">
+        <h2>¡Bienvenido {{ request.session.perfil }}!</h2>
+    </div>
+
+    <div class="contenedor_panel_usuario" data-url-registros="{% url 'registro_sistema_atencion_cliente' %}">
+
+        <div class="contenedor_tasas_cambio">
+
+            <!-- TASA DEL DÓLAR -->
+            <div class="tarjeta_tasa_cambio dolar">
+
+                <div class="informacion_tasa">
+                    <div class="imagen_tasa">
+                        <img src="/static/Imagenes/bandera_usa.png" alt="Bandera de Estados Unidos">
+                    </div>
+
+                    <div class="datos_tasa">
+                        <span>Dólar estadounidense</span>
+                        <small>USD / VES · Tasa oficial</small>
+                    </div>
+                </div>
+
+                <div class="valor_tasa">
+                    <span id="valor_tasa_dolar">Bs. 0,00</span>
+                    <small id="fecha_tasa_dolar">Consultando tasa...</small>
+                </div>
+
+            </div>
+
+            <!-- TASA DEL EURO -->
+            <div class="tarjeta_tasa_cambio euro">
+
+                <div class="informacion_tasa">
+                    <div class="imagen_tasa">
+                        <img src="/static/Imagenes/bandera_ue.png" alt="Bandera de la Unión Europea">
+                    </div>
+
+                    <div class="datos_tasa">
+                        <span>Euro</span>
+                        <small>EUR / VES · Tasa oficial</small>
+                    </div>
+                </div>
+
+                <div class="valor_tasa">
+                    <span id="valor_tasa_euro">Bs. 0,00</span>
+                    <small id="fecha_tasa_euro">Consultando tasa...</small>
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- ESTADÍSTICAS GENERALES -->
+        <div class="contenedor_estadisticas">
+
+            <div class="tarjeta_estadistica clientes">
+                <div class="icono_estadistica">
+                    <i class="fa-solid fa-users"></i>
+                </div>
+                <div class="informacion_estadistica">
+                    <h3>Clientes Registrados</h3>
+                    <p class="numero_contador" data-campo="total_clientes">0</p>
+                </div>
+            </div>
+
+            <div class="tarjeta_estadistica ventas">
+                <div class="icono_estadistica">
+                    <i class="fa-solid fa-cart-shopping"></i>
+                </div>
+                <div class="informacion_estadistica">
+                    <h3>Total de Ventas</h3>
+                    <p class="numero_contador" data-campo="total_ventas">0</p>
+                </div>
+            </div>
+
+            <div class="tarjeta_estadistica rechazadas">
+                <div class="icono_estadistica">
+                    <i class="fa-solid fa-circle-xmark"></i>
+                </div>
+                <div class="informacion_estadistica">
+                    <h3>Ventas Rechazadas</h3>
+                    <p class="numero_contador" data-campo="ventas_rechazadas">0</p>
+                </div>
+            </div>
+
+            <div class="tarjeta_estadistica espera">
+                <div class="icono_estadistica">
+                    <i class="fa-solid fa-clock"></i>
+                </div>
+                <div class="informacion_estadistica">
+                    <h3>Ventas en Espera</h3>
+                    <p class="numero_contador" data-campo="ventas_en_espera">0</p>
+                </div>
+            </div>
+
+            <div class="tarjeta_estadistica confirmacion">
+                <div class="icono_estadistica">
+                    <i class="fa-solid fa-hourglass-half"></i>
+                </div>
+                <div class="informacion_estadistica">
+                    <h3>Ventas en Confirmación</h3>
+                    <p class="numero_contador" data-campo="ventas_en_confirmacion">0</p>
+                </div>
+            </div>
+
+            <div class="tarjeta_estadistica confirmadas">
+                <div class="icono_estadistica">
+                    <i class="fa-solid fa-circle-check"></i>
+                </div>
+                <div class="informacion_estadistica">
+                    <h3>Ventas Confirmadas</h3>
+                    <p class="numero_contador" data-campo="ventas_confirmadas">0</p>
+                </div>
+            </div>
+
+            <div class="tarjeta_estadistica cuentas">
+                <div class="icono_estadistica">
+                    <i class="fa-solid fa-building-columns"></i>
+                </div>
+                <div class="informacion_estadistica">
+                    <h3>Cuentas Registradas</h3>
+                    <p class="numero_contador" data-campo="total_cuentas">0</p>
+                </div>
+            </div>
+
+            <div class="tarjeta_estadistica pago_movil">
+                <div class="icono_estadistica">
+                    <i class="fa-solid fa-mobile-screen-button"></i>
+                </div>
+                <div class="informacion_estadistica">
+                    <h3>Pago Móvil Registrados</h3>
+                    <p class="numero_contador" data-campo="total_pago_movil">0</p>
+                </div>
+            </div>
+
+            <div class="tarjeta_estadistica transferencias">
+                <div class="icono_estadistica">
+                    <i class="fa-solid fa-money-bill-transfer"></i>
+                </div>
+                <div class="informacion_estadistica">
+                    <h3>Transferencias Registradas</h3>
+                    <p class="numero_contador" data-campo="total_transferencias">0</p>
+                </div>
+            </div>
+
+            <div class="tarjeta_estadistica productos">
+                <div class="icono_estadistica">
+                    <i class="fa-solid fa-boxes-stacked"></i>
+                </div>
+                <div class="informacion_estadistica">
+                    <h3>Productos Registrados</h3>
+                    <p class="numero_contador" data-campo="total_productos">0</p>
+                </div>
+            </div>
+
+            <div class="tarjeta_estadistica ingresos_bolivares">
+                <div class="icono_estadistica">
+                    <i class="fa-solid fa-money-bill-wave"></i>
+                </div>
+                <div class="informacion_estadistica">
+                    <h3>Total de Ventas en Bolívares</h3>
+                    <p class="numero_contador" data-campo="total_ventas_bolivares" data-formato="ves">Bs. 0,00</p>
+                </div>
+            </div>
+
+            <div class="tarjeta_estadistica ingresos_dolares">
+                <div class="icono_estadistica">
+                    <i class="fa-solid fa-dollar-sign"></i>
+                </div>
+                <div class="informacion_estadistica">
+                    <h3>Total de Ventas en Dólares</h3>
+                    <p class="numero_contador" data-campo="total_ventas_dolares" data-formato="usd">$ 0,00</p>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="contenedor_graficas_panel">
+
+        <!-- EVOLUCIÓN DE VENTAS -->
+        <div class="estadistica_perfiles_registrados" data-url-grafica="{% url 'evolucion_ventas' %}">
+
+            <h3>Evolución de Ventas Mensuales</h3>
+
+            <div class="contenedor_grafica_perfiles">
+                <canvas id="grafica_evolucion_ventas"></canvas>
+            </div>
+
+        </div>
+
+        <!-- PRODUCTOS MÁS VENDIDOS -->
+        <div class="estadistica_equipos_entregados" data-url-grafica="{% url 'productos_mas_vendidos' %}">
+
+            <h3>Productos Más Vendidos</h3>
+
+            <div class="contenedor_grafica_entregado">
+                <canvas id="grafica_productos_mas_vendidos"></canvas>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- ÚLTIMO INICIO DE SESIÓN -->
+    <div class="estadistica_ultimo_inicio">
+
+        <h3>Último inicio de sesión</h3>
+
+        <div id="contenedor_ultimo_inicio" class="contenedor_ultimo_inicio">
+
+            <div class="ultimo_inicio_encabezado">
+
+                <div class="ultimo_inicio_icono">
+                    <i class="fas fa-user-clock"></i>
+                </div>
+
+                <div class="ultimo_inicio_titulo">
+                    <h4 id="ultimo_inicio_titulo">
+                        Sesión anterior
+                    </h4>
+
+                    <span id="ultimo_inicio_estado" class="ultimo_inicio_estado">
+                        Consultando...
+                    </span>
+                </div>
+
+            </div>
+
+            <div class="ultimo_inicio_resumen">
+
+                <div class="ultimo_inicio_dato">
+                    <div class="ultimo_inicio_dato_icono">
+                        <i class="fas fa-calendar-alt"></i>
+                    </div>
+
+                    <div class="ultimo_inicio_dato_contenido">
+                        <span>Fecha de inicio</span>
+                        <strong id="ultimo_inicio_fecha">
+                            Consultando...
+                        </strong>
+                    </div>
+                </div>
+
+                <div class="ultimo_inicio_dato">
+                    <div class="ultimo_inicio_dato_icono">
+                        <i class="fas fa-clock"></i>
+                    </div>
+
+                    <div class="ultimo_inicio_dato_contenido">
+                        <span>Fecha de cierre</span>
+                        <strong id="ultimo_inicio_cierre">
+                            Consultando...
+                        </strong>
+                    </div>
+                </div>
+
+                <div class="ultimo_inicio_dato">
+                    <div class="ultimo_inicio_dato_icono">
+                        <i class="fas fa-network-wired"></i>
+                    </div>
+
+                    <div class="ultimo_inicio_dato_contenido">
+                        <span>Dirección IP</span>
+                        <strong id="ultimo_inicio_ip">
+                            Consultando...
+                        </strong>
+                    </div>
+                </div>
+
+                <div class="ultimo_inicio_dato">
+                    <div class="ultimo_inicio_dato_icono">
+                        <i class="fas fa-desktop"></i>
+                    </div>
+
+                    <div class="ultimo_inicio_dato_contenido">
+                        <span>Dispositivo</span>
+                        <strong id="ultimo_inicio_dispositivo">
+                            Consultando...
+                        </strong>
+                    </div>
+                </div>
+
+            </div>
+
+            <div id="ultimo_inicio_mensaje" class="ultimo_inicio_mensaje" hidden>
+            </div>
+
+        </div>
+    </div>
+
+</section>
+
+<script src="{% static 'Funcionalidades_Asincronas/panel_usuario/panel_atencion_cliente.js' %}"></script>
+
+{% endblock %}

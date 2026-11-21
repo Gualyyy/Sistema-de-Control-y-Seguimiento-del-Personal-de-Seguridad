@@ -1,0 +1,167 @@
+{% extends 'Estructura/base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="contenedor_formulario">
+    <div class="contenedor_campos_intermedio">
+        <h2>Visualizar Registro</h2>
+
+        <div class="modulo_visualizar_empleado">
+            <form method="post" class="formulario_visualizar_empleado">
+                {% csrf_token %}
+                <input type="hidden" name="id_administrador" id="id_administrador">
+
+                <div class="contenedores_fila">
+
+                    <div class="contenedor_foto_perfil">
+                        <img src="{% static 'Imagenes/foto_perfil.png' %}"
+                            alt="Foto de perfil del Encargado Administrativo" id="imagen_perfil"
+                            data-foto_predeterminada="{% static 'Imagenes/foto_perfil.png' %}">
+                    </div>
+
+                    <div class="contenedor_btn_acciones">
+                        <button type="button" class="btn_accion btn_retirar_cargo" id="btn_retirar_cargo"
+                            data-accion="retirar_cargo">
+                            <i class="fa-solid fa-user-minus" aria-hidden="true"></i>
+                            <span>Retirar cargo</span>
+                        </button>
+                    </div>
+
+                </div>
+
+                <!-- CONTACTO Y RESIDENCIA -->
+                <div class="contenedores_fila">
+
+                    <div class="contenedor_basico">
+                        <h3>Datos Personales</h3>
+
+                        <div class="campo_formulario">
+                            <label for="nombres_usuario">Nombres</label>
+                            <input type="text" id="nombres_usuario" autocomplete="off" readonly>
+                        </div>
+
+                        <div class="campo_formulario">
+                            <label for="apellidos_usuario">Apellidos</label>
+                            <input type="text" id="apellidos_usuario" autocomplete="off" readonly>
+                        </div>
+
+                        <div class="campo_formulario">
+                            <label for="ci_usuario">Cédula de identidad</label>
+                            <input type="text" id="ci_usuario" autocomplete="off" readonly>
+                        </div>
+
+                        <div class="campo_formulario">
+                            <label for="genero_usuario">Género</label>
+                            <input type="text" id="genero_usuario" autocomplete="off" readonly>
+                        </div>
+
+                        <div class="campo_formulario">
+                            <label for="estado_civil_usuario">Estado civil</label>
+                            <input type="text" id="estado_civil_usuario" autocomplete="off" readonly>
+                        </div>
+
+                    </div>
+
+                    <!-- DATOS DE CONTACTO -->
+                    <div class="contenedor_contacto">
+                        <h3>Datos de Contacto</h3>
+
+                        <div class="campo_formulario">
+                            <label for="telefono_principal">Telefono (Principal):</label>
+                            <input type="text" id="telefono_principal" autocomplete="off" readonly>
+                        </div>
+
+                        <div class="campo_formulario">
+                            <label for="correo_principal">Correo Electrónico (Principal):</label>
+                            <input type="text" id="correo_principal" autocomplete="off" readonly>
+                        </div>
+
+                        <div class="campo_formulario">
+                            <label for="telefono_secundaria">Telefono (Secundaria):</label>
+                            <input type="text" id="telefono_secundaria" autocomplete="off" readonly>
+                        </div>
+
+                        <div class="campo_formulario">
+                            <label for="correo_secundaria">Correo Electrónico (Secundaria):</label>
+                            <input type="text" id="correo_secundaria" autocomplete="off" readonly>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- DATOS DE RESIDENCIA Y NACIMIENTO -->
+                <div class="contenedores_fila">
+
+                    <!-- DATOS DE RESIDENCIA -->
+                    <div class="contenedor_residencia">
+                        <h3>Datos de Residencia</h3>
+
+                        <div class="campo_formulario">
+                            <label for="condicion_residencia">Condición:</label>
+                            <input type="text" id="condicion_residencia" autocomplete="off" readonly>
+                        </div>
+
+                        <div class="campo_formulario">
+                            <label for="municipio_residencia">Municipio:</label>
+                            <input type="text" id="municipio_residencia" autocomplete="off" readonly>
+                        </div>
+
+                        <div class="campo_formulario">
+                            <label for="parroquia_residencia">Parroquia:</label>
+                            <input type="text" id="parroquia_residencia" autocomplete="off" readonly>
+                        </div>
+
+                        <div class="campo_formulario">
+                            <label for="direccion_domicilio">Dirección de Domicilio:</label>
+                            <textarea id="direccion_domicilio" readonly></textarea>
+                        </div>
+                    </div>
+
+                    <!-- NACIMIENTO -->
+                    <div class="contenedor_nacimiento">
+                        <h3>Datos de Nacimiento</h3>
+
+                        <div class="campo_formulario">
+                            <label for="pais_nacimento">País:</label>
+                            <input type="text" id="pais_nacimento" autocomplete="off" readonly>
+                        </div>
+
+                        <div class="campo_formulario">
+                            <label for="estado_nacimiento">Estado:</label>
+                            <input type="text" id="estado_nacimiento" autocomplete="off" readonly>
+                        </div>
+
+                        <div class="campo_formulario">
+                            <label for="municipio_nacimiento">Municipio:</label>
+                            <input type="text" id="municipio_nacimiento" autocomplete="off" readonly>
+                        </div>
+
+                        <div class="campo_formulario">
+                            <label for="parroquia_nacimiento">Parroquia:</label>
+                            <input type="text" id="parroquia_nacimiento" autocomplete="off" readonly>
+                        </div>
+
+                        <div class="campo_formulario">
+                            <label for="fecha_nacimiento">Fecha de Nacimiento:</label>
+                            <input type="text" id="fecha_nacimiento" autocomplete="off" readonly>
+                        </div>
+
+                        <div class="campo_formulario">
+                            <label for="direccion_nacimiento">Dirección de Nacimiento:</label>
+                            <textarea id="direccion_nacimiento" readonly></textarea>
+                        </div>
+                    </div>
+
+                </div>
+
+            </form>
+        </div>
+
+    </div>
+</section>
+
+<script src="{% static 'Funcionalidades_Asincronas/empleados/propietario/visualizar_administrador.js' %}"></script>
+
+{% endblock %}

@@ -5,11 +5,19 @@ from django.utils import timezone
 
 class usuarios(models.Model):
     id_usuario = models.AutoField(primary_key=True)
+    tipo_usuario = models.CharField(
+        max_length=15,
+        choices=[
+            ("NATURAL", "Persona Natural"),
+            ("EMPRESA", "Empresa"),
+        ]
+    )
+    nombre_razon_social = models.CharField(max_length=100)
     nombres = models.CharField(max_length=100)
     apellidos = models.CharField(max_length=100)
-    cedula_identidad = models.CharField(unique=True, max_length=11)
-    genero = models.CharField(max_length=10)
-    estado_civil = models.CharField(max_length=20)
+    cedula_identidad = models.CharField(unique=True, max_length=15)
+    genero = models.CharField(max_length=10, blank=True, null=True)
+    estado_civil = models.CharField(max_length=20, blank=True, null=True)
 
     def __str__(self):
         return f"{self.nombres} {self.apellidos}"
@@ -40,7 +48,7 @@ class nacimiento(models.Model):
     municipio = models.CharField(max_length=50)
     parroquia = models.CharField(max_length=50)
     direccion = models.TextField()
-    fecha_nacimiento = models.DateField(max_length=10)
+    fecha_nacimiento = models.CharField(max_length=10)
     id_usuario = models.OneToOneField(usuarios, on_delete=models.PROTECT, related_name="nacimiento")
 
     def __str__(self):
@@ -64,16 +72,31 @@ class turnos_laborales(models.Model):
     def __str__(self):
             return self.nombre
 
-class directiva_nacional(models.Model):
-    id_directiva = models.AutoField(primary_key=True)
-    id_usuario = models.OneToOneField(usuarios, on_delete=models.PROTECT, related_name="directiva_nacional")
+class encargados_administrativos(models.Model):
+    id_encargado = models.AutoField(primary_key=True)
+    id_usuario = models.OneToOneField(usuarios, on_delete=models.PROTECT, related_name="encargado_administrativo")
+    vigencia = models.BooleanField(default=True)
 
     def __str__(self):
         return f"{self.id_usuario.nombres} {self.id_usuario.apellidos}"
 
-class encargados_administrativos(models.Model):
-    id_encargado = models.AutoField(primary_key=True)
-    id_usuario = models.OneToOneField(usuarios, on_delete=models.PROTECT, related_name="encargado_administrativo")
+class cliente(models.Model):
+    id_cliente = models.AutoField(primary_key=True)
+    id_usuario = models.OneToOneField(usuarios, on_delete=models.PROTECT, related_name="cliente")
+
+    def __str__(self):
+        return f"{self.id_usuario.nombres} {self.id_usuario.apellidos}"
+
+class propietarios(models.Model):
+    id_propietario = models.AutoField(primary_key=True)
+    id_usuario = models.OneToOneField(usuarios, on_delete=models.PROTECT, related_name="propietario")
+
+    def __str__(self):
+        return f"{self.id_usuario.nombres} {self.id_usuario.apellidos}"
+
+class atencion_cliente(models.Model):
+    id_atencion_cliente = models.AutoField(primary_key=True)
+    id_usuario = models.OneToOneField(usuarios, on_delete=models.PROTECT, related_name="atencion_cliente")
     vigencia = models.BooleanField(default=True)
 
     def __str__(self):
@@ -114,13 +137,69 @@ class vigilantes(models.Model):
 
     def __str__(self):
         return f"{self.id_usuario.nombres} {self.id_usuario.apellidos}"
-    
+
+# GASTOS DE LA EMPRESA
+
+class categoria_gasto(models.Model):
+    id_categoria_gasto = models.AutoField(primary_key=True)
+    nombre = models.CharField(max_length=80, unique=True)
+    descripcion = models.TextField(blank=True)
+    activo = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.nombre
+
+class gasto(models.Model):
+    class Frecuencia(models.TextChoices):
+        UNICO = "UNICO", "Único"
+        SEMANAL = "SEMANAL", "Semanal"
+        MENSUAL = "MENSUAL", "Mensual"
+        ANUAL = "ANUAL", "Anual"
+
+    class Estado(models.TextChoices):
+        REGISTRADO = "REGISTRADO", "Registrado"
+        ANULADO = "ANULADO", "Anulado"
+
+    id_gasto = models.AutoField(primary_key=True)
+    id_categoria_gasto = models.ForeignKey(categoria_gasto, on_delete=models.PROTECT, related_name="gastos")
+    descripcion = models.CharField(max_length=200)
+    monto = models.DecimalField(max_digits=14, decimal_places=2)
+    fecha_gasto = models.DateField()
+    es_recurrente = models.BooleanField(default=False)
+    frecuencia = models.CharField(max_length=10, choices=Frecuencia.choices, default=Frecuencia.UNICO)
+    referencia = models.CharField(max_length=100, blank=True)
+    estado = models.CharField(max_length=15, choices=Estado.choices, default=Estado.REGISTRADO)
+    observacion = models.TextField(blank=True)
+
+    def __str__(self):
+        return f"{self.descripcion} - {self.monto}"
+
 # SEGURIDAD DEL SISTEMA
+
+class informacion_contacto(models.Model):
+    id_contacto = models.AutoField(primary_key=True)
+    direccion = models.TextField()
+    telefono = models.CharField(max_length=15)
+    correo_electronico = models.CharField(max_length=50)
+
+class imagenes_publicitaria(models.Model):
+    id_imagen = models.AutoField(primary_key=True)
+    imagen = models.ImageField(upload_to="imagenes_publicitarias/", null=True, blank=True)
+    titulo = models.CharField(max_length=150, null=True, blank=True)
+    texto = models.TextField(null=True, blank=True)
+    activo = models.BooleanField(default=True)
+    fecha_registro = models.DateTimeField(auto_now_add=True)
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Imagen del carrusel - {self.id_imagen}"
 
 class bitacora(models.Model):
     id_bitacora = models.AutoField(primary_key=True)
     id_usuario = models.ForeignKey(usuarios, on_delete=models.PROTECT, related_name="bitacoras")
     fecha_hora = models.DateTimeField(auto_now_add=True)
+    nombre_modulo = models.CharField(max_length=100, default="No especificado")
+    cargo_usuario = models.CharField(max_length=80, default="No especificado")
     accion = models.TextField(max_length=100)
 
     def __str__(self):
@@ -142,6 +221,11 @@ class sesiones_usuario(models.Model):
     info_general = models.CharField(max_length=255)
     direccion_ip = models.GenericIPAddressField()
 
+class sesiones_recuperacion(models.Model):
+    tab_id = models.CharField(max_length=100, unique=True)
+    session_key = models.CharField(max_length=50, unique=True)
+    actualizado = models.DateTimeField(auto_now=True)
+
 class intentos_inicio_sesion(models.Model):
     id_intento = models.AutoField(primary_key=True)
     usuario = models.ForeignKey(usuarios, on_delete=models.SET_NULL, null=True, blank=True, related_name="intentos_inicio_sesion")
@@ -158,3 +242,19 @@ class bloqueo_inicio_sesion(models.Model):
     bloqueado_hasta = models.DateTimeField(null=True, blank=True)
     ultima_direccion_ip = models.GenericIPAddressField(null=True, blank=True)
     ultimo_intento = models.DateTimeField(auto_now=True)
+
+class autenticar_codigo(models.Model):
+    id_codigo = models.AutoField(primary_key=True)
+    cedula_identidad = models.CharField(max_length=12)
+    token = models.CharField(max_length=255, null=True, blank=True)
+    codigo = models.CharField(max_length=10)
+    creado = models.DateTimeField(auto_now_add=True)
+    intentos = models.PositiveIntegerField(default=0)
+    numero_reenvios = models.PositiveIntegerField(default=0)
+    bloqueado_hasta = models.DateTimeField(null=True, blank=True)
+    activo = models.BooleanField(default=True)
+    descripcion = models.CharField(max_length=100)
+    fecha_expiracion = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return self.cedula_identidad

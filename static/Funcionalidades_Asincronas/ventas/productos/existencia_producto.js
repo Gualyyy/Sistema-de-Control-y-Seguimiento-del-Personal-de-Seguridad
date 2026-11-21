@@ -29,9 +29,8 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
             const respuesta = await fetch("/ventas/productos_registrados_venta/");
             const resultado = await respuesta.json();
-            console.log(resultado);
 
-            select_producto_existencia.innerHTML = "<option value='' selected>Selecciona un Producto</option>";
+            select_producto_existencia.innerHTML = "<option value='' selected>Seleccionar un producto</option>";
 
             resultado.productos.forEach(producto => {
                 const option_producto = document.createElement("option");
@@ -43,15 +42,11 @@ document.addEventListener("DOMContentLoaded", () => {
             console.log(error);
         }
     }
+
     productos_registrados();
 
     select_producto_existencia.addEventListener("change", async () => {
         codigo = select_producto_existencia.value;
-
-        if (!codigo) {
-            limpiar_datos_producto();
-            return;
-        }
 
         await datos_producto_registrado();
     });
@@ -84,6 +79,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     bloquearFormularioActualizar(true);
 
+    let unidad_producto = "";
+
     async function datos_producto_registrado() {
         try {
             const formulario = new FormData();
@@ -92,19 +89,16 @@ document.addEventListener("DOMContentLoaded", () => {
             const respuesta = await fetch("/ventas/datos_producto_existencia/", {
                 method: "POST",
                 headers: {
-                    "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]").value
+                    "X-CSRFToken": document.querySelector(
+                        "[name=csrfmiddlewaretoken]"
+                    ).value
                 },
                 body: formulario,
             });
+
             const resultado = await respuesta.json();
-            console.log(resultado);
 
-            if (!resultado.producto) {
-                limpiar_datos_producto();
-                return;
-            }
-
-            if (resultado.estado == "fallo") {
+            if (resultado.estado === "fallo") {
                 await Swal.fire({
                     title: resultado.title,
                     text: resultado.descripcion,
@@ -115,6 +109,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
             bloquearFormularioActualizar(false);
 
+            unidad_producto = resultado.producto.abreviatura;
+
             control_imagen_producto.src = resultado.producto.imagen;
 
             id_producto_existencia.value = resultado.producto.id_producto;
@@ -124,15 +120,29 @@ document.addEventListener("DOMContentLoaded", () => {
             input_categoria_producto.value = resultado.producto.categoria;
             input_precio_base.value = resultado.producto.precio_base + "$";
             input_costo_base.value = resultado.producto.costo_base + "$";
-            input_cantidad_actual.value = `La cantidad actual del producot es ${resultado.producto.cantidad_actual} unidad(es).`
-            input_unidad_producto.value = resultado.producto.unidad + " | " + resultado.producto.abreviatura;
+
+            input_cantidad_actual.value = `${Math.trunc(resultado.producto.cantidad_actual)} ${unidad_producto}.`;
+
+            input_unidad_producto.value = resultado.producto.unidad + " | " + unidad_producto;
+
+            input_nueva_cantidad.placeholder = `Ingrese la cantidad en ${resultado.producto.abreviatura}`;
         } catch (error) {
             console.error(error);
         }
     }
 
     input_nueva_cantidad.addEventListener("input", () => {
-        input_nueva_cantidad.value = input_nueva_cantidad.value.replace(/\D/g, "");
+        const permite_decimales = unidad_producto === "kg";
+
+        if (permite_decimales) {
+            input_nueva_cantidad.value = input_nueva_cantidad.value
+                .replace(/,/g, ".")
+                .replace(/[^\d.]/g, "")
+                .replace(/(\..*)\./g, "$1");
+        } else {
+            input_nueva_cantidad.value =
+                input_nueva_cantidad.value.replace(/\D/g, "");
+        }
 
         const cantidadTexto = input_nueva_cantidad.value;
 
@@ -151,17 +161,37 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
+        if (permite_decimales && cantidadTexto === ".") {
+            mostrarError("Ingrese una cantidad válida en kilogramos.");
+            return;
+        }
+
         if (cantidadTexto.startsWith("0")) {
             mostrarError(
-                "La cantidad debe ser un entero mayor que cero y no puede comenzar con 0."
+                "La cantidad debe ser mayor que cero y no puede comenzar con 0."
+            );
+            return;
+        }
+
+        if (permite_decimales && cantidadTexto.endsWith(".")) {
+            mostrarError(
+                "Complete los decimales después del punto."
             );
             return;
         }
 
         const cantidadIngresada = Number(cantidadTexto);
 
-        if (!Number.isSafeInteger(cantidadIngresada) || cantidadIngresada <= 0) {
-            mostrarError("Ingrese una cantidad entera válida mayor que cero.");
+        if (
+            !Number.isFinite(cantidadIngresada) ||
+            cantidadIngresada <= 0 ||
+            (!permite_decimales && !Number.isSafeInteger(cantidadIngresada))
+        ) {
+            mostrarError(
+                permite_decimales
+                    ? "Ingrese una cantidad válida mayor que cero."
+                    : "Ingrese una cantidad entera válida mayor que cero."
+            );
             return;
         }
 

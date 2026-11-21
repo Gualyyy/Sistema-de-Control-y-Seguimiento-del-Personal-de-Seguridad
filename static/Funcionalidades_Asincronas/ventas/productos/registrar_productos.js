@@ -7,9 +7,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const input_precio_base = document.getElementById("precio_base");
     const input_costo_base = document.getElementById("costo_base");
+    const contenedor_mensaje_costo_base = document.getElementById("contenedor_mensaje_costo_base");
 
     const select_categoria_producto = document.getElementById("categoria_producto");
     const select_unidad_producto = document.getElementById("unidad_producto");
+
+    const btn_registrar = document.getElementById("btn_registrar");
 
     async function categoria_registrada() {
         try {
@@ -17,7 +20,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const resultado = await respuesta.json();
             console.log(resultado);
 
-            select_categoria_producto.innerHTML = "<option value='' selected>Selecciona un Catalogo del Producto</option>";
+            select_categoria_producto.innerHTML = "";
 
             resultado.forEach(categoria => {
                 const option = document.createElement("option");
@@ -37,7 +40,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const resultado = await respuesta.json();
             console.log(resultado);
 
-            select_unidad_producto.innerHTML = "<option value='' selected>Selecciona un Unidad de Medida</option>";
+            select_unidad_producto.innerHTML = "";
 
             resultado.forEach(unidad => {
                 const option = document.createElement("option");
@@ -55,13 +58,30 @@ document.addEventListener("DOMContentLoaded", () => {
         input_codigo_producto.value = `P-${Math.floor(100000 + Math.random() * 900000)}`;
     }
     codigo_producto();
-
     function soloTexto(input) {
-        input.value = input.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]/g, '');
+        let valor = input.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s0-9.]/g, '');
+
+        let numeros = 0;
+        let punto = false;
+
+        input.value = [...valor].filter(caracter => {
+            if (/[0-9]/.test(caracter)) {
+                if (numeros >= 3) return false;
+                numeros++;
+                return true;
+            }
+
+            if (caracter === '.') {
+                if (punto) return false;
+                punto = true;
+            }
+
+            return true;
+        }).join('');
     }
 
     input_nombre_producto.addEventListener("input", function () {
-        soloTexto(this);
+        soloTexto(input_nombre_producto);
     });
 
     [input_precio_base, input_costo_base].forEach(input => {
@@ -79,8 +99,51 @@ document.addEventListener("DOMContentLoaded", () => {
             }
 
             this.value = valor;
+
+            validar_costo_base();
         });
     });
+
+    function validar_costo_base() {
+        const precio = input_precio_base.value;
+        const costo = input_costo_base.value;
+
+        input_costo_base.setCustomValidity("");
+        input_costo_base.classList.remove("is-valid", "is-invalid");
+        contenedor_mensaje_costo_base.classList.remove("exito", "error");
+
+        if (precio === "" || costo === "") {
+            contenedor_mensaje_costo_base.textContent = "";
+            btn_registrar.disabled = true;
+            return false;
+        }
+
+        const precio_base = parseFloat(precio);
+        const costo_base = parseFloat(costo);
+
+        if (costo_base >= precio_base) {
+            const mensaje = costo_base === precio_base
+                ? "El costo base no puede ser igual al precio base."
+                : "El costo base no puede ser mayor al precio base.";
+
+            input_costo_base.setCustomValidity(mensaje);
+            input_costo_base.classList.add("is-invalid");
+
+            contenedor_mensaje_costo_base.textContent = mensaje;
+            contenedor_mensaje_costo_base.classList.add("error");
+
+            btn_registrar.disabled = true;
+            return false;
+        }
+
+        input_costo_base.classList.add("is-valid");
+
+        contenedor_mensaje_costo_base.textContent = "El costo base es válido.";
+        contenedor_mensaje_costo_base.classList.add("exito");
+
+        btn_registrar.disabled = false;
+        return true;
+    }
 
     formulario_registrar.addEventListener("submit", async (e) => {
         e.preventDefault();
@@ -104,6 +167,8 @@ document.addEventListener("DOMContentLoaded", () => {
             });
 
             formulario_registrar.reset();
+            contenedor_mensaje_costo_base.innerHTML = "";
+            codigo_producto();
         } catch (error) {
             console.error(error);
         }

@@ -5,9 +5,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const select_categoria_producto = document.getElementById("categoria_producto_b");
     const select_unidad_medida = document.getElementById("unidad_medida_b");
 
-    const btn_lista_productos_pdf = document.getElementById("lista_productos_pdf");
-    const btn_detalle_producto_pdf = document.getElementById("detalle_producto_pdf");
-
     const dialogo_detalle = document.getElementById("dialogo_detalle");
     const btn_cerrar_detalle = document.getElementById("btn_cerrar_detalle");
 
@@ -21,8 +18,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const input_unidad_medida = document.getElementById("unidad_medida");
     const input_categoria_producto = document.getElementById("categoria_producto");
 
-    const btn_ret = document.querySelector(".btn_ret");
-    const btn_av = document.querySelector(".btn_av");
+    const btn_ret = document.querySelector(".btn_retroceder");
+    const btn_av = document.querySelector(".btn_avanzar");
 
     let productos_recibidos = [];
     let pagina_actual = 1;
@@ -36,7 +33,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const resultado = await respuesta.json();
             console.log(resultado);
 
-            select_categoria_producto.innerHTML = "<option value='' selected>Selecciona un Catalogo del Producto</option>";
+            select_categoria_producto.innerHTML = "<option value='' selected>Todos las Categorias</option>";
 
             resultado.forEach(categoria => {
                 const option = document.createElement("option");
@@ -56,7 +53,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const resultado = await respuesta.json();
             console.log(resultado);
 
-            select_unidad_medida.innerHTML = "<option value='' selected>Selecciona un Unidad de Medida</option>";
+            select_unidad_medida.innerHTML = "<option value='' selected>Todas las Unidades</option>";
 
             resultado.forEach(unidad => {
                 const option = document.createElement("option");
@@ -126,12 +123,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (productos_pagina.length === 0) {
             contenedor_productos.innerHTML = `
-                <tr>
-                    <td colspan="4" class="texto_sin_registros">
-                        No hay productos registrados.
-                    </td>
-                </tr>
-            `;
+            <tr>
+                <td colspan="5" class="texto_sin_registros">
+                    No hay productos registrados.
+                </td>
+            </tr>
+        `;
 
             actualizarBotones();
             return;
@@ -142,11 +139,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
             fila.dataset.codigo = producto.codigo;
 
+            const activo = producto.activo === true;
+
             fila.innerHTML = `
                 <td>${inicio + index + 1}</td>
                 <td>${producto.nombre}</td>
                 <td>${producto.codigo}</td>
                 <td>${producto.fecha_registro}</td>
+                <td>
+                    <button type="button"
+                        class="btn_tabla ${activo ? 'estado_activo' : 'estado_inactivo'}"
+                        data-id="${producto.id_producto}"
+                        data-estado="${activo}">
+                        ${activo ? 'Inhabilitar' : 'Habilitar'}
+                    </button>
+                </td>
             `;
 
             contenedor_productos.appendChild(fila);
@@ -181,11 +188,32 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     productos_registrados();
 
+    let codigo = "";
+
     contenedor_productos.addEventListener("click", async (e) => {
+        const boton_estado = e.target.closest(".btn_tabla");
+        if (boton_estado) {
+            const fila = boton_estado.closest("tr");
+
+            if (!fila) return;
+
+            codigo = fila.dataset.codigo;
+
+            await estado_producto();
+
+            return;
+        }
+
         const fila = e.target.closest("tr");
 
-        const codigo = fila.dataset.codigo;
+        if (!fila || !contenedor_productos.contains(fila)) return;
 
+        codigo = fila.dataset.codigo;
+
+        await buscar_producto();
+    });
+
+    async function buscar_producto() {
         try {
             const formulario = new FormData();
             formulario.append("codigo", codigo);
@@ -202,12 +230,21 @@ document.addEventListener("DOMContentLoaded", () => {
             const resultado = await respuesta.json();
             console.log(resultado);
 
+            if (resultado.estado !== "exito") {
+                await Swal.fire({
+                    title: resultado.title,
+                    text: resultado.descripcion,
+                    icon: resultado.icon
+                });
+                return;
+            }
+
             input_imagen_producto.src = resultado.producto.imagen;
             input_id_producto.value = resultado.producto.id_producto;
             input_nombre_producto.value = resultado.producto.nombre;
             input_codigo_producto.value = resultado.producto.codigo;
-            input_precio_base.value = resultado.producto.precio_base;
-            input_costo_base.value = resultado.producto.costo_base;
+            input_precio_base.value = resultado.producto.precio_base + "$";
+            input_costo_base.value = resultado.producto.costo_base + "$";
             input_fecha_producto.value = resultado.producto.fecha_registro;
             input_unidad_medida.value = resultado.producto.unidad + " | " + resultado.producto.abreviatura;
             input_categoria_producto.value = resultado.producto.categoria;
@@ -216,19 +253,14 @@ document.addEventListener("DOMContentLoaded", () => {
         } catch (error) {
             console.error(error);
         }
-    });
+    }
 
-    btn_cerrar_detalle.addEventListener("click", () => {
-        dialogo_detalle.close();
-    });
-
-    btn_lista_productos_pdf.addEventListener("click", async () => {
+    async function estado_producto() {
         try {
             const formulario = new FormData();
-            formulario.append("id_categoria", select_categoria_producto.value);
-            formulario.append("id_unidad", select_unidad_medida.value);
+            formulario.append("codigo", codigo);
 
-            const respuesta = await fetch("/ventas/lista_productos_pdf/", {
+            const respuesta = await fetch("/ventas/estado_producto/", {
                 method: "POST",
                 headers: {
                     "X-CSRFToken": document.querySelector(
@@ -237,190 +269,23 @@ document.addEventListener("DOMContentLoaded", () => {
                 },
                 body: formulario
             });
-
-            const tipo_contenido = respuesta.headers.get("content-type") || "";
-
-            if (tipo_contenido.includes("application/pdf")) {
-                const archivo_pdf = await respuesta.blob();
-                const url_pdf = URL.createObjectURL(archivo_pdf);
-
-                window.open(url_pdf, "_blank");
-
-                setTimeout(() => {
-                    URL.revokeObjectURL(url_pdf);
-                }, 60000);
-
-                return;
-            }
             const resultado = await respuesta.json();
+            console.log(resultado);
 
-            Swal.fire({
+            await Swal.fire({
                 title: resultado.title,
                 text: resultado.descripcion,
                 icon: resultado.icon
             });
 
+            await productos_registrados();
         } catch (error) {
             console.error(error);
         }
+    }
+
+    btn_cerrar_detalle.addEventListener("click", () => {
+        dialogo_detalle.close();
     });
 
-    btn_detalle_producto_pdf.addEventListener("click", async () => {
-        try {
-            mostrar_mensaje_dialogo(
-                "contenedor_mensajes_reporte",
-                "Generando reporte PDF...",
-                "informacion"
-            );
-
-            const formulario = new FormData();
-            formulario.append("id_producto", input_id_producto.value);
-
-            const respuesta = await fetch("/ventas/lista_detalle_producto_pdf/", {
-                method: "POST",
-                headers: {
-                    "X-CSRFToken": document.querySelector(
-                        "[name=csrfmiddlewaretoken]"
-                    ).value
-                },
-                body: formulario
-            });
-
-            const tipo_contenido = respuesta.headers.get("content-type") || "";
-
-            if (tipo_contenido.includes("application/pdf")) {
-                const archivo_pdf = await respuesta.blob();
-                const url_pdf = URL.createObjectURL(archivo_pdf);
-
-                window.open(url_pdf, "_blank");
-
-                setTimeout(() => {
-                    URL.revokeObjectURL(url_pdf);
-                }, 60000);
-
-                resetear_mensaje_dialogo(
-                    "contenedor_mensajes_reporte"
-                );
-
-                return;
-            }
-
-            const resultado = await respuesta.json();
-
-            const tipos_mensaje = {
-                success: "exito",
-                warning: "advertencia",
-                error: "error",
-                info: "informacion"
-            };
-
-            const tipo_mensaje = tipos_mensaje[resultado.icon] || "error";
-
-            await mostrar_mensaje_temporal(
-                "contenedor_mensajes_reporte",
-                resultado.descripcion,
-                tipo_mensaje,
-                4
-            );
-
-            resetear_mensaje_dialogo(
-                "contenedor_mensajes_reporte"
-            );
-
-        } catch (error) {
-            console.error(error);
-
-            await mostrar_mensaje_temporal(
-                "contenedor_mensajes_reporte",
-                "Ocurrió un error al generar el reporte PDF.",
-                "error",
-                4
-            );
-
-            resetear_mensaje_dialogo(
-                "contenedor_mensajes_reporte"
-            );
-        }
-    });
-
-    function mostrar_mensaje_dialogo(id_contenedor, mensaje, tipo = "informacion") {
-        const contenedor = document.getElementById(id_contenedor);
-
-        if (!contenedor) return;
-
-        contenedor.className = `contenedor_mensajes ${tipo}`;
-        contenedor.replaceChildren();
-
-        const reloj = document.createElement("i");
-        reloj.className = "fa-solid fa-hourglass-half reloj_procesamiento";
-        reloj.setAttribute("aria-hidden", "true");
-
-        const texto = document.createElement("p");
-        texto.textContent = mensaje;
-
-        contenedor.append(reloj, texto);
-        contenedor.hidden = false;
-    }
-
-    function mostrar_mensaje_temporal(id_contenedor, mensaje, tipo = "exito", segundos = 4) {
-        return new Promise((resolve) => {
-            const contenedor = document.getElementById(id_contenedor);
-
-            if (!contenedor) {
-                resolve();
-                return;
-            }
-
-            contenedor.className = `contenedor_mensajes ${tipo}`;
-            contenedor.replaceChildren();
-
-            const reloj = document.createElement("i");
-            reloj.className = "fa-solid fa-hourglass-half reloj_procesamiento";
-            reloj.setAttribute("aria-hidden", "true");
-
-            const texto = document.createElement("p");
-            texto.textContent = mensaje;
-
-            const contador = document.createElement("span");
-            contador.className = "contador_notificacion";
-            contador.setAttribute("aria-live", "off");
-
-            contenedor.append(reloj, texto, contador);
-            contenedor.hidden = false;
-
-            let restante = segundos;
-            contador.textContent = ` ${restante} s`;
-
-            const intervalo = setInterval(() => {
-                restante--;
-
-                if (restante <= 0) {
-                    clearInterval(intervalo);
-                    resolve();
-                    return;
-                }
-
-                contador.textContent = ` ${restante} s`;
-            }, 1000);
-        });
-    }
-
-    function resetear_mensaje_dialogo(id_contenedor) {
-        const contenedor = document.getElementById(id_contenedor);
-
-        if (!contenedor) return;
-
-        contenedor.className = "contenedor_mensajes informacion";
-        contenedor.replaceChildren();
-
-        const reloj = document.createElement("i");
-        reloj.className = "fa-solid fa-hourglass-half reloj_procesamiento";
-        reloj.setAttribute("aria-hidden", "true");
-
-        const texto = document.createElement("p");
-        texto.textContent = "Presione el botón para generar el reporte PDF.";
-
-        contenedor.append(reloj, texto);
-        contenedor.hidden = false;
-    }
 });

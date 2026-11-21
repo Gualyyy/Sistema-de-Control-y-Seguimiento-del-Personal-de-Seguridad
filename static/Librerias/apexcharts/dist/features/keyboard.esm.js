@@ -1,0 +1,1380 @@
+var __defProp = Object.defineProperty;
+var __defProps = Object.defineProperties;
+var __getOwnPropDescs = Object.getOwnPropertyDescriptors;
+var __getOwnPropSymbols = Object.getOwnPropertySymbols;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __propIsEnum = Object.prototype.propertyIsEnumerable;
+var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __spreadValues = (a, b) => {
+  for (var prop in b || (b = {}))
+    if (__hasOwnProp.call(b, prop))
+      __defNormalProp(a, prop, b[prop]);
+  if (__getOwnPropSymbols)
+    for (var prop of __getOwnPropSymbols(b)) {
+      if (__propIsEnum.call(b, prop))
+        __defNormalProp(a, prop, b[prop]);
+    }
+  return a;
+};
+var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
+/*!
+ * ApexCharts v8.7.0
+ * (c) 2018-2026 ApexCharts
+ */
+import * as _core from "apexcharts/core";
+import _core__default from "apexcharts/core";
+import { default as default2 } from "apexcharts/core";
+const Graphics = _core.__apex_Graphics;
+const TooltipUtils = _core.__apex_tooltip_Utils;
+class KeyboardNavigation {
+  /**
+   * @param {import('../../types/internal').ChartStateW} w
+   * @param {import('../../types/internal').ChartContext} ctx
+   */
+  constructor(w, ctx) {
+    this.w = w;
+    this.ctx = ctx;
+    this.seriesIndex = 0;
+    this.dataPointIndex = 0;
+    this.active = false;
+    this._tooltipDismissed = false;
+    this._announceTimer = void 0;
+    this._focusedEl = null;
+    this._hoveredBarEl = null;
+    this._enlargedScatterMarker = null;
+    this._onKeyDown = this._onKeyDown.bind(this);
+    this._onFocus = this._onFocus.bind(this);
+    this._onBlur = this._onBlur.bind(this);
+    this._onLegendClick = this._onLegendClick.bind(this);
+    this._onPointerDown = this._onPointerDown.bind(this);
+    this._lastPointerDownAt = 0;
+  }
+  // ─── Public API ───────────────────────────────────────────────────────────
+  /**
+   * Called after the chart and tooltip have been fully rendered.
+   * Attaches event listeners and makes the SVG keyboard-focusable.
+   */
+  init() {
+    const w = this.w;
+    const svgEl = w.dom.Paper.node;
+    if (!svgEl) return;
+    svgEl.setAttribute("tabindex", "0");
+    svgEl.addEventListener("focus", this._onFocus);
+    svgEl.addEventListener("blur", this._onBlur);
+    svgEl.addEventListener("mousedown", this._onPointerDown, { capture: true });
+    svgEl.addEventListener("pointerdown", this._onPointerDown, {
+      capture: true
+    });
+    svgEl.addEventListener("touchstart", this._onPointerDown, {
+      capture: true,
+      passive: true
+    });
+    svgEl.addEventListener("keydown", this._onKeyDown, { passive: false });
+    this.ctx.events.addEventListener("legendClick", this._onLegendClick);
+    const kept = w.interact.keyNav;
+    const doc = svgEl.ownerDocument;
+    w.interact.keyNav = null;
+    if (kept && (!doc.activeElement || doc.activeElement === doc.body)) {
+      [this.seriesIndex, this.dataPointIndex, , this._tooltipDismissed] = kept;
+      if (!kept[2]) this.notePointerFocus();
+      svgEl.focus({ preventScroll: true });
+    }
+  }
+  /**
+   * Removes all event listeners. Called from chart.destroy(), and with
+   * `updating` when an update is about to replace the SVG.
+   * @param {boolean} [updating]
+   */
+  destroy(updating) {
+    var _a;
+    const w = this.w;
+    const svgEl = w.dom.Paper && w.dom.Paper.node;
+    this.ctx.events.removeEventListener("legendClick", this._onLegendClick);
+    clearTimeout(this._announceTimer);
+    if (!svgEl) return;
+    if (updating && ((_a = svgEl.getRootNode) == null ? void 0 : _a.call(svgEl).activeElement) === svgEl) {
+      w.interact.keyNav = [
+        this.seriesIndex,
+        this.dataPointIndex,
+        this.active,
+        this._tooltipDismissed
+      ];
+    }
+    svgEl.removeEventListener("focus", this._onFocus);
+    svgEl.removeEventListener("blur", this._onBlur);
+    svgEl.removeEventListener("keydown", this._onKeyDown);
+    svgEl.removeEventListener(
+      "mousedown",
+      this._onPointerDown,
+      /** @type {any} */
+      { capture: true }
+    );
+    svgEl.removeEventListener(
+      "pointerdown",
+      this._onPointerDown,
+      /** @type {any} */
+      { capture: true }
+    );
+    svgEl.removeEventListener(
+      "touchstart",
+      this._onPointerDown,
+      /** @type {any} */
+      { capture: true }
+    );
+  }
+  // Records the timestamp of the most recent pointer-down inside the SVG.
+  // `_onFocus` reads this to distinguish keyboard-driven focus (no recent
+  // pointer activity) from mouse-driven focus (pointer event within the
+  // last 100 ms). Stays a no-op for keyboard users.
+  _onPointerDown() {
+    this._lastPointerDownAt = Date.now();
+  }
+  /**
+   * Note that a pointer gesture is about to move focus into the chart.
+   *
+   * The 100 ms window above catches the browser's own click-to-focus, which
+   * lands immediately. A drag-zoom moves focus deliberately, and only once its
+   * re-render is done (ZoomPanSelection#_focusForKeyboard), which is far
+   * outside that window. Without this it reads as a viewer asking to navigate
+   * by keyboard, which activates nav and flashes a tooltip at the first visible
+   * point after every zoom.
+   */
+  notePointerFocus() {
+    this._lastPointerDownAt = Date.now();
+  }
+  // ─── Focus / blur ─────────────────────────────────────────────────────────
+  _onFocus() {
+    if (!this._isNavEnabled()) return;
+    if (Date.now() - this._lastPointerDownAt < 100) {
+      return;
+    }
+    this.active = true;
+    this._clampCursor();
+    this._snapToVisibleRange();
+    if (!this._tooltipDismissed) this._showCurrentPoint();
+  }
+  _onBlur() {
+    this.active = false;
+    this._tooltipDismissed = false;
+    this._hideFocus();
+  }
+  // Called when the user clicks a legend item (collapse/expand a series).
+  // Hide the keyboard-nav tooltip — the chart is about to re-render and the
+  // current position may no longer be valid.
+  _onLegendClick() {
+    if (!this.active) return;
+    this.active = false;
+    this._hideFocus();
+  }
+  // ─── Key handler ──────────────────────────────────────────────────────────
+  /**
+   * @param {KeyboardEvent} e
+   */
+  _onKeyDown(e) {
+    var _a, _b, _c;
+    if (!this._isNavEnabled() || !this.active) return;
+    if (e.shiftKey && (e.key === "ArrowRight" || e.key === "ArrowLeft") && this._canPan()) {
+      e.preventDefault();
+      this._panBy(e.key === "ArrowRight" ? 1 : -1);
+      return;
+    }
+    switch (e.key) {
+      case "ArrowRight":
+        e.preventDefault();
+        this._move(0, 1);
+        break;
+      case "ArrowLeft":
+        e.preventDefault();
+        this._move(0, -1);
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        this._move(-1, 0);
+        break;
+      case "ArrowDown":
+        e.preventDefault();
+        this._move(1, 0);
+        break;
+      case "Home":
+        e.preventDefault();
+        this._seek(0, 1);
+        this._showCurrentPoint();
+        break;
+      case "End":
+        e.preventDefault();
+        this._seek(this._getDataPointCount(this.seriesIndex) - 1, -1);
+        this._showCurrentPoint();
+        break;
+      case "Enter":
+      case " ":
+        e.preventDefault();
+        this._fireClick(e);
+        break;
+      case "+":
+      case "=":
+        if (this._canZoom()) {
+          e.preventDefault();
+          (_a = this.ctx.toolbar) == null ? void 0 : _a.handleZoomIn();
+          this._announce(this._a11yText("zoomedIn", "Zoomed in"));
+        }
+        break;
+      case "-":
+      case "_":
+        if (this._canZoom()) {
+          e.preventDefault();
+          (_b = this.ctx.toolbar) == null ? void 0 : _b.handleZoomOut();
+          this._announce(this._a11yText("zoomedOut", "Zoomed out"));
+        }
+        break;
+      case "0":
+        if (this._canZoom() && this.w.interact.zoomed) {
+          e.preventDefault();
+          (_c = this.ctx.toolbar) == null ? void 0 : _c.handleZoomReset();
+          this._announce(this._a11yText("zoomReset", "Zoom reset"));
+        }
+        break;
+      case "Escape":
+        e.preventDefault();
+        if (!this._tooltipDismissed) {
+          this._tooltipDismissed = true;
+          this._hideFocus();
+        } else {
+          this.active = false;
+          this._tooltipDismissed = false;
+          this._hideFocus();
+        }
+        break;
+    }
+  }
+  // ─── Zoom / pan (keyboard alternatives for drag gestures) ─────────────────
+  _canZoom() {
+    var _a, _b;
+    const w = this.w;
+    const r = (_a = this.ctx.toolbar) == null ? void 0 : _a._currentXRange();
+    return Boolean(
+      w.globals.axisCharts && ((_b = w.config.chart.zoom) == null ? void 0 : _b.enabled) && (w.axisFlags.isXNumeric || w.config.xaxis.convertedCatToNumeric || w.axisFlags.isRangeBar) && (r == null ? void 0 : r.minX) < (r == null ? void 0 : r.maxX)
+    );
+  }
+  _canPan() {
+    return this._canZoom() && this.w.interact.zoomed;
+  }
+  /**
+   * Shift the visible x-range by ~10% in the given direction, as a drag pan.
+   * @param {number} direction +1 = right, -1 = left
+   */
+  _panBy(direction) {
+    var _a;
+    (_a = this.ctx.zoomPanSelection) == null ? void 0 : _a.panBy(direction / 10);
+    this._announce(
+      direction > 0 ? this._a11yText("pannedRight", "Panned right") : this._a11yText("pannedLeft", "Panned left")
+    );
+  }
+  // ─── Navigation ───────────────────────────────────────────────────────────
+  /**
+   * @param {number} dSeries
+   * @param {number} dPoint
+   */
+  _move(dSeries, dPoint) {
+    var _a;
+    const w = this.w;
+    const wrapAround = w.config.chart.accessibility.keyboard.navigation.wrapAround;
+    if (dSeries !== 0) {
+      const ttCtx = this.w.globals.tooltip;
+      const type = w.config.chart.type;
+      const perCell = type === "heatmap" || type === "treemap" || type === "radialBar";
+      if (!perCell && (ttCtx == null ? void 0 : ttCtx.ttItems) && ttCtx.tConfig.shared) {
+        const j = this.dataPointIndex;
+        const isActuallyShared = ttCtx.tooltipUtil && ttCtx.tooltipUtil.isXoverlap(j) && ttCtx.tooltipUtil.isInitialSeriesSameLen();
+        if (isActuallyShared) return;
+      }
+      if (type === "heatmap" && !((_a = w.config.yaxis[0]) == null ? void 0 : _a.reversed)) {
+        dSeries = -dSeries;
+      }
+      const total = this._getSeriesCount();
+      let si = this.seriesIndex;
+      for (let k = 1; k < total; k++) {
+        let c = si + dSeries * k;
+        if (wrapAround) c = (c + total) % total;
+        else if (c < 0 || c >= total) break;
+        if (!w.globals.collapsedSeriesIndices.includes(c)) {
+          si = c;
+          break;
+        }
+      }
+      this.seriesIndex = si;
+      const dpCount = this._getDataPointCount(si);
+      if (this.dataPointIndex >= dpCount) {
+        this.dataPointIndex = dpCount - 1;
+      }
+    }
+    if (dPoint !== 0) {
+      this._seek(this.dataPointIndex + dPoint, dPoint);
+      if (!this._isDataPointVisible(this.seriesIndex, this.dataPointIndex)) {
+        this._snapToVisibleRangeInDirection(dPoint);
+      }
+    }
+    this._showCurrentPoint();
+  }
+  /**
+   * Land on the first non-null point from `di` going `dir`. Past an edge it
+   * wraps only with wrapAround; when no point lies ahead the cursor stays.
+   * @param {number} di
+   * @param {number} dir
+   */
+  _seek(di, dir) {
+    const w = this.w;
+    const row = w.seriesData.series[this.seriesIndex];
+    const n = this._getDataPointCount(this.seriesIndex);
+    for (let k = 0; k < n; k++, di += dir) {
+      if (w.config.chart.accessibility.keyboard.navigation.wrapAround) {
+        di = (di + n) % n;
+      } else if (di < 0 || di >= n) return;
+      if (!Array.isArray(row) || row[di] !== null) {
+        this.dataPointIndex = di;
+        return;
+      }
+    }
+  }
+  // ─── Display ──────────────────────────────────────────────────────────────
+  _showCurrentPoint() {
+    const { seriesIndex: i, dataPointIndex: j } = this;
+    const w = this.w;
+    const ttCtx = w.globals.tooltip;
+    this._tooltipDismissed = false;
+    w.interact.capturedSeriesIndex = i;
+    w.interact.capturedDataPointIndex = j;
+    this._applyFocusClass(i, j);
+    if (!(ttCtx == null ? void 0 : ttCtx.ttItems)) return this._announce(this._buildPointLabel(i, j));
+    this._showTooltip(
+      i,
+      j,
+      /** @type {any} */
+      ttCtx
+    );
+    if (w.config.tooltip.visible === false) {
+      this._announce(this._buildPointLabel(i, j));
+    }
+  }
+  _hideFocus() {
+    var _a;
+    const w = this.w;
+    const ttCtx = (
+      /** @type {any} */
+      w.globals.tooltip
+    );
+    this._removeFocusClass();
+    this._leaveHoveredBar();
+    if (!ttCtx) return;
+    (_a = ttCtx.tooltipPosition) == null ? void 0 : _a.resetPlacementCache();
+    if (ttCtx.marker) {
+      ttCtx.marker.resetPointsSize();
+    }
+    this._enlargedScatterMarker = null;
+    const tooltipEl = ttCtx.getElTooltip();
+    if (tooltipEl) {
+      tooltipEl.classList.remove("apexcharts-active");
+      if (w.config.chart.accessibility.enabled && w.config.chart.accessibility.announcements.enabled) {
+        tooltipEl.setAttribute("aria-hidden", "true");
+      }
+    }
+    w.dom.baseEl.classList.remove("apexcharts-tooltip-active");
+    const xcrosshairs = ttCtx.getElXCrosshairs();
+    if (xcrosshairs) xcrosshairs.classList.remove("apexcharts-active");
+  }
+  // ─── Tooltip display per chart type ───────────────────────────────────────
+  /**
+   * @param {number} i
+   * @param {number} j
+   * @param {import('../tooltip/Tooltip').default} ttCtx
+   */
+  _showTooltip(i, j, ttCtx) {
+    const w = this.w;
+    const type = w.config.chart.type;
+    const tooltipEl = ttCtx.getElTooltip();
+    if (!tooltipEl) return;
+    const cachedDims = ttCtx.getCachedDimensions();
+    ttCtx.tooltipRect = {
+      x: 0,
+      y: 0,
+      ttWidth: cachedDims.ttWidth || 0,
+      ttHeight: cachedDims.ttHeight || 0
+    };
+    this._setSyntheticEvent(i, j, ttCtx);
+    w.dom.baseEl.classList.add("apexcharts-tooltip-active");
+    tooltipEl.classList.add("apexcharts-active");
+    if (w.config.chart.accessibility.enabled && w.config.chart.accessibility.announcements.enabled) {
+      tooltipEl.removeAttribute("aria-hidden");
+    }
+    if (this._isSliceChart() || type === "radialBar") {
+      this._showTooltipNonAxis(i, j, ttCtx, tooltipEl);
+    } else if (type === "heatmap" || type === "treemap") {
+      this._showTooltipHeatTree(i, j, ttCtx, tooltipEl, type);
+    } else if (this._isBarLikeSeries(i)) {
+      this._showTooltipBar(i, j, ttCtx);
+    } else {
+      this._showTooltipAxisLine(i, j, ttCtx);
+    }
+    if (ttCtx.fixedTooltip) ttCtx.drawFixedTooltipRect();
+  }
+  /**
+   * Is series `i` drawn as a bar-like mark? Its own type decides in a combo,
+   * as it decides what the pointer hovers there: the columns beside a line,
+   * or the candles of a 'line' chart, are hovered as bars
+   * (Intersect.handleBarTooltip), not as points on a line.
+   * @param {number} i
+   * @returns {boolean}
+   */
+  _isBarLikeSeries(i) {
+    var _a;
+    const w = this.w;
+    const series = (
+      /** @type {any} */
+      w.config.series[i]
+    );
+    const type = w.globals.comboCharts ? (_a = series == null ? void 0 : series.type) != null ? _a : w.config.chart.type : w.config.chart.type;
+    return TooltipUtils.isBarLikeType(type);
+  }
+  /**
+   * Set ttCtx.e to a synthetic mouse-event-like object whose clientX/Y point
+   * to the centre of the current data-point element.  This ensures that any
+   * positioning helper that reads ttCtx.e (followCursor path in moveTooltip,
+   * moveStickyTooltipOverBars, moveDynamicPointsOnHover, etc.) gets valid
+   * coordinates rather than crashing on undefined.
+   *
+   * For chart types that don't have a concrete SVG element per data point
+   * (pie, radialBar) we fall back to the SVG centre.
+   * @param {number} i
+   * @param {number} j
+   * @param {import('../tooltip/Tooltip').default} ttCtx
+   */
+  _setSyntheticEvent(i, j, ttCtx) {
+    const w = this.w;
+    const type = w.config.chart.type;
+    let clientX = 0;
+    let clientY = 0;
+    const el = this._getFocusableElement(i, j);
+    const painted = el ? null : this._canvasCell(i, j) || this._canvasMark(i, j);
+    if (el) {
+      const rect = el.getBoundingClientRect();
+      clientX = rect.left + rect.width / 2;
+      clientY = rect.top + rect.height / 2;
+    } else if (painted) {
+      const plot = TooltipUtils.plotRect(w);
+      clientX = plot.left + (painted.x + painted.width / 2) * plot.zoom;
+      clientY = plot.top + (painted.y + painted.height / 2) * plot.zoom;
+    } else if (w.globals.pointsArray && w.globals.pointsArray[i] && w.globals.pointsArray[i][j]) {
+      const pt = w.globals.pointsArray[i][j];
+      const elGrid = ttCtx.getElGrid && ttCtx.getElGrid();
+      if (elGrid) {
+        const plot = TooltipUtils.plotRect(w);
+        clientX = plot.left + (pt[0] || 0) * plot.zoom;
+        clientY = plot.top + (pt[1] || 0) * plot.zoom;
+      }
+    } else {
+      const svgEl = w.dom.Paper && w.dom.Paper.node;
+      if (svgEl) {
+        const svgRect = svgEl.getBoundingClientRect();
+        clientX = svgRect.left + svgRect.width / 2;
+        clientY = svgRect.top + svgRect.height / 2;
+      }
+    }
+    if (!this._isBarLikeSeries(i) && (type === "line" || type === "area" || type === "rangeArea" || type === "scatter" || type === "bubble" || type === "radar")) {
+      if (w.globals.pointsArray && w.globals.pointsArray[i] && w.globals.pointsArray[i][j]) {
+        const pt = w.globals.pointsArray[i][j];
+        const elGrid = ttCtx.getElGrid && ttCtx.getElGrid();
+        if (elGrid) {
+          const plot = TooltipUtils.plotRect(w);
+          clientX = plot.left + (pt[0] || 0) * plot.zoom;
+          clientY = plot.top + (pt[1] || 0) * plot.zoom;
+        }
+      }
+    }
+    ttCtx.e = { type: "mousemove", clientX, clientY };
+    ttCtx.clientX = clientX;
+    ttCtx.clientY = clientY;
+  }
+  /**
+   * bar / column / candlestick / boxPlot / rangeBar
+   * @param {number} i
+   * @param {number} j
+   * @param {import('../tooltip/Tooltip').default} ttCtx
+   */
+  _showTooltipBar(i, j, ttCtx) {
+    var _a, _b, _c, _d;
+    const w = this.w;
+    if (w.globals.comboCharts) {
+      ttCtx.marker.resetPointsSize();
+      this._enlargedScatterMarker = null;
+    }
+    const shared = ttCtx.tConfig.shared && (ttCtx.tooltipUtil.isXoverlap(j) || w.globals.isBarHorizontal) && ttCtx.tooltipUtil.isInitialSeriesSameLen();
+    const rangeData = (
+      /** @type {any} */
+      (_d = (_c = (_b = (_a = w.rangeData.seriesRange) == null ? void 0 : _a[i]) == null ? void 0 : _b[j]) == null ? void 0 : _c.y) == null ? void 0 : _d[0]
+    );
+    ttCtx.tooltipLabels.drawSeriesTexts(__spreadProps(__spreadValues(__spreadValues({
+      ttItems: ttCtx.ttItems,
+      i,
+      j
+    }, (rangeData == null ? void 0 : rangeData.y1) !== void 0 && { y1: rangeData.y1 }), (rangeData == null ? void 0 : rangeData.y2) !== void 0 && { y2: rangeData.y2 }), {
+      shared
+    }));
+    const parent = `.apexcharts-series[data\\:realIndex='${i}']`;
+    const elPath = this._canvasMark(i, j) ? null : w.dom.Paper.findOne(
+      `${parent} path[j='${j}'], ${parent} circle[j='${j}'], ${parent} rect[j='${j}']`
+    );
+    if (elPath) {
+      this._leaveHoveredBar();
+      const graphics = new Graphics(this.w, this.ctx);
+      graphics.pathMouseEnter(elPath, null);
+      this._hoveredBarEl = elPath;
+    }
+    if (w.globals.isBarHorizontal) {
+      const fixed = ttCtx.fixedTooltip;
+      if (!fixed && !ttCtx.showOnIntersect && !TooltipUtils.isFollowCursor(w) && ttCtx.tooltipPosition.placeHorizontalSharedTooltip(j)) {
+        return;
+      }
+      const bar = this._focusedBarInWrap(i, j, elPath, ttCtx);
+      const tooltipEl = ttCtx.getElTooltip();
+      if (bar && tooltipEl && !fixed) {
+        const ttWidth = ttCtx.tooltipRect.ttWidth || 0;
+        const ttHeight = ttCtx.tooltipRect.ttHeight || 0;
+        const origin = TooltipUtils.plotInWrap(w);
+        const plot = {
+          top: origin.top,
+          bottom: origin.top + w.layout.gridHeight,
+          left: origin.left,
+          right: origin.left + w.layout.gridWidth
+        };
+        const stacked = ttCtx.tooltipPosition.placeOnShortPlot(
+          (bar.left + bar.right) / 2,
+          bar.top,
+          bar.bottom
+        );
+        if (stacked) {
+          ttCtx.tooltipPosition.applyTooltipPosition(tooltipEl, stacked);
+        } else if (w.config.tooltip.arrow) {
+          ttCtx.tooltipPosition.applyTooltipPosition(
+            tooltipEl,
+            ttCtx.tooltipPosition.placeAroundBar(bar, plot, j, i)
+          );
+        } else {
+          const baseline = ttCtx.xyRatios && ttCtx.xyRatios.baseLineInvertedY != null ? plot.left + ttCtx.xyRatios.baseLineInvertedY : (plot.left + plot.right) / 2;
+          let x = (bar.left + bar.right) / 2 < baseline ? bar.left - ttWidth : bar.right;
+          if (TooltipUtils.isFollowCursor(w)) {
+            const px = (bar.left + bar.right) / 2 - plot.left + 15;
+            x = plot.left + (px + ttWidth > w.layout.gridWidth ? px - ttWidth : px);
+          }
+          const y = (bar.top + bar.bottom) / 2 - ttHeight / 2;
+          tooltipEl.style.left = Math.max(Math.min(x, plot.right - ttWidth), plot.left) + "px";
+          tooltipEl.style.top = Math.max(Math.min(y, plot.bottom - ttHeight), plot.top) + "px";
+          delete tooltipEl.dataset.placement;
+        }
+      }
+    } else if (this._pointerHoversOneMark(ttCtx)) {
+      this._hoverFocusedMark(i, j, elPath, ttCtx);
+    } else {
+      ttCtx.tooltipPosition.moveStickyTooltipOverBars(j, i);
+    }
+  }
+  /**
+   * Does the pointer caption a vertical bar-like one mark at a time, through
+   * Intersect.handleBarTooltip, rather than through the sticky path? As
+   * Tooltip.axisChartsTooltips decides: an intersect tooltip, unless the
+   * chart is synced to a group, whose members all take the sticky path.
+   * @param {import('../tooltip/Tooltip').default} ttCtx
+   * @returns {boolean}
+   */
+  _pointerHoversOneMark(ttCtx) {
+    if (!ttCtx.showOnIntersect) return false;
+    const w = this.w;
+    return !(w.config.chart.group && typeof this.ctx.getSyncedCharts === "function" && this.ctx.getSyncedCharts().length > 1);
+  }
+  /**
+   * Place the box for the focused vertical bar-like the way a pointer on it
+   * does, by handing the pointer's own placement (Intersect.handleBarTooltip)
+   * the synthetic pointer on the mark (`_setSyntheticEvent`) with the mark
+   * named, as a real hover names the node under it (TooltipUtils.hoverTarget)
+   * or, painted to canvas, the mark the renderer's hit test found: nothing
+   * else under that point (a neighbouring mark, a jitter dot) is taken for
+   * it. With nothing of the mark drawn, the sticky box stands in.
+   * @param {number} i
+   * @param {number} j
+   * @param {any} elPath  the SVG.js wrapper `_showTooltipBar` found
+   * @param {import('../tooltip/Tooltip').default} ttCtx
+   */
+  _hoverFocusedMark(i, j, elPath, ttCtx) {
+    const w = this.w;
+    const painted = this._canvasMark(i, j);
+    const node = !painted && (elPath == null ? void 0 : elPath.node) && [
+      "apexcharts-bar-area",
+      "apexcharts-candlestick-area",
+      "apexcharts-boxPlot-area",
+      "apexcharts-rangebar-area",
+      "apexcharts-violin-area"
+    ].some((c) => elPath.node.classList.contains(c)) ? elPath.node : null;
+    if (!painted && !node) {
+      ttCtx.tooltipPosition.moveStickyTooltipOverBars(j, i);
+      return;
+    }
+    const svg = w.dom.Paper.node;
+    ttCtx.intersect.handleBarTooltip({
+      e: __spreadProps(__spreadValues({}, ttCtx.e), {
+        type: "mousemove",
+        target: node || svg,
+        apexHoverTarget: node || svg,
+        apexPaintedHit: painted
+      }),
+      opt: {
+        paths: node || svg,
+        hoverArea: svg,
+        elGrid: ttCtx.getElGrid(),
+        tooltipEl: ttCtx.getElTooltip(),
+        ttItems: ttCtx.ttItems
+      }
+    });
+  }
+  /**
+   * The focused horizontal bar's box in elWrap px, measured. A violin is read
+   * as its whole glyph, as the pointer reads it (Intersect.getViolinMark):
+   * body, box lane and jitter or rain, so the box clears a raincloud's lanes
+   * as well as its cloud. Painted to canvas, a bar leaves no path, only the
+   * box it was painted in. Null when nothing of the bar is drawn.
+   * @param {number} i
+   * @param {number} j
+   * @param {any} elPath  the SVG.js wrapper `_showTooltipBar` found
+   * @param {import('../tooltip/Tooltip').default} ttCtx
+   * @returns {{ top: number, bottom: number, left: number, right: number } | null}
+   */
+  _focusedBarInWrap(i, j, elPath, ttCtx) {
+    var _a, _b, _c;
+    const w = this.w;
+    const isViolin = w.config.chart.type === "violin" || /** @type {any} */
+    ((_a = w.config.series[i]) == null ? void 0 : _a.type) === "violin";
+    const r = isViolin && ((_b = ttCtx.intersect) == null ? void 0 : _b.violinGlyphRect(i, j)) || ((_c = elPath == null ? void 0 : elPath.node) == null ? void 0 : _c.getBoundingClientRect()) || this._canvasMarkRect(i, j);
+    if (!r) return null;
+    const wrapRect = w.dom.elWrap.getBoundingClientRect();
+    return {
+      top: r.top - wrapRect.top,
+      bottom: r.bottom - wrapRect.top,
+      left: r.left - wrapRect.left,
+      right: r.right - wrapRect.left
+    };
+  }
+  /**
+   * line / area / scatter / bubble / radar / rangeArea
+   * @param {number} i
+   * @param {number} j
+   * @param {import('../tooltip/Tooltip').default} ttCtx
+   */
+  _showTooltipAxisLine(i, j, ttCtx) {
+    var _a;
+    const w = this.w;
+    const type = w.config.chart.type;
+    const sharedConfigured = ttCtx.tConfig.shared;
+    const shared = sharedConfigured && ttCtx.tooltipUtil.isXoverlap(j) && ttCtx.tooltipUtil.isInitialSeriesSameLen();
+    ttCtx.tooltipLabels.drawSeriesTexts({
+      ttItems: ttCtx.ttItems,
+      i,
+      j,
+      shared
+    });
+    const isScatterLike = type === "scatter" || type === "bubble" || type === "radar";
+    const hasVisibleMarkers = w.globals.markers.largestSize > 0 && !w.globals.markers.batched && ((_a = this.ctx.renderer) == null ? void 0 : _a.kind) !== "canvas";
+    const painted = this._pointerHoversOneMark(ttCtx) ? this._canvasMarker(i, j) : null;
+    if (painted) {
+      this._hoverPaintedMarker(painted, ttCtx);
+    } else if (isScatterLike || hasVisibleMarkers && !shared) {
+      if (!this._showScatterBubblePoint(i, j, ttCtx)) {
+        ttCtx.tooltipPosition.moveDynamicPointOnHover(j, i);
+      }
+    } else if (hasVisibleMarkers) {
+      ttCtx.marker.enlargePoints(j);
+    } else if (shared) {
+      ttCtx.tooltipPosition.moveDynamicPointsOnHover(j);
+    } else {
+      ttCtx.tooltipPosition.moveDynamicPointOnHover(j, i);
+    }
+  }
+  /**
+   * The marker the canvas renderer painted for this point
+   * (CanvasRenderer.findMarker), centre in plot px, when the markers are
+   * painted and have no node. Null otherwise.
+   * @param {number} i
+   * @param {number} j
+   * @returns {{ seriesIndex: number, dataPointIndex: number, x: number, y: number, size: number, d: string } | null}
+   */
+  _canvasMarker(i, j) {
+    const renderer = this.ctx.renderer;
+    if (!renderer || renderer.kind !== "canvas" || typeof renderer.findMarker !== "function") {
+      return null;
+    }
+    return renderer.findMarker(i, j);
+  }
+  /**
+   * Place the box for a focused marker painted to canvas the way a pointer
+   * on it does: the pointer's handler gets the synthetic pointer on the
+   * marker (`_setSyntheticEvent`) and the marker its hit test would have
+   * found there.
+   * @param {{ seriesIndex: number, dataPointIndex: number, x: number, y: number, size: number }} painted
+   * @param {import('../tooltip/Tooltip').default} ttCtx
+   */
+  _hoverPaintedMarker(painted, ttCtx) {
+    ttCtx.intersect.handlePaintedMarkerTooltip({
+      e: __spreadProps(__spreadValues({}, ttCtx.e), { type: "mousemove" }),
+      opt: { tooltipEl: ttCtx.getElTooltip(), ttItems: ttCtx.ttItems },
+      marker: {
+        i: painted.seriesIndex,
+        j: painted.dataPointIndex,
+        cx: painted.x,
+        cy: painted.y,
+        size: painted.size
+      }
+    });
+  }
+  /**
+   * Scatter / bubble: find the specific marker element for (seriesIndex i,
+   * dataPointIndex j), resize only that element, and position the tooltip at
+   * its coordinates — mirroring what Position.moveMarkers does for mouse hover.
+   *
+   * Unlike enlargePoints(j) which queries ALL series for rel===j (causing
+   * multiple bubbles to enlarge and tooltip to land on the wrong one), this
+   * method queries by both series index AND data-point index for precision.
+   * @param {number} i
+   * @param {number} j
+   * @param {import('../tooltip/Tooltip').default} ttCtx
+   * @returns {boolean} whether a marker was found and the box placed by it
+   */
+  _showScatterBubblePoint(i, j, ttCtx) {
+    const baseEl = this.w.dom.baseEl;
+    if (this._enlargedScatterMarker) {
+      ttCtx.marker.oldPointSize(this._enlargedScatterMarker);
+      this._enlargedScatterMarker = null;
+    }
+    const seriesEl = baseEl.querySelector(
+      `.apexcharts-series[data\\:realIndex='${i}']`
+    );
+    if (!seriesEl) return false;
+    const markerEl = seriesEl.querySelector(`.apexcharts-marker[rel='${j}']`);
+    if (!markerEl) return false;
+    ttCtx.marker.enlargeCurrentPoint(j, markerEl);
+    this._enlargedScatterMarker = markerEl;
+    return true;
+  }
+  /**
+   * pie / donut / polarArea (a slice per point, i is 0) and radialBar (a ring
+   * per series, j is 0)
+   * @param {number} i
+   * @param {number} j
+   * @param {import('../tooltip/Tooltip').default} ttCtx
+   * @param {HTMLElement} tooltipEl
+   */
+  _showTooltipNonAxis(i, j, ttCtx, tooltipEl) {
+    ttCtx.tooltipLabels.drawSeriesTexts({
+      ttItems: ttCtx.ttItems,
+      i: i + j,
+      shared: false
+    });
+    const tooltipBound = tooltipEl.getBoundingClientRect();
+    const ttWidth = tooltipBound.width || ttCtx.tooltipRect.ttWidth || 0;
+    const ttHeight = tooltipBound.height || ttCtx.tooltipRect.ttHeight || 0;
+    const anchor = ttCtx.getSliceAnchor(this._getFocusableElement(i, j));
+    if (anchor) {
+      const pos = ttCtx.tooltipPosition.placeOverAnchor(
+        anchor.x,
+        anchor.y,
+        ttWidth,
+        ttHeight,
+        10
+      );
+      tooltipEl.style.left = pos.x + "px";
+      tooltipEl.style.top = pos.y + "px";
+    }
+  }
+  /**
+   * heatmap / treemap — position tooltip using element bounding rect
+   * @param {number} i
+   * @param {number} j
+   * @param {import('../tooltip/Tooltip').default} ttCtx
+   * @param {HTMLElement} tooltipEl
+   * @param {string} type
+   */
+  _showTooltipHeatTree(i, j, ttCtx, tooltipEl, type) {
+    var _a, _b;
+    const w = this.w;
+    if (TooltipUtils.isFollowCursor(w) && this._hoverFocusedCell(i, j, ttCtx)) {
+      return;
+    }
+    ttCtx.tooltipLabels.drawSeriesTexts({
+      ttItems: ttCtx.ttItems,
+      i,
+      j,
+      shared: false
+    });
+    const tooltipRect = tooltipEl.getBoundingClientRect();
+    const ttWidth = tooltipRect.width || ttCtx.tooltipRect.ttWidth || 0;
+    const ttHeight = tooltipRect.height || ttCtx.tooltipRect.ttHeight || 0;
+    const rectClass = type === "heatmap" ? "apexcharts-heatmap-rect" : "apexcharts-treemap-rect";
+    const cell = w.dom.baseEl.querySelector(`.${rectClass}[i='${i}'][j='${j}']`);
+    const painted = cell ? null : this._canvasCell(i, j);
+    if (cell || painted) {
+      const wrapRect = w.dom.elWrap.getBoundingClientRect();
+      let cellCx = 0;
+      let cellCy = 0;
+      let cellWidth = 0;
+      let cellHeight = 0;
+      if (cell) {
+        const cellRect = cell.getBoundingClientRect();
+        cellCx = cellRect.left - wrapRect.left;
+        cellCy = cellRect.top - wrapRect.top;
+        cellWidth = cellRect.width;
+        cellHeight = cellRect.height;
+        const cx = parseFloat((_a = cell.getAttribute("cx")) != null ? _a : "");
+        const cellWidthAttr = parseFloat((_b = cell.getAttribute("width")) != null ? _b : "");
+        ttCtx.tooltipPosition.moveXCrosshairs(cx + cellWidthAttr / 2);
+      } else if (painted) {
+        const plot = TooltipUtils.plotInWrap(w);
+        cellCx = plot.left + painted.x;
+        cellCy = plot.top + painted.y;
+        cellWidth = painted.width;
+        cellHeight = painted.height;
+        ttCtx.tooltipPosition.moveXCrosshairs(painted.x + painted.width / 2);
+      }
+      let x = cellCx + cellWidth + ttWidth / 2;
+      const y = cellCy + cellHeight / 2 - ttHeight / 2;
+      if (cellCx + cellWidth > w.layout.gridWidth / 2) {
+        x = cellCx - ttWidth / 2;
+      }
+      const wasStacked = ttCtx.tooltipPosition.shortPlotPlacement;
+      const stacked = ttCtx.tooltipPosition.placeOnShortPlot(
+        cellCx + cellWidth / 2,
+        cellCy,
+        cellCy + cellHeight
+      );
+      if (stacked) {
+        ttCtx.tooltipPosition.applyTooltipPosition(tooltipEl, stacked);
+        return;
+      }
+      if (type === "heatmap" && w.config.tooltip.arrow && !TooltipUtils.isFollowCursor(w)) {
+        const { left: plotLeft, top: plotTop } = TooltipUtils.plotInWrap(w);
+        ttCtx.tooltipPosition.applyTooltipPosition(
+          tooltipEl,
+          ttCtx.tooltipPosition.placeAroundCell(
+            {
+              top: cellCy,
+              bottom: cellCy + cellHeight,
+              left: cellCx,
+              right: cellCx + cellWidth
+            },
+            {
+              top: plotTop,
+              bottom: plotTop + w.layout.gridHeight,
+              left: plotLeft,
+              right: plotLeft + w.layout.gridWidth
+            },
+            { el: cell, ttWidth, ttHeight }
+          )
+        );
+        return;
+      }
+      tooltipEl.style.left = x + "px";
+      tooltipEl.style.top = y + "px";
+      if (wasStacked) delete tooltipEl.dataset.placement;
+    }
+  }
+  /**
+   * Place the box for the focused heatmap or treemap cell the way a pointer
+   * resting on its centre does (Intersect.handleHeatTreeTooltip). False when
+   * nothing of the cell is drawn, or the pointer's placement found no cell
+   * there, so the caller places it itself.
+   * @param {number} i
+   * @param {number} j
+   * @param {import('../tooltip/Tooltip').default} ttCtx
+   * @returns {boolean}
+   */
+  _hoverFocusedCell(i, j, ttCtx) {
+    const w = this.w;
+    const type = w.config.chart.type;
+    const tooltipEl = ttCtx.getElTooltip();
+    const cell = w.dom.baseEl.querySelector(
+      `.apexcharts-${type}-rect[i='${i}'][j='${j}']`
+    );
+    if (!tooltipEl || !cell && !this._canvasCell(i, j)) return false;
+    const target = cell || w.dom.Paper.node;
+    w.interact.capturedSeriesIndex = -1;
+    w.interact.capturedDataPointIndex = -1;
+    const placed = ttCtx.intersect.handleHeatTreeTooltip({
+      e: __spreadProps(__spreadValues({}, ttCtx.e), { type: "mousemove", target, apexHoverTarget: target }),
+      opt: { ttItems: ttCtx.ttItems },
+      x: 0,
+      y: 0,
+      type
+    });
+    const found = !placed.noHit && w.interact.capturedSeriesIndex === i && w.interact.capturedDataPointIndex === j;
+    w.interact.capturedSeriesIndex = i;
+    w.interact.capturedDataPointIndex = j;
+    if (!found) return false;
+    ttCtx.placeCellTooltip(tooltipEl, placed);
+    return true;
+  }
+  /**
+   * The box a heatmap cell was painted in when the canvas renderer drew the
+   * cells, plot-local. Null for every other chart, and for a heatmap whose
+   * cells are SVG nodes (the SVG renderer, or a cell shape canvas leaves to
+   * SVG), which are found by their attributes instead.
+   * @param {number} i
+   * @param {number} j
+   * @returns {{ x: number, y: number, width: number, height: number, radius: number } | null}
+   */
+  _canvasCell(i, j) {
+    if (this.w.config.chart.type !== "heatmap") return null;
+    const renderer = this.ctx.renderer;
+    if (!renderer || renderer.kind !== "canvas" || typeof renderer.findCell !== "function") {
+      return null;
+    }
+    return renderer.findCell(i, j);
+  }
+  /**
+   * The bar-like mark (a bar, a candle, a box plot, a violin body) the
+   * canvas renderer painted for this point, plot-local, with the path it
+   * painted (CanvasRenderer.findMark): the first one, as the first `path[j]`
+   * is on SVG. Null for every other chart, and when the marks are SVG nodes.
+   * @param {number} i
+   * @param {number} j
+   * @returns {{ x: number, y: number, width: number, height: number, d: string } | null}
+   */
+  _canvasMark(i, j) {
+    if (!this._isBarLikeSeries(i)) return null;
+    const renderer = this.ctx.renderer;
+    if (!renderer || renderer.kind !== "canvas" || typeof renderer.findMark !== "function") {
+      return null;
+    }
+    return renderer.findMark(i, j);
+  }
+  /**
+   * Where `_canvasMark` puts the painted mark on screen, as a hovered SVG
+   * path's getBoundingClientRect() would: from the plot's corner, through
+   * any CSS zoom on the chart. Null when nothing was painted for the point.
+   * @param {number} i
+   * @param {number} j
+   * @returns {{ left: number, top: number, right: number, bottom: number } | null}
+   */
+  _canvasMarkRect(i, j) {
+    const mark = this._canvasMark(i, j);
+    if (!mark) return null;
+    const plot = TooltipUtils.plotRect(this.w);
+    const left = plot.left + mark.x * plot.zoom;
+    const top = plot.top + mark.y * plot.zoom;
+    return {
+      left,
+      top,
+      right: left + mark.width * plot.zoom,
+      bottom: top + mark.height * plot.zoom
+    };
+  }
+  // ─── Focus class management ───────────────────────────────────────────────
+  /**
+   * @param {number} i
+   * @param {number} j
+   */
+  _applyFocusClass(i, j) {
+    this._removeFocusClass();
+    const el = this._getFocusableElement(i, j) || this._getBatchedFocusEl(i) || this._drawCanvasFocusRing(i, j);
+    if (el) {
+      el.classList.add("apexcharts-keyboard-focused");
+      el.setAttribute("role", "img");
+      const label = this._buildPointLabel(i, j);
+      if (label) el.setAttribute("aria-label", label);
+      this._focusedEl = el;
+    }
+  }
+  /**
+   * A batched series has no `.apexcharts-marker[rel]` node to carry the focus
+   * ring and aria-label, so the focus lands on the tooltip's own marker for
+   * that series instead: `_showTooltip` moves it onto the focused point in this
+   * same task, so it is the element the reader sees highlighted. Only used when
+   * batching is on, since with per-point nodes the exact node is better.
+   * @param {number} i
+   * @returns {Element | null}
+   */
+  _getBatchedFocusEl(i) {
+    if (!this.w.globals.markers.batched) return null;
+    return this.w.dom.baseEl.querySelector(
+      `.apexcharts-series[data\\:realIndex='${i}'] .apexcharts-series-markers path`
+    );
+  }
+  /**
+   * A heatmap or a bar-like painted to canvas has no node per cell or mark to
+   * carry the focus stroke and the accessible name, so an outline of the
+   * focused one stands in for it. It goes in the series' own group, over the
+   * canvas, where the SVG node would sit: plot-local, clipped to the plot as
+   * the painted marks are, and swept away with the group by an update, as an
+   * SVG node's focus stroke is. Otherwise it lives as long as the focus does
+   * (`_removeFocusClass`). Being there, it is also what the tooltip keeps
+   * clear of (Position.computeTooltipPosition), as it does a focused node.
+   * @param {number} i
+   * @param {number} j
+   * @returns {Element | null}
+   */
+  _drawCanvasFocusRing(i, j) {
+    const cell = this._canvasCell(i, j);
+    if (!cell) return this._drawCanvasMarkFocusRing(i, j);
+    const host = this.w.dom.baseEl.querySelector(
+      `.apexcharts-heatmap .apexcharts-series[rel='${i + 1}']`
+    );
+    if (!host) return null;
+    const ring = new Graphics(this.w, this.ctx).drawRect(
+      cell.x,
+      cell.y,
+      cell.width,
+      cell.height,
+      cell.radius,
+      "none"
+    );
+    ring.node.classList.add("apexcharts-keyboard-focus-ring");
+    ring.attr({ i, j });
+    host.insertBefore(ring.node, host.firstChild);
+    return ring.node;
+  }
+  /**
+   * The outline for a bar-like painted to canvas (`_drawCanvasFocusRing`):
+   * the very path that was painted, so it traces the bar, the candle and its
+   * wicks, or the box and its whisker the way the focus stroke traces an SVG
+   * one, under the same clip. It carries no `j`, so nothing that looks for
+   * the series' marks by index takes it for one.
+   * @param {number} i
+   * @param {number} j
+   * @returns {Element | null}
+   */
+  _drawCanvasMarkFocusRing(i, j) {
+    const mark = this._canvasMark(i, j);
+    if (!mark) return this._drawCanvasMarkerFocusRing(i, j);
+    const w = this.w;
+    const host = this._seriesGroup(i);
+    if (!host) return null;
+    const ring = new Graphics(w, this.ctx).drawPath({
+      d: mark.d,
+      fill: "none",
+      classes: "apexcharts-keyboard-focus-ring"
+    });
+    ring.attr("clip-path", `url(#gridRectBarMask${w.globals.cuid})`);
+    host.insertBefore(ring.node, host.firstChild);
+    return ring.node;
+  }
+  /**
+   * The outline for a marker painted to canvas (`_drawCanvasFocusRing`): its
+   * painted shape, in the series' own group under the markers' clip, as the
+   * focused SVG marker node would be. Like that node it is what the box
+   * keeps clear of, so the box sits where it does on SVG.
+   * @param {number} i
+   * @param {number} j
+   * @returns {Element | null}
+   */
+  _drawCanvasMarkerFocusRing(i, j) {
+    const marker = this._canvasMarker(i, j);
+    if (!marker) return null;
+    const w = this.w;
+    const host = this._seriesGroup(i);
+    if (!host) return null;
+    const ring = new Graphics(w, this.ctx).drawPath({
+      d: marker.d,
+      fill: "none",
+      classes: "apexcharts-keyboard-focus-ring"
+    });
+    ring.attr("clip-path", `url(#gridRectMarkerMask${w.globals.cuid})`);
+    host.appendChild(ring.node);
+    return ring.node;
+  }
+  _removeFocusClass() {
+    if (this._focusedEl) {
+      this._focusedEl.classList.remove("apexcharts-keyboard-focused");
+      this._focusedEl.removeAttribute("role");
+      this._focusedEl.removeAttribute("aria-label");
+      if (this._focusedEl.classList.contains("apexcharts-keyboard-focus-ring")) {
+        this._focusedEl.remove();
+      }
+      this._focusedEl = null;
+    }
+  }
+  /**
+   * Build an accessible label for the data point at (i, j) using the same
+   * formatters the visible tooltip / axis labels use, so SR output matches
+   * the visual presentation.
+   * @param {number} i
+   * @param {number} j
+   * @returns {string}
+   */
+  _buildPointLabel(i, j) {
+    var _a, _b, _c, _d, _e, _f, _g, _h;
+    const w = this.w;
+    const type = w.config.chart.type;
+    const seriesNames = w.seriesData.seriesNames || [];
+    const series = w.seriesData.series || [];
+    if (this._isSliceChart()) {
+      const sliceLabel = (_b = ((_a = w.labelData) == null ? void 0 : _a.labels) && w.labelData.labels[j]) != null ? _b : "";
+      const value = Array.isArray(series) ? series[j] : "";
+      return sliceLabel ? `${sliceLabel}: ${value}` : `${value}`;
+    }
+    if (type === "radialBar") {
+      const seriesName2 = seriesNames[i] || `Series ${i + 1}`;
+      const value = Array.isArray(series) ? series[i] : "";
+      return `${seriesName2}: ${value}`;
+    }
+    const seriesName = seriesNames[i] || `Series ${i + 1}`;
+    const row = Array.isArray(series[i]) ? series[i] : [];
+    const rawValue = row[j];
+    let formattedValue = rawValue == null ? "" : String(rawValue);
+    const yFormatter = (_d = (_c = w.formatters) == null ? void 0 : _c.yLabelFormatters) == null ? void 0 : _d[i];
+    if (typeof yFormatter === "function") {
+      try {
+        formattedValue = yFormatter(rawValue, {
+          seriesIndex: i,
+          dataPointIndex: j,
+          w
+        });
+      } catch (e) {
+      }
+    }
+    let category = "";
+    const categoryLabels = (_e = w.labelData) == null ? void 0 : _e.categoryLabels;
+    const seriesX = (_g = (_f = w.seriesData) == null ? void 0 : _f.seriesX) == null ? void 0 : _g[i];
+    if (Array.isArray(categoryLabels) && categoryLabels[j] != null) {
+      category = String(categoryLabels[j]);
+    } else if (Array.isArray(seriesX) && seriesX[j] != null) {
+      const xFormatter = (_h = w.formatters) == null ? void 0 : _h.xLabelFormatter;
+      if (typeof xFormatter === "function") {
+        try {
+          category = String(
+            xFormatter(seriesX[j], { seriesIndex: i, dataPointIndex: j, w })
+          );
+        } catch (e) {
+          category = String(seriesX[j]);
+        }
+      } else {
+        category = String(seriesX[j]);
+      }
+    }
+    return category ? `${seriesName}: ${formattedValue}, ${category}` : `${seriesName}: ${formattedValue}`;
+  }
+  _leaveHoveredBar() {
+    if (this._hoveredBarEl) {
+      const graphics = new Graphics(this.w, this.ctx);
+      graphics.pathMouseLeave(this._hoveredBarEl, null);
+      this._hoveredBarEl = null;
+    }
+  }
+  /**
+   * @param {number} i
+   * @param {number} j
+   */
+  _getFocusableElement(i, j) {
+    var _a, _b;
+    const w = this.w;
+    const type = w.config.chart.type;
+    const baseEl = w.dom.baseEl;
+    if (this._isSliceChart()) {
+      return baseEl.querySelector(`.apexcharts-pie-area[j='${j}']`);
+    }
+    if (type === "heatmap") {
+      return baseEl.querySelector(
+        `.apexcharts-heatmap-rect[i='${i}'][j='${j}']`
+      );
+    }
+    if (type === "treemap") {
+      return baseEl.querySelector(
+        `.apexcharts-treemap-rect[i='${i}'][j='${j}']`
+      );
+    }
+    if (type === "radialBar") {
+      return baseEl.querySelector(`.apexcharts-radialbar-slice-${i}`);
+    }
+    if (this._isBarLikeSeries(i)) {
+      if (this._canvasMark(i, j)) return null;
+      return (_a = this._seriesGroup(i)) == null ? void 0 : _a.querySelector(`path[j='${j}']`);
+    }
+    return (_b = this._seriesGroup(i)) == null ? void 0 : _b.querySelector(`.apexcharts-marker[rel='${j}']`);
+  }
+  /**
+   * The series' own group, by realIndex (`rel` counts within a type's groups,
+   * which a combo has several of). Matched in script: not every selector
+   * engine takes the escaped `data\:realIndex` attribute.
+   * @param {number} i
+   * @returns {Element | undefined}
+   */
+  _seriesGroup(i) {
+    return Array.from(
+      this.w.dom.baseEl.querySelectorAll(".apexcharts-series")
+    ).find((g) => g.getAttribute("data:realIndex") === String(i));
+  }
+  // ─── Click / Enter ────────────────────────────────────────────────────────
+  /**
+   * What a click on the focused mark does: its mousedown selects it
+   * (dataPointSelection), its mouseup slides a pie slice out and fires
+   * markerClick.
+   * @param {KeyboardEvent} e
+   */
+  _fireClick(e) {
+    var _a, _b;
+    const el = (
+      /** @type {any} */
+      (_a = this._focusedEl) == null ? void 0 : _a.instance
+    );
+    const pie = this.ctx.pie;
+    if (el) new Graphics(this.w, this.ctx).pathMouseDown(el, e);
+    if (pie && pie.getExpandOffset() > 0) pie.pieClicked(this.dataPointIndex);
+    (_b = this.w.globals.tooltip) == null ? void 0 : _b.markerClick(
+      e,
+      this.seriesIndex,
+      this.dataPointIndex
+    );
+  }
+  // ─── Helpers ──────────────────────────────────────────────────────────────
+  _isNavEnabled() {
+    const a11y = this.w.config.chart.accessibility;
+    return a11y.enabled && a11y.keyboard.enabled && a11y.keyboard.navigation.enabled;
+  }
+  /**
+   * pie, donut and polarArea: one ring of slices, navigated as one series.
+   * @returns {boolean}
+   */
+  _isSliceChart() {
+    return ["pie", "donut", "polarArea"].includes(this.w.config.chart.type);
+  }
+  _getSeriesCount() {
+    const w = this.w;
+    if (this._isSliceChart()) {
+      return 1;
+    }
+    return w.seriesData.series.length;
+  }
+  /**
+   * @param {number} si
+   */
+  _getDataPointCount(si) {
+    const w = this.w;
+    if (this._isSliceChart()) {
+      return w.seriesData.series.length;
+    }
+    const s = w.seriesData.series[si];
+    return Array.isArray(s) ? s.length : 1;
+  }
+  _clampCursor() {
+    const seriesCount = this._getSeriesCount();
+    if (this.seriesIndex >= seriesCount) this.seriesIndex = seriesCount - 1;
+    if (this.seriesIndex < 0) this.seriesIndex = 0;
+    const dpCount = this._getDataPointCount(this.seriesIndex);
+    if (this.dataPointIndex >= dpCount) this.dataPointIndex = dpCount - 1;
+    if (this.dataPointIndex < 0) this.dataPointIndex = 0;
+  }
+  /**
+   * When the chart is zoomed in, the current dataPointIndex may point to a
+   * data point that is outside the visible viewport. Snap the cursor to the
+   * first data point whose x-value falls within [minX, maxX].
+   *
+   * Only adjusts when w.seriesData.seriesX is populated (numeric/datetime axes).
+   * Category-only charts (seriesX entries are strings or auto-indices) are
+   * unaffected — all points are always visible.
+   */
+  _snapToVisibleRange() {
+    const w = this.w;
+    const gl = w.globals;
+    const si = this.seriesIndex;
+    if (!w.interact.zoomed) return;
+    const seriesX = w.seriesData.seriesX && w.seriesData.seriesX[si];
+    if (!seriesX || !seriesX.length) return;
+    const minX = gl.minX;
+    const maxX = gl.maxX;
+    if (minX === void 0 || maxX === void 0) return;
+    const currentX = seriesX[this.dataPointIndex];
+    if (currentX >= minX && currentX <= maxX) return;
+    const dpCount = seriesX.length;
+    for (let di = 0; di < dpCount; di++) {
+      if (seriesX[di] >= minX && seriesX[di] <= maxX) {
+        this.dataPointIndex = di;
+        return;
+      }
+    }
+  }
+  /**
+   * Snap to the nearest visible data point in the given navigation direction.
+   * direction > 0 → find the first visible point (left boundary of zoomed range)
+   * direction < 0 → find the last visible point (right boundary of zoomed range)
+   * @param {number} direction
+   */
+  _snapToVisibleRangeInDirection(direction) {
+    const w = this.w;
+    const gl = w.globals;
+    const si = this.seriesIndex;
+    const seriesX = w.seriesData.seriesX && w.seriesData.seriesX[si];
+    if (!seriesX || !seriesX.length) return;
+    const minX = gl.minX;
+    const maxX = gl.maxX;
+    if (minX === void 0 || maxX === void 0) return;
+    const dpCount = seriesX.length;
+    if (direction >= 0) {
+      for (let di = 0; di < dpCount; di++) {
+        if (seriesX[di] >= minX && seriesX[di] <= maxX) {
+          this.dataPointIndex = di;
+          return;
+        }
+      }
+    } else {
+      for (let di = dpCount - 1; di >= 0; di--) {
+        if (seriesX[di] >= minX && seriesX[di] <= maxX) {
+          this.dataPointIndex = di;
+          return;
+        }
+      }
+    }
+  }
+  /**
+   * Check whether the data point at (si, di) is within the current visible
+   * x-axis range. Used to skip out-of-viewport points during keyboard nav.
+   * @param {number} si
+   * @param {number} di
+   */
+  _isDataPointVisible(si, di) {
+    const w = this.w;
+    const gl = w.globals;
+    if (!w.interact.zoomed) return true;
+    const seriesX = w.seriesData.seriesX && w.seriesData.seriesX[si];
+    if (!seriesX) return true;
+    const x = seriesX[di];
+    if (x === void 0) return true;
+    return x >= gl.minX && x <= gl.maxX;
+  }
+  /**
+   * A screen-reader string from the locale's `a11y` group, or the English
+   * default when a user-supplied locale omits it.
+   * @param {string} key
+   * @param {string} fallback
+   * @returns {string}
+   */
+  _a11yText(key, fallback) {
+    var _a, _b;
+    return ((_b = (_a = this.w.globals.locale) == null ? void 0 : _a.a11y) == null ? void 0 : _b[key]) || fallback;
+  }
+  /**
+   * Push a short status message to the visually-hidden aria-live region so
+   * screen readers announce zoom / pan / reset events that have no inherent
+   * tooltip update. Silently no-op if the region is missing or announcements
+   * are disabled.
+   * @param {string} message
+   */
+  _announce(message) {
+    const w = this.w;
+    if (!w.config.chart.accessibility.announcements.enabled) return;
+    const baseEl = w.dom.baseEl;
+    if (!baseEl) return;
+    const region = baseEl.querySelector(".apexcharts-sr-status");
+    if (!region) return;
+    region.textContent = "";
+    clearTimeout(this._announceTimer);
+    this._announceTimer = setTimeout(() => {
+      region.textContent = message;
+    }, 0);
+  }
+}
+_core__default.registerFeatures({ keyboardNavigation: KeyboardNavigation });
+export {
+  default2 as default
+};

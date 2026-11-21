@@ -8,7 +8,7 @@ main:not(.main-logueado) {
     background-color: #f4f6f9;
 }
 
-.contenedor_login {
+.contenedor_inicio_sesion {
     display: flex;
     width: 90%;
     max-width: 1100px;
@@ -35,10 +35,17 @@ main:not(.main-logueado) {
 .capa_overlay {
     position: absolute;
     inset: 0;
-    background: linear-gradient(135deg, rgba(16, 47, 78, 0.85), rgba(16, 47, 78, 0.4));
+
+    background: linear-gradient(to top,
+            rgba(16, 47, 78, 0.92) 0%,
+            rgba(16, 47, 78, 0.65) 30%,
+            rgba(16, 47, 78, 0.20) 60%,
+            rgba(16, 47, 78, 0) 100%);
+
     display: flex;
     align-items: flex-end;
     padding: 50px;
+    box-sizing: border-box;
 }
 
 .mensaje_bienvenida h2 {
@@ -111,6 +118,46 @@ main:not(.main-logueado) {
     border-color: #102f4e;
 }
 
+/* ==========================================
+   ICONO DE CONTRASEÑA - INICIO DE SESIÓN
+========================================== */
+
+.contenedor_inicio_sesion .password_contenedor {
+    position: relative;
+    width: 100%;
+}
+
+/* Posición del icono */
+.contenedor_inicio_sesion .password_contenedor .icono_ojo {
+    position: absolute;
+    top: 50%;
+    right: 12px;
+    transform: translateY(-50%);
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 24px;
+    height: 24px;
+    margin: 0;
+    padding: 0;
+
+    cursor: pointer;
+    z-index: 2;
+}
+
+/* Color al pasar el cursor */
+.contenedor_inicio_sesion .password_contenedor .icono_ojo:hover {
+    color: #00445f;
+}
+
+/* Espacio para que la contraseña no choque con el icono */
+.contenedor_inicio_sesion .password_contenedor input[type="password"],
+.contenedor_inicio_sesion .password_contenedor input[type="text"] {
+    padding-right: 42px;
+}
+
 .boton_login {
     width: 100%;
     height: 44px;
@@ -134,9 +181,90 @@ main:not(.main-logueado) {
     opacity: 0.7;
 }
 
-@media (max-width: 992px) {
 
-    .contenedor_login {
+.formulario_login_seccion {
+    flex-direction: column;
+    gap: 22px;
+}
+
+.login_contenido {
+    flex-shrink: 0;
+}
+
+.enlaces_login {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: nowrap;
+    gap: 10px;
+
+    width: 100%;
+    max-width: 400px;
+    margin: 0 auto;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+.enlaces_login a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+
+    flex: 0 1 auto;
+    min-width: 0;
+    min-height: 38px;
+    padding: 9px 10px;
+
+    box-sizing: border-box;
+    border: 1px solid #dce5eb;
+    border-radius: 8px;
+
+    background-color: #ffffff;
+    color: #102f4e;
+
+    font-size: 0.78rem;
+    font-weight: 600;
+    line-height: 1.3;
+    text-align: center;
+    text-decoration: none;
+    white-space: nowrap;
+
+    transition:
+        background-color 0.2s ease,
+        border-color 0.2s ease,
+        color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.enlaces_login a i {
+    flex-shrink: 0;
+    color: #00779e;
+    font-size: 0.9rem;
+}
+
+.enlaces_login a:hover {
+    background-color: #f0f7fa;
+    border-color: #00779e;
+    box-shadow: 0 3px 9px rgba(0, 68, 95, 0.08);
+}
+
+.enlaces_login a:hover i {
+    color: #00445f;
+}
+
+.enlaces_login a:focus-visible {
+    outline: 2px solid #00779e;
+    outline-offset: 3px;
+}
+
+@media (max-width: 992px) {
+    .formulario_login_seccion {
+        gap: 20px;
+    }
+
+    .contenedor_inicio_sesion {
         flex-direction: column;
         width: 92%;
         max-width: 500px;
@@ -192,5 +320,68 @@ main:not(.main-logueado) {
 
     .titulo_login h2 {
         font-size: 1.6rem;
+    }
+
+    .enlaces_login {
+        max-width: 100%;
+        gap: 10px;
+    }
+
+    .enlaces_login a {
+        padding: 10px 12px;
+        font-size: 0.84rem;
+    }
+}
+
+@media (max-width: 575px) {
+    .contenedor_inicio_sesion {
+        width: calc(100% - 24px);
+        margin: 12px auto;
+        border-radius: 12px;
+    }
+
+    .login_imagen {
+        height: clamp(140px, 24vh, 190px);
+    }
+
+    .capa_overlay {
+        padding: 18px;
+    }
+
+    .mensaje_bienvenida h2 {
+        font-size: 1.45rem;
+    }
+
+    .mensaje_bienvenida p {
+        font-size: 0.85rem;
+        line-height: 1.45;
+    }
+
+    .formulario_login_seccion {
+        gap: 14px;
+        padding: 16px 12px;
+    }
+
+    .login_contenido {
+        padding: 22px 18px;
+    }
+
+    .titulo_login {
+        margin-bottom: 20px;
+    }
+
+    .campo_login input[type="text"],
+    .campo_login input[type="password"] {
+        min-width: 0;
+        font-size: 16px;
+    }
+
+    .enlaces_login {
+        flex-wrap: wrap;
+    }
+
+    .enlaces_login a {
+        flex: 1 1 100%;
+        white-space: normal;
     }
 }

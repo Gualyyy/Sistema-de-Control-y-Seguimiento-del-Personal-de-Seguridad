@@ -21,9 +21,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const input_cantidad_equipo = document.getElementById("cantidad_equipo");
     const input_estado_equipo = document.getElementById("estado_equipo");
 
-    const btn_detalle_asignado_pdf = document.getElementById("detalle_asignado_pdf");
-    const btn_lista_asignacion_pdf = document.getElementById("lista_asignacion_pdf");
-
     const btn_retroceder = document.querySelector(".botones_navegacion .btn_retroceder");
     const btn_avanzar = document.querySelector(".botones_navegacion .btn_avanzar");
 
@@ -42,7 +39,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const resultado = await respuesta.json();
             console.log(resultado);
 
-            select_categoria_equipo.innerHTML = "<option value='' selected>Seleccione la categoria</option>";
+            select_categoria_equipo.innerHTML = "<option value='' selected>Todas las Categorias</option>";
 
             resultado.forEach(categoria => {
                 const option_categoria = document.createElement("option");
@@ -59,21 +56,20 @@ document.addEventListener("DOMContentLoaded", () => {
     select_nacionalidad_busqueda.addEventListener("change", async () => {
         nacionalidad = select_nacionalidad_busqueda.value;
 
-        await asignaciones_empleados()();
+        await asignaciones_empleados();
     });
 
     input_cedula_busqueda.addEventListener("input", async () => {
         cedula = input_cedula_busqueda.value;
 
-        await asignaciones_empleados()();
+        await asignaciones_empleados();
     });
 
     select_categoria_equipo.addEventListener("change", async () => {
         categoria = select_categoria_equipo.value;
 
-        await asignaciones_empleados()();
+        await asignaciones_empleados();
     });
-
 
     function mostrarAsignaciones() {
         contenedor_asignaciones.innerHTML = "";
@@ -184,8 +180,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     asignaciones_empleados();
 
-
-
     contenedor_asignaciones.addEventListener("click", async (e) => {
         const fila = e.target.closest("tr");
 
@@ -234,136 +228,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     btn_cerrar_asignacion.addEventListener("click", () => {
         dialogo_asignacion.close();
-    });
-
-    btn_lista_asignacion_pdf.addEventListener("click", async () => {
-        try {
-            const datos = new FormData();
-            datos.append("csrfmiddlewaretoken", csrfToken);
-            datos.append("categorias_registradas", select_categoria_equipo.value);
-            datos.append("nacionalidad", select_nacionalidad_busqueda.value);
-            datos.append("cedula_identidad", input_cedula_busqueda.value.trim());
-
-            const respuesta = await fetch("/asignaciones/lista_asignaciones_pdf_admin/", {
-                method: "POST",
-                body: datos,
-            });
-            const tipoContenido = respuesta.headers.get("content-type") || "";
-
-            if (tipoContenido.includes("application/json")) {
-                const resultado = await respuesta.json();
-
-                Swal.fire({
-                    title: resultado.title,
-                    text: resultado.descripcion,
-                    icon: resultado.icon,
-                    confirmButtonColor: "#00445F"
-                });
-                return;
-            }
-
-            if (!tipoContenido.includes("application/pdf")) {
-                Swal.fire({
-                    title: "Error al generar el reporte",
-                    text: "No se pudo generar el archivo PDF.",
-                    icon: "error",
-                    confirmButtonColor: "#00445F"
-                });
-
-                return;
-            }
-
-            const archivo = await respuesta.blob();
-            const url = URL.createObjectURL(archivo);
-            const ventana = window.open(url, "_blank");
-
-            if (!ventana) {
-                URL.revokeObjectURL(url);
-
-                Swal.fire({
-                    title: "Ventana bloqueada",
-                    text: (
-                        "Permite las ventanas emergentes para "
-                        + "poder visualizar el reporte PDF."
-                    ),
-                    icon: "warning",
-                    confirmButtonColor: "#00445F"
-                });
-
-                return;
-            }
-
-            ventana.addEventListener("load", () => {
-                URL.revokeObjectURL(url);
-            }, { once: true });
-
-        } catch (error) {
-            console.error(error);
-        }
-    });
-
-    btn_detalle_asignado_pdf.addEventListener("click", async () => {
-        try {
-            const datos = new FormData();
-            datos.append("csrfmiddlewaretoken", csrfToken);
-            datos.append("id_asignacion", input_id_asignacion.value);
-
-            const respuesta = await fetch("/asignaciones/detalle_asignacion_pdf_admin/", {
-                method: "POST",
-                body: datos,
-            });
-            const tipoContenido = respuesta.headers.get("content-type") || "";
-
-            if (tipoContenido.includes("application/json")) {
-                const resultado = await respuesta.json();
-
-                Swal.fire({
-                    title: resultado.title,
-                    text: resultado.descripcion,
-                    icon: resultado.icon,
-                    confirmButtonColor: "#00445F"
-                });
-                return;
-            }
-
-            if (!tipoContenido.includes("application/pdf")) {
-                Swal.fire({
-                    title: "Error al generar el reporte",
-                    text: "No se pudo generar el archivo PDF.",
-                    icon: "error",
-                    confirmButtonColor: "#00445F"
-                });
-
-                return;
-            }
-
-            const archivo = await respuesta.blob();
-            const url = URL.createObjectURL(archivo);
-            const ventana = window.open(url, "_blank");
-
-            if (!ventana) {
-                URL.revokeObjectURL(url);
-
-                Swal.fire({
-                    title: "Ventana bloqueada",
-                    text: (
-                        "Permite las ventanas emergentes para "
-                        + "poder visualizar el reporte PDF."
-                    ),
-                    icon: "warning",
-                    confirmButtonColor: "#00445F"
-                });
-
-                return;
-            }
-
-            ventana.addEventListener("load", () => {
-                URL.revokeObjectURL(url);
-            }, { once: true });
-
-        } catch (error) {
-            console.error(error);
-        }
     });
 
 });

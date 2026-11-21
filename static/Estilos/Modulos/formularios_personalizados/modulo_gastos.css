@@ -1,0 +1,840 @@
+.modulo_gastos {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 24px;
+    background: #ffffff;
+    border: 2px solid #00779e;
+    border-radius: 12px;
+    box-shadow: 0 4px 14px rgba(0, 68, 95, 0.08);
+}
+
+.modulo_gastos *,
+.modulo_gastos *::before,
+.modulo_gastos *::after {
+    box-sizing: border-box;
+}
+
+.modulo_gastos .formulario_gastos {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px 24px;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+}
+
+.modulo_gastos .campo_formulario {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+}
+
+.modulo_gastos .campo_formulario label {
+    color: #102f4e;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.modulo_gastos .campo_formulario input,
+.modulo_gastos .campo_formulario select,
+.modulo_gastos .campo_formulario textarea {
+    width: 100%;
+    min-width: 0;
+    height: 42px;
+    padding: 10px 12px;
+    border: 1px solid #cbd7e0;
+    border-radius: 7px;
+    background: #ffffff;
+    color: #102f4e;
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.modulo_gastos .campo_formulario textarea {
+    height: auto;
+    min-height: 85px;
+    resize: vertical;
+}
+
+.modulo_gastos .campo_formulario input:focus,
+.modulo_gastos .campo_formulario select:focus,
+.modulo_gastos .campo_formulario textarea:focus {
+    border-color: #00779e;
+    box-shadow: 0 0 0 3px rgba(0, 119, 158, 0.12);
+}
+
+.modulo_gastos .campo_formulario input::placeholder,
+.modulo_gastos .campo_formulario textarea::placeholder {
+    color: #8495a3;
+    font-size: 12px;
+}
+
+.modulo_gastos .campo_observacion {
+    grid-column: 1 / -1;
+}
+
+/* BOTÓN SUBMIT */
+.modulo_gastos .btn_submit {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    gap: 9px;
+    min-width: 160px;
+    min-height: 42px;
+    padding: 10px 22px;
+    border: 2px solid #003449;
+    border-radius: 7px;
+    background: #00445f;
+    color: #fffbf4;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+        background 0.25s ease,
+        color 0.25s ease,
+        border-color 0.25s ease,
+        box-shadow 0.25s ease,
+        transform 0.2s ease;
+}
+
+/* HOVER: COLORES INVERTIDOS */
+.modulo_gastos .btn_submit:hover {
+    background: #ffffff;
+    color: #00445f;
+    border-color: #00445f;
+    box-shadow: 0 3px 9px rgba(0, 68, 95, 0.12);
+}
+
+/* EFECTO AL PRESIONAR */
+.modulo_gastos .btn_submit:active {
+    transform: scale(0.98);
+}
+
+/* ESTADO DESHABILITADO */
+.modulo_gastos .btn_submit:disabled {
+    background: #aab8c2;
+    border-color: #aab8c2;
+    color: #f4f6f9;
+    cursor: not-allowed;
+    opacity: 0.75;
+    box-shadow: none;
+    transform: none;
+}
+
+/* ICONO */
+.modulo_gastos .btn_submit i {
+    color: inherit;
+    font-size: 16px;
+}
+
+.modulo_gastos .campo_formulario[hidden] {
+    display: none !important;
+}
+
+.modulo_gastos .contenedor_frecuencia {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px 24px;
+    width: 100%;
+    min-width: 0;
+    align-items: start;
+}
+
+.modulo_gastos .contenedor_frecuencia[hidden] {
+    display: none !important;
+}
+
+.modulo_gastos .mensaje-feedback {
+    display: block;
+    min-height: 16px;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+    transition: color 0.2s ease;
+}
+
+.modulo_gastos .mensaje-feedback:empty {
+    display: none;
+}
+
+.modulo_gastos .mensaje-feedback.exito {
+    color: #198754;
+}
+
+.modulo_gastos .mensaje-feedback.error {
+    color: #dc3545;
+}
+
+@media (max-width: 700px) {
+    .modulo_gastos {
+        padding: 18px;
+    }
+
+    .modulo_gastos .formulario_gastos {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 18px;
+    }
+
+    .modulo_gastos .contenedor_frecuencia {
+        grid-column: auto;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 18px;
+    }
+
+    .modulo_gastos .campo_observacion {
+        grid-column: auto;
+    }
+
+    .modulo_gastos .contenedor_boton_submit {
+        grid-column: auto;
+    }
+
+    .modulo_gastos .btn_submit {
+        width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .modulo_gastos .contenedor_frecuencia {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 400px) {
+    .modulo_gastos {
+        padding: 14px;
+    }
+
+    .modulo_gastos .campo_formulario input,
+    .modulo_gastos .campo_formulario select,
+    .modulo_gastos .campo_formulario textarea {
+        font-size: 12px;
+    }
+
+    .modulo_gastos .campo_formulario input::placeholder,
+    .modulo_gastos .campo_formulario textarea::placeholder {
+        font-size: 11px;
+    }
+}
+
+/* Gestionar Gastos */
+
+
+/* CONTENEDOR PRINCIPAL */
+
+.modulo_gastos {
+    width: 100%;
+    padding: 20px 24px;
+    background: #ffffff;
+    border: 2px solid #00779e;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 68, 95, 0.08);
+    box-sizing: border-box;
+}
+
+/* DISTRIBUCIÓN PRINCIPAL */
+
+.gestionar_gastos {
+    display: grid;
+    grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1.1fr);
+    align-items: stretch;
+    gap: 20px;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+/* PANELES PRINCIPALES */
+
+.actualizar_gastos,
+.visualizar_gastos {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 500px;
+    height: 100%;
+    background-color: #ffffff;
+    border: 1px solid #dce6ec;
+    border-radius: 10px;
+    box-shadow: 0 3px 10px rgba(0, 68, 95, 0.07);
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+/* ENCABEZADOS */
+
+.actualizar_gastos h3,
+.visualizar_gastos h3 {
+    display: flex;
+    align-items: center;
+    min-height: 49px;
+    margin: 0;
+    padding: 12px 18px;
+    background-color: #102f4e;
+    border-bottom: 3px solid #00779e;
+    color: #ffffff;
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 1.4;
+    box-sizing: border-box;
+}
+
+/* FORMULARIO DE ACTUALIZACIÓN */
+
+.actualizar_gastos .formulario_dialogo_datos {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-content: start;
+    gap: 15px 16px;
+    flex: 1;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+/* CAMPOS DEL FORMULARIO */
+
+.actualizar_gastos .campo_formulario,
+.visualizar_gastos .campo_formulario {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+.actualizar_gastos .campo_formulario label,
+.visualizar_gastos .campo_formulario label {
+    margin: 0;
+    color: #102f4e;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.4;
+}
+
+/* INPUTS, SELECTS Y TEXTAREAS */
+
+.actualizar_gastos .campo_formulario input,
+.actualizar_gastos .campo_formulario select,
+.actualizar_gastos .campo_formulario textarea,
+.visualizar_gastos .campo_formulario input,
+.visualizar_gastos .campo_formulario select {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    padding: 9px 12px;
+    border: 1px solid #cbd8e2;
+    border-radius: 8px;
+    background-color: #ffffff;
+    color: #102f4e;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 400;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    box-sizing: border-box;
+}
+
+/* ALTURA DE CAMPOS */
+
+.actualizar_gastos .campo_formulario input,
+.actualizar_gastos .campo_formulario select,
+.visualizar_gastos .campo_formulario input,
+.visualizar_gastos .campo_formulario select {
+    height: 42px;
+}
+
+/* TEXTAREA */
+
+.actualizar_gastos .campo_formulario textarea {
+    width: 100%;
+    min-height: 90px;
+    resize: vertical;
+    line-height: 1.5;
+}
+
+/* OBSERVACIONES */
+
+.actualizar_gastos .formulario_dialogo_datos .campo_observacion {
+    grid-column: 1 / -1;
+}
+
+/* PLACEHOLDER */
+
+.actualizar_gastos .campo_formulario input::placeholder,
+.actualizar_gastos .campo_formulario textarea::placeholder,
+.visualizar_gastos .campo_formulario input::placeholder {
+    color: #8495a3;
+    opacity: 1;
+    font-size: 12px;
+}
+
+/* ENFOQUE */
+
+.actualizar_gastos .campo_formulario input:focus,
+.actualizar_gastos .campo_formulario select:focus,
+.actualizar_gastos .campo_formulario textarea:focus,
+.visualizar_gastos .campo_formulario input:focus,
+.visualizar_gastos .campo_formulario select:focus {
+    outline: none;
+    border-color: #00779e;
+    box-shadow: 0 0 0 3px rgba(0, 119, 158, 0.10);
+}
+
+/* CAMPOS DESHABILITADOS */
+
+.actualizar_gastos .campo_formulario input:disabled,
+.actualizar_gastos .campo_formulario select:disabled,
+.actualizar_gastos .campo_formulario textarea:disabled {
+    background-color: #edf2f5;
+    color: #8495a3;
+    border-color: #d5dfe6;
+    cursor: not-allowed;
+    opacity: 1;
+    box-shadow: none;
+}
+
+/* CONTADOR DE CARACTERES */
+
+.actualizar_gastos .contador_caracteres {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 4px;
+    margin: 2px 0 0;
+    color: #526a7b;
+    font-size: 12px;
+}
+
+/* BOTÓN ACTUALIZAR */
+
+.actualizar_gastos .contenedor_boton_submit {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    grid-column: 1 / -1;
+    width: 100%;
+    margin-top: 2px;
+    padding-top: 5px;
+    box-sizing: border-box;
+}
+
+.actualizar_gastos .contenedor_boton_submit button {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    gap: 9px;
+    width: auto;
+    min-width: 175px;
+    min-height: 44px;
+    padding: 11px 22px;
+    border: 1px solid #00779e;
+    border-radius: 8px;
+    background-color: #00779e;
+    color: #ffffff;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.actualizar_gastos .contenedor_boton_submit button:hover {
+    background-color: #00445f;
+    border-color: #00445f;
+    box-shadow: 0 3px 8px rgba(0, 68, 95, 0.16);
+    transform: translateY(-1px);
+}
+
+.actualizar_gastos .contenedor_boton_submit button:active {
+    transform: translateY(0);
+}
+
+.actualizar_gastos .contenedor_boton_submit button i {
+    font-size: 14px;
+}
+
+.actualizar_gastos .contenedor_boton_submit button:focus-visible {
+    outline: 3px solid rgba(0, 119, 158, 0.3);
+    outline-offset: 3px;
+}
+
+.actualizar_gastos .contenedor_boton_submit button:disabled {
+    color: #71838c;
+    background-color: #dce5e9;
+    border-color: #dce5e9;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+}
+
+/* FILTROS DE BÚSQUEDA */
+
+.filtro_gastos {
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding: 18px 18px 14px;
+    box-sizing: border-box;
+}
+
+.filtro_gastos .formulario_base {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+.filtro_gastos .campos_fila {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    width: 100%;
+}
+
+.filtro_gastos .campos_reducido {
+    width: 100%;
+    min-width: 0;
+}
+
+/* CONTENEDOR DE TABLA */
+
+.visualizar_gastos .contenedor_tabla.detalle {
+    display: block;
+    width: calc(100% - 36px);
+    min-width: 0;
+    margin: 0 18px;
+    overflow-x: auto;
+    border: 1px solid #dce6ec;
+    border-radius: 8px;
+    background-color: #ffffff;
+    box-sizing: border-box;
+}
+
+/* TABLA */
+
+.visualizar_gastos .contenedor_tabla.detalle table {
+    width: 100%;
+    min-width: 620px;
+    border-collapse: collapse;
+    border-spacing: 0;
+    text-align: left;
+    font-size: 13px;
+}
+
+/* ENCABEZADO DE TABLA */
+
+.visualizar_gastos .contenedor_tabla.detalle thead {
+    background-color: #102f4e;
+    color: #ffffff;
+}
+
+.visualizar_gastos .contenedor_tabla.detalle th {
+    padding: 12px 10px;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* CELDAS */
+
+.visualizar_gastos .contenedor_tabla.detalle td {
+    padding: 11px 10px;
+    color: #334e60;
+    font-size: 12px;
+    border-bottom: 1px solid #e7edf1;
+    white-space: nowrap;
+}
+
+.visualizar_gastos .contenedor_tabla.detalle tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* FILAS SELECCIONABLES */
+
+.visualizar_gastos .contenedor_tabla.detalle tbody tr {
+    transition: background-color 0.2s ease;
+}
+
+.visualizar_gastos .contenedor_tabla.detalle tbody tr.fila_gasto:hover {
+    background-color: #edf6fa;
+}
+
+.visualizar_gastos .contenedor_tabla.detalle tbody tr.fila_gasto.seleccionada {
+    background-color: #dceef5;
+    box-shadow: inset 3px 0 0 #00779e;
+}
+
+/* PAGINACIÓN */
+
+.visualizar_gastos .botones_navegacion {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    width: calc(100% - 36px);
+    margin: auto 18px 18px;
+    padding-top: 15px;
+    box-sizing: border-box;
+}
+
+.visualizar_gastos .botones_navegacion button {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    gap: 7px;
+    min-width: 130px;
+    min-height: 44px;
+}
+
+.visualizar_gastos .contenedor_tabla.detalle .acciones_gasto {
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 8px;
+    white-space: nowrap;
+}
+
+.visualizar_gastos .contenedor_tabla.detalle .btn_actualizar_gasto,
+.visualizar_gastos .contenedor_tabla.detalle .btn_visualizar_gasto {
+    display: inline-flex;
+    flex: 0 0 auto;
+    justify-content: center;
+    align-items: center;
+    gap: 7px;
+    min-width: 82px;
+    min-height: 34px;
+    padding: 7px 10px;
+    border: 1px solid #00445f;
+    border-radius: 6px;
+    background-color: #00445f;
+    color: #ffffff;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.visualizar_gastos .contenedor_tabla.detalle .btn_actualizar_gasto:hover,
+.visualizar_gastos .contenedor_tabla.detalle .btn_visualizar_gasto:hover {
+    background-color: #00779e;
+    border-color: #00779e;
+    box-shadow: 0 2px 6px rgba(0, 68, 95, 0.16);
+}
+
+.visualizar_gastos .contenedor_tabla.detalle .btn_actualizar_gasto:focus-visible,
+.visualizar_gastos .contenedor_tabla.detalle .btn_visualizar_gasto:focus-visible {
+    outline: 2px solid #00779e;
+    outline-offset: 2px;
+}
+
+/* RESPONSIVE - PANTALLAS MEDIANAS */
+
+@media (max-width: 1100px) {
+
+    .modulo_gastos {
+        padding: 16px;
+    }
+
+    .gestionar_gastos {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 14px;
+    }
+
+    .actualizar_gastos,
+    .visualizar_gastos {
+        min-height: 480px;
+    }
+
+    .actualizar_gastos .formulario_dialogo_datos {
+        padding: 16px;
+        gap: 13px;
+    }
+
+    .filtro_gastos {
+        padding: 15px 12px 12px;
+    }
+
+    .visualizar_gastos .contenedor_tabla.detalle {
+        width: calc(100% - 24px);
+        margin: 0 12px;
+    }
+
+    .visualizar_gastos .botones_navegacion {
+        width: calc(100% - 24px);
+        margin-right: 12px;
+        margin-left: 12px;
+    }
+}
+
+/* RESPONSIVE - TABLETAS */
+
+@media (max-width: 850px) {
+
+    .gestionar_gastos {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 16px;
+    }
+
+    .actualizar_gastos,
+    .visualizar_gastos {
+        height: auto;
+        min-height: 0;
+    }
+
+    .actualizar_gastos .formulario_dialogo_datos {
+        padding: 18px;
+    }
+
+    .visualizar_gastos .botones_navegacion {
+        margin-top: 20px;
+    }
+}
+
+/* RESPONSIVE - MÓVILES */
+
+@media (max-width: 550px) {
+
+    .modulo_gastos {
+        padding: 10px;
+    }
+
+    .actualizar_gastos h3,
+    .visualizar_gastos h3 {
+        min-height: 45px;
+        padding: 11px 14px;
+        font-size: 15px;
+    }
+
+    .actualizar_gastos .formulario_dialogo_datos {
+        grid-template-columns: minmax(0, 1fr);
+        padding: 14px;
+        gap: 13px;
+    }
+
+    .actualizar_gastos .formulario_dialogo_datos .campo_observacion,
+    .actualizar_gastos .contenedor_boton_submit {
+        grid-column: 1;
+    }
+
+    .filtro_gastos {
+        padding: 14px 12px 12px;
+    }
+
+    .visualizar_gastos .contenedor_tabla.detalle {
+        width: calc(100% - 24px);
+        margin: 0 12px;
+    }
+
+    .visualizar_gastos .botones_navegacion {
+        width: calc(100% - 24px);
+        margin: 18px 12px 14px;
+        gap: 8px;
+    }
+
+    .visualizar_gastos .botones_navegacion button {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .actualizar_gastos .contenedor_boton_submit button {
+        min-width: 165px;
+    }
+}
+
+/* RESPONSIVE - TELÉFONOS PEQUEÑOS */
+
+@media (max-width: 380px) {
+
+    .modulo_gastos {
+        padding: 8px;
+    }
+
+    .actualizar_gastos,
+    .visualizar_gastos {
+        border-radius: 8px;
+    }
+
+    .actualizar_gastos .formulario_dialogo_datos {
+        padding: 12px;
+    }
+
+    .actualizar_gastos .campo_formulario label,
+    .visualizar_gastos .campo_formulario label {
+        font-size: 13px;
+    }
+
+    .actualizar_gastos .campo_formulario input,
+    .actualizar_gastos .campo_formulario select,
+    .actualizar_gastos .campo_formulario textarea,
+    .visualizar_gastos .campo_formulario input,
+    .visualizar_gastos .campo_formulario select {
+        font-size: 12px;
+    }
+
+    .actualizar_gastos .campo_formulario input::placeholder,
+    .actualizar_gastos .campo_formulario textarea::placeholder {
+        font-size: 11px;
+    }
+
+    .actualizar_gastos .contenedor_boton_submit button {
+        min-width: 155px;
+        padding: 9px 14px;
+        font-size: 12px;
+    }
+
+    .visualizar_gastos .botones_navegacion {
+        gap: 6px;
+    }
+
+    .visualizar_gastos .botones_navegacion button {
+        padding: 8px 5px;
+        font-size: 12px;
+    }
+}
+
+.actualizar_gastos .campo_formulario small {
+    color: #526a7b;
+    font-size: 11px;
+    line-height: 1.4;
+}
+
+.actualizar_gastos .contenedor_boton_submit {
+    grid-column: 1 / -1;
+    justify-content: center;
+    margin-top: 5px;
+}
+
+.actualizar_gastos .contenedor_boton_submit button {
+    min-width: 175px;
+    min-height: 44px;
+}
+
+.actualizar_gastos .formulario_dialogo_datos.validando input:invalid,
+.actualizar_gastos .formulario_dialogo_datos.validando select:invalid,
+.actualizar_gastos .formulario_dialogo_datos.validando textarea:invalid {
+    border-color: #c62828;
+    box-shadow: 0 0 0 2px rgba(198, 40, 40, 0.12);
+}
+
+@media (max-width: 600px) {
+    .actualizar_gastos .contenedor_boton_submit button {
+        width: 100%;
+    }
+}

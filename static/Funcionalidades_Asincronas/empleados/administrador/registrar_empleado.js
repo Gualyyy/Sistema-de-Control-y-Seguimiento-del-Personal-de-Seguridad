@@ -26,15 +26,20 @@ document.addEventListener("DOMContentLoaded", () => {
     const contenedor_mensaje_correo_secundario = document.getElementById("contenedor_mensaje_correo_secundario");
 
     const select_turno_laboral = document.getElementById("turno_laboral");
-    const contenedor_perfiles = document.getElementById("contenedor_perfiles");
-    const contenedor_mensaje_turno = document.getElementById("contenedor_mensaje_turno");
-    const contenedor_texto_mensaje_turno = document.getElementById("contenedor_texto_mensaje_turno");
 
-    const textarea_direccion_residencia = document.getElementById("direccion_domicilio");
-    const contador_residencia = document.getElementById("contador_residencia");
+    const input_encargado_administrativo = document.getElementById("encargado_administrativo");
+    const input_atencion_cliente = document.getElementById("atencion_cliente");
+    const input_supervisor_encargado = document.getElementById("supervisor_encargado");
+    const input_despachador = document.getElementById("despachador");
+    const input_vigilante = document.getElementById("vigilante");
+    const input_personal_limpieza = document.getElementById("personal_limpieza");
+    const contenedor_texto_mensaje_turno = document.getElementById("contenedor_texto_mensaje_turno");
 
     const textarea_direccion_nacimiento = document.getElementById("direccion_nacimiento");
     const contador_nacimiento = document.getElementById("contador_nacimiento");
+
+    const textarea_direccion_domicilioo = document.getElementById("direccion_domicilio");
+    const contador_residencia = document.getElementById("contador_residencia");
 
     configurarCorreo(input_correo_principal, select_dominio_principal);
     configurarCorreo(input_correo_secundario, select_dominio_secundaria);
@@ -42,7 +47,23 @@ document.addEventListener("DOMContentLoaded", () => {
     configurarTelefono(input_num_telefono_secundario, select_prefijo_secundario);
     configurarCedula(input_cedula_identidad, select_nacionalidad);
 
-    let turno = "";
+    textarea_direccion_nacimiento.addEventListener("input", () => {
+        textarea_direccion_nacimiento.value = textarea_direccion_nacimiento.value.replace(
+            /[^a-zA-ZáéíóúÁÉÍÓÚñÑ0-9\s.,:;()\-]/g,
+            ""
+        );
+
+        contador_nacimiento.textContent = textarea_direccion_nacimiento.value.length;
+    });
+
+    textarea_direccion_domicilioo.addEventListener("input", () => {
+        textarea_direccion_domicilioo.value = textarea_direccion_domicilioo.value.replace(
+            /[^a-zA-ZáéíóúÁÉÍÓÚñÑ0-9\s.,:;()\-]/g,
+            ""
+        );
+
+        contador_residencia.textContent = textarea_direccion_domicilioo.value.length;
+    });
 
     function soloTexto(input) {
         input.value = input.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]/g, '');
@@ -56,24 +77,6 @@ document.addEventListener("DOMContentLoaded", () => {
         soloTexto(this);
     });
 
-    textarea_direccion_nacimiento.addEventListener("input", () => {
-        textarea_direccion_nacimiento.value = textarea_direccion_nacimiento.value.replace(
-            /[^a-zA-ZáéíóúÁÉÍÓÚñÑ0-9\s.,:;()\-]/g,
-            ""
-        );
-
-        contador_nacimiento.textContent = textarea_direccion_nacimiento.value.length;
-    });
-
-    textarea_direccion_residencia.addEventListener("input", () => {
-        textarea_direccion_residencia.value = textarea_direccion_residencia.value.replace(
-            /[^a-zA-ZáéíóúÁÉÍÓÚñÑ0-9\s.,:;()\-]/g,
-            ""
-        );
-
-        contador_residencia.textContent = textarea_direccion_residencia.value.length;
-    });
-
     async function validar_ci(nacionalidad, cedula, msg) {
         if (!nacionalidad.value || !cedula.value.trim()) {
             msg.textContent = "";
@@ -81,10 +84,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
             cedula.setCustomValidity("");
             cedula.classList.remove("is-valid", "is-invalid");
+            delete cedula.dataset.validando;
+
             return;
         }
 
         try {
+            cedula.dataset.validando = "true";
+
             const formulario = new FormData();
             formulario.append("nacionalidad", nacionalidad.value);
             formulario.append("cedula", cedula.value);
@@ -92,36 +99,44 @@ document.addEventListener("DOMContentLoaded", () => {
             const respuesta = await fetch("/validar_ci/", {
                 method: "POST",
                 headers: {
-                    "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]").value
+                    "X-CSRFToken": document.querySelector(
+                        "[name=csrfmiddlewaretoken]"
+                    ).value
                 },
                 body: formulario
             });
+
             const resultado = await respuesta.json();
             console.log(resultado);
 
             if (resultado.existe) {
-                // Manejo del campo de texto
-                cedula.setCustomValidity("Ya se encuentra la cédula de identidad registrada.");
+                cedula.setCustomValidity(
+                    "Ya se encuentra la cédula de identidad registrada."
+                );
+
                 cedula.classList.add("is-invalid");
                 cedula.classList.remove("is-valid");
 
-                // Manejo del mensaje visual
                 msg.textContent = "Ya se encuentra la cédula de identidad registrada.";
                 msg.classList.add("error");
                 msg.classList.remove("exito");
+
             } else {
-                // Manejo del campo de texto
                 cedula.setCustomValidity("");
+
                 cedula.classList.add("is-valid");
                 cedula.classList.remove("is-invalid");
 
-                // Manejo del mensaje visual
                 msg.textContent = "Cédula de Identidad disponible.";
                 msg.classList.add("exito");
                 msg.classList.remove("error");
             }
+
         } catch (error) {
             console.error("Error al validar la cédula:", error);
+
+        } finally {
+            delete cedula.dataset.validando;
         }
     }
 
@@ -174,7 +189,6 @@ document.addEventListener("DOMContentLoaded", () => {
         await validar_ci(select_nacionalidad, input_cedula_identidad, contenedor_mensaje_ci);
     });
 
-
     let controlador_telefono_principal = null;
     let controlador_telefono_secundario = null;
 
@@ -187,7 +201,6 @@ document.addEventListener("DOMContentLoaded", () => {
             if (controlador_telefono_principal) {
                 controlador_telefono_principal.abort();
             }
-
         } else {
             if (controlador_telefono_secundario) {
                 controlador_telefono_secundario.abort();
@@ -197,15 +210,12 @@ document.addEventListener("DOMContentLoaded", () => {
         // Prefijo o número vacío
         if (!valorPrefijo || !valorNumero) {
             msg.textContent = "";
-            msg.classList.remove(
-                "exito",
-                "error"
-            );
+            msg.classList.remove("exito", "error");
+
             numero.setCustomValidity("");
-            numero.classList.remove(
-                "is-valid",
-                "is-invalid"
-            );
+            numero.classList.remove("is-valid", "is-invalid");
+
+            delete numero.dataset.validando;
             return;
         }
 
@@ -213,16 +223,24 @@ document.addEventListener("DOMContentLoaded", () => {
         const otroPrefijo = otro_prefijo.value.trim();
         const otroNumero = otro_numero.value.trim();
 
-        if (otroPrefijo &&
+        if (
+            otroPrefijo &&
             otroNumero &&
             valorPrefijo === otroPrefijo &&
-            valorNumero === otroNumero) {
-            numero.setCustomValidity("El teléfono principal y secundario no pueden ser iguales.");
+            valorNumero === otroNumero
+        ) {
+            numero.setCustomValidity(
+                "El teléfono principal y secundario no pueden ser iguales."
+            );
+
             numero.classList.add("is-invalid");
             numero.classList.remove("is-valid");
+
             msg.textContent = "El teléfono principal y secundario no pueden ser iguales.";
             msg.classList.add("error");
             msg.classList.remove("exito");
+
+            delete numero.dataset.validando;
             return;
         }
 
@@ -236,6 +254,8 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         try {
+            numero.dataset.validando = "true";
+
             const formulario = new FormData();
             formulario.append("prefijo", valorPrefijo);
             formulario.append("numeros", valorNumero);
@@ -250,36 +270,68 @@ document.addEventListener("DOMContentLoaded", () => {
                 body: formulario,
                 signal: controlador.signal
             });
+
             const resultado = await respuesta.json();
             console.log(resultado);
 
+            // Comprobar que la petición sigue siendo la actual
+            if (
+                (tipo === "principal" &&
+                    controlador_telefono_principal !== controlador) ||
+                (tipo === "secundario" &&
+                    controlador_telefono_secundario !== controlador)
+            ) {
+                return;
+            }
+
             // Comprobar que los valores siguen siendo los mismos
-            if (prefijo.value.trim() !== valorPrefijo ||
-                numero.value.trim() !== valorNumero) {
+            if (
+                prefijo.value.trim() !== valorPrefijo ||
+                numero.value.trim() !== valorNumero
+            ) {
                 return;
             }
 
             // TELÉFONO YA EXISTE
             if (resultado.existe) {
-                numero.setCustomValidity("Ya existe un usuario con este número telefónico.");
+                numero.setCustomValidity(
+                    "Ya existe un usuario con este número telefónico."
+                );
+
                 numero.classList.add("is-invalid");
                 numero.classList.remove("is-valid");
+
                 msg.textContent = "Ya existe un usuario con este número telefónico.";
                 msg.classList.add("error");
                 msg.classList.remove("exito");
+
             } else {
                 numero.setCustomValidity("");
+
                 numero.classList.add("is-valid");
                 numero.classList.remove("is-invalid");
+
                 msg.textContent = "El número telefónico está disponible.";
                 msg.classList.add("exito");
                 msg.classList.remove("error");
             }
+
         } catch (error) {
             if (error.name === "AbortError") {
                 return;
             }
+
             console.error(error);
+
+        } finally {
+            if (
+                (tipo === "principal" &&
+                    controlador_telefono_principal === controlador) ||
+                (tipo === "secundario" &&
+                    controlador_telefono_secundario === controlador)
+            ) {
+                delete numero.dataset.validando;
+            }
         }
     }
 
@@ -359,8 +411,11 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!valorDominio || !valorCorreo) {
             msg.textContent = "";
             msg.classList.remove("exito", "error");
+
             correo.setCustomValidity("");
             correo.classList.remove("is-valid", "is-invalid");
+
+            delete correo.dataset.validando;
             return;
         }
 
@@ -368,16 +423,24 @@ document.addEventListener("DOMContentLoaded", () => {
         const otroValorCorreo = otro_correo.value.trim().toLowerCase();
         const otroValorDominio = otro_dominio.value.trim().toLowerCase();
 
-        if (otroValorCorreo &&
+        if (
+            otroValorCorreo &&
             otroValorDominio &&
             valorCorreo === otroValorCorreo &&
-            valorDominio === otroValorDominio) {
-            correo.setCustomValidity("El correo electrónico principal y secundario no pueden ser iguales.");
+            valorDominio === otroValorDominio
+        ) {
+            correo.setCustomValidity(
+                "El correo electrónico principal y secundario no pueden ser iguales."
+            );
+
             correo.classList.add("is-invalid");
             correo.classList.remove("is-valid");
+
             msg.textContent = "El correo electrónico principal y secundario no pueden ser iguales.";
             msg.classList.add("error");
             msg.classList.remove("exito");
+
+            delete correo.dataset.validando;
             return;
         }
 
@@ -391,6 +454,8 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         try {
+            correo.dataset.validando = "true";
+
             const formulario = new FormData();
             formulario.append("correo", valorCorreo);
             formulario.append("dominio", valorDominio);
@@ -398,42 +463,75 @@ document.addEventListener("DOMContentLoaded", () => {
             const respuesta = await fetch("/validar_email/", {
                 method: "POST",
                 headers: {
-                    "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]").value
+                    "X-CSRFToken": document.querySelector(
+                        "[name=csrfmiddlewaretoken]"
+                    ).value
                 },
                 body: formulario,
                 signal: controlador.signal
             });
+
             const resultado = await respuesta.json();
             console.log(resultado);
 
-            // COMPROBAR QUE NO CAMBIÓ DURANTE LA PETICIÓN
-            if (correo.value.trim().toLowerCase() !== valorCorreo ||
-                dominio.value.trim().toLowerCase() !== valorDominio) {
+            // COMPROBAR QUE LA PETICIÓN SIGUE SIENDO LA ACTUAL
+            if (
+                (tipo === "principal" &&
+                    controlador_correo_principal !== controlador) ||
+                (tipo === "secundario" &&
+                    controlador_correo_secundario !== controlador)
+            ) {
+                return;
+            }
+
+            // COMPROBAR QUE LOS VALORES NO CAMBIARON
+            if (
+                correo.value.trim().toLowerCase() !== valorCorreo ||
+                dominio.value.trim().toLowerCase() !== valorDominio
+            ) {
                 return;
             }
 
             // CORREO YA EXISTE
             if (resultado.existe) {
-                correo.setCustomValidity("Ya existe un usuario con este correo electrónico.");
+                correo.setCustomValidity(
+                    "Ya existe un usuario con este correo electrónico."
+                );
+
                 correo.classList.add("is-invalid");
                 correo.classList.remove("is-valid");
+
                 msg.textContent = "Ya existe un usuario con este correo electrónico.";
                 msg.classList.add("error");
                 msg.classList.remove("exito");
+
             } else {
                 correo.setCustomValidity("");
+
                 correo.classList.add("is-valid");
                 correo.classList.remove("is-invalid");
+
                 msg.textContent = "El correo electrónico está disponible.";
                 msg.classList.add("exito");
                 msg.classList.remove("error");
             }
+
         } catch (error) {
             if (error.name === "AbortError") {
                 return;
             }
 
             console.error(error);
+
+        } finally {
+            if (
+                (tipo === "principal" &&
+                    controlador_correo_principal === controlador) ||
+                (tipo === "secundario" &&
+                    controlador_correo_secundario === controlador)
+            ) {
+                delete correo.dataset.validando;
+            }
         }
     }
 
@@ -491,14 +589,13 @@ document.addEventListener("DOMContentLoaded", () => {
         );
     });
 
-
     async function turnos_registrados() {
         try {
             const respuesta = await fetch("/turnos_registrados/");
             const resultado = await respuesta.json();
             console.log(resultado);
 
-            select_turno_laboral.innerHTML = "<option value='' selected>Seleccione un Turno</option>";
+            select_turno_laboral.innerHTML = '<option value="Turno Completo" selected> Todos los Turnos Laborales</option>';
 
             resultado.forEach(turno => {
                 const option = document.createElement("option");
@@ -506,6 +603,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 option.textContent = turno.nombre;
                 select_turno_laboral.append(option);
             });
+
+            await Promise.all([
+                perfiles_sin_turno_registrados(),
+                perfiles_registrados(select_turno_laboral.value)
+            ]);
         } catch (error) {
             console.error(error);
         }
@@ -513,29 +615,80 @@ document.addEventListener("DOMContentLoaded", () => {
     turnos_registrados();
 
     select_turno_laboral.addEventListener("change", async () => {
-        turno = select_turno_laboral.value;
-
-        await perfiles_registrados();
+        await perfiles_registrados(select_turno_laboral.value);
     });
 
-
-    async function perfiles_registrados() {
+    // PERFILES QUE NO REQUIEREN TURNO
+    async function perfiles_sin_turno_registrados() {
         try {
-            contenedor_perfiles.innerHTML = "";
+            const respuesta = await fetch("/perfiles_sin_turno_registrados/");
+            const resultado = await respuesta.json();
+            console.log(resultado);
 
-            if (!turno) {
-                contenedor_texto_mensaje_turno.textContent = "Seleccione un turno para mostrar los perfiles disponibles.";
+            // Encargado Administrativo
+            actualizar_estado_perfil(input_encargado_administrativo, resultado.encargado_administrativo_registrado);
 
-                contenedor_mensaje_turno.style.display = "block";
-                return;
-            }
+            // Atención al Cliente
+            actualizar_estado_perfil(input_atencion_cliente, resultado.atencion_cliente_registrada);
+        } catch (error) {
+            console.error(error);
 
-            contenedor_mensaje_turno.style.display = "none";
+            [
+                input_encargado_administrativo,
+                input_atencion_cliente
+            ].forEach(input => {
+                if (input) {
+                    input.disabled = true;
+                    input.checked = false;
+                }
+            });
+        }
+    }
 
+
+    // PERFILES QUE REQUIEREN TURNO
+    async function perfiles_registrados(turnoId) {
+        if (turnoId === "Turno Completo") {
+            contenedor_texto_mensaje_turno.textContent = "Seleccione un perfil disponible para el turno completo.";
+
+            [
+                input_supervisor_encargado,
+                input_despachador,
+                input_vigilante,
+                input_personal_limpieza
+            ].forEach(input => {
+                if (input) {
+                    input.disabled = true;
+                    input.checked = false;
+                }
+            });
+
+            [
+                input_supervisor_encargado,
+                input_despachador,
+                input_vigilante,
+                input_personal_limpieza
+            ].forEach(input => {
+                const span = input?.parentElement.querySelector(".estado_perfil");
+
+                if (span) {
+                    span.textContent = "";
+                }
+            });
+
+            return;
+        }
+
+        if (!turnoId) {
+            desactivarPerfilesConTurno("Seleccione un turno para mostrar los perfiles disponibles.");
+            return;
+        }
+
+        try {
             const formulario = new FormData();
-            formulario.append("turno", turno);
+            formulario.append("turno", turnoId);
 
-            const respuesta = await fetch("/perfiles_disponibles/", {
+            const respuesta = await fetch("/perfiles_disponibles_registro/", {
                 method: "POST",
                 headers: {
                     "X-CSRFToken": document.querySelector(
@@ -547,34 +700,84 @@ document.addEventListener("DOMContentLoaded", () => {
             const resultado = await respuesta.json();
             console.log(resultado);
 
-            resultado.perfiles.forEach((perfil, index) => {
-                const div = document.createElement("div");
-                div.classList.add("perfil-item");
+            if (resultado.estado !== "exito") {
+                desactivarPerfilesConTurno(resultado.descripcion);
+                return;
+            }
 
-                const input = document.createElement("input");
+            contenedor_texto_mensaje_turno.textContent = "Seleccione un perfil para el turno laboral seleccionado.";
 
-                input.type = "radio";
-                input.name = "perfil";
-                input.value = perfil.perfil;
-                input.id = `perfil_${index}`;
+            // Supervisor Encargado
+            actualizar_estado_perfil(
+                input_supervisor_encargado,
+                resultado.supervisor_encargado_registrado
+            );
 
-                const label = document.createElement("label");
+            // Perfiles múltiples
+            [
+                input_despachador,
+                input_vigilante,
+                input_personal_limpieza
+            ].forEach(input => {
+                if (input) {
+                    input.disabled = false;
+                    input.checked = false;
 
-                label.htmlFor = `perfil_${index}`;
-                label.textContent = perfil.perfil;
+                    const span = input.parentElement.querySelector(".estado_perfil");
 
-                div.appendChild(input);
-                div.appendChild(label);
-
-                contenedor_perfiles.appendChild(div);
+                    if (span) {
+                        span.textContent = "";
+                    }
+                }
             });
+
         } catch (error) {
             console.error(error);
+            desactivarPerfilesConTurno("Error de conexión al consultar los perfiles.");
         }
     }
-    perfiles_registrados();
 
-    const navegacion = configurarFormularioPasos(formulario_registro);
+    // ACTUALIZAR ESTADO DE UN PERFIL
+    function actualizar_estado_perfil(input, registrado) {
+        if (!input) {
+            return;
+        }
+
+        input.disabled = registrado;
+        input.checked = false;
+
+        const span = input.parentElement.querySelector(".estado_perfil");
+
+        if (span) {
+            span.textContent = registrado ? "(Ya registrado)" : "";
+        }
+    }
+
+    // DESACTIVAR PERFILES QUE REQUIEREN TURNO
+    function desactivarPerfilesConTurno(mensaje) {
+        contenedor_texto_mensaje_turno.textContent = mensaje;
+
+        [
+            input_supervisor_encargado,
+            input_despachador,
+            input_vigilante,
+            input_personal_limpieza
+        ].forEach(input => {
+
+            if (input) {
+                input.disabled = true;
+                input.checked = false;
+
+                const span = input.parentElement.querySelector(".estado_perfil");
+
+                if (span) {
+                    span.textContent = "";
+                }
+            }
+        });
+    }
+
+    const navegacion = configurarDesplazamientoPasos(formulario_registro);
 
     formulario_registro.addEventListener("submit", async (e) => {
         e.preventDefault();
@@ -594,23 +797,25 @@ document.addEventListener("DOMContentLoaded", () => {
                 icon: resultado.icon
             });
 
-            if (resultado.estado == "exito") {
-                formulario_registro.reset();
-                navegacion.reiniciar();
+            if (resultado.estado != "exito") return;
 
-                select_nacionalidad.selectedIndex = 0;
+            formulario_registro.reset();
+            navegacion.reiniciar();
 
-                contenedor_mensaje_ci.innerHTML = "";
-                contenedor_mensaje_correo_principal.innerHTML = "";
-                contenedor_mensaje_correo_secundario.innerHTML = "";
-                contenedor_mensaje_telefono_principal.innerHTML = "";
-                contenedor_mensaje_telefono_secundario.innerHTML = "";
 
-                // REINICIAR PERFILES
-                contenedor_perfiles.innerHTML = "";
-                contenedor_texto_mensaje_turno.textContent = "Seleccione un turno para mostrar los perfiles disponibles.";
-                contenedor_mensaje_turno.style.display = "block";
-            }
+            contenedor_mensaje_ci.innerHTML = "";
+            contenedor_mensaje_correo_principal.innerHTML = "";
+            contenedor_mensaje_correo_secundario.innerHTML = "";
+            contenedor_mensaje_telefono_principal.innerHTML = "";
+            contenedor_mensaje_telefono_secundario.innerHTML = "";
+
+            turno = "";
+            select_turno_laboral.selectedIndex = 0;
+
+            await Promise.all([
+                perfiles_sin_turno_registrados(),
+                perfiles_registrados(select_turno_laboral.value)
+            ]);
         } catch (error) {
             console.error(error);
         }

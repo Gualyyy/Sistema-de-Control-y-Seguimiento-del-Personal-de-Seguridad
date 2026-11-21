@@ -1,0 +1,356 @@
+.pagina_recuperar_user {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 100%;
+    min-width: 0;
+    margin: 35px auto;
+    padding: 20px;
+
+    box-sizing: border-box;
+}
+
+.pagina_recuperar_user *,
+.pagina_recuperar_user *::before,
+.pagina_recuperar_user *::after {
+    box-sizing: border-box;
+}
+
+.contenedor_recuperar_user {
+    display: grid;
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+
+    width: 100%;
+    max-width: 950px;
+    min-width: 0;
+    min-height: 370px;
+
+    overflow: hidden;
+
+    background-color: #ffffff;
+    border-radius: 12px;
+
+    box-shadow: 0 8px 24px rgba(0, 68, 95, 0.08);
+}
+
+.imagen_recuperar_user {
+    grid-column: 1;
+    grid-row: 1;
+
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+
+    width: 100%;
+    min-width: 0;
+    min-height: 370px;
+
+    overflow: hidden;
+    background-color: #f3f7f9;
+}
+
+.imagen_recuperar_user img {
+    display: block;
+
+    width: 100%;
+    height: 100%;
+    min-height: 370px;
+
+    object-fit: cover;
+    object-position: center;
+
+    margin: 0;
+    padding: 0;
+    border: none;
+}
+
+.contenido_recuperar_user {
+    grid-column: 2;
+    grid-row: 1;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    align-self: stretch;
+
+    min-width: 0;
+    margin: 0;
+    padding: 20px 30px;
+
+    text-align: center;
+}
+
+.contenido_recuperar_user h2 {
+    width: 100%;
+
+    margin: 0 0 12px;
+    padding: 0;
+
+    color: #102f4e;
+
+    font-size: 27px;
+    font-weight: 700;
+    line-height: 1.3;
+
+    overflow-wrap: break-word;
+}
+
+.contenido_recuperar_user p {
+    width: 100%;
+    max-width: 390px;
+
+    margin: 0;
+    padding: 0;
+
+    color: #526575;
+
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.5;
+
+    overflow-wrap: break-word;
+}
+
+.contenedor_button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 100%;
+    min-width: 0;
+
+    margin: 15px;
+    padding: 0;
+}
+
+.boton_inicio_sesion {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+
+    width: 100%;
+    max-width: 290px;
+    min-height: 48px;
+
+    margin: 0;
+    padding: 12px 22px;
+
+    color: #fffbf4;
+    background-color: #00445f;
+
+    border: 2px solid #00445f;
+    border-radius: 8px;
+
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.4;
+    text-align: center;
+    text-decoration: none;
+
+    cursor: pointer;
+
+    transition:
+        background-color 0.25s ease,
+        border-color 0.25s ease,
+        box-shadow 0.25s ease,
+        transform 0.25s ease;
+}
+
+.boton_inicio_sesion i {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    flex-shrink: 0;
+
+    font-size: 16px;
+}
+
+.boton_inicio_sesion span {
+    min-width: 0;
+    overflow-wrap: break-word;
+}
+
+/* ==========================================
+   EFECTOS DEL BOTÓN
+========================================== */
+
+.boton_inicio_sesion:hover {
+    color: #ffffff;
+
+    background-color: #00779e;
+    border-color: #00779e;
+
+    box-shadow: 0 5px 12px rgba(0, 68, 95, 0.18);
+
+    transform: translateY(-2px);
+}
+
+.boton_inicio_sesion:focus-visible {
+    outline: 3px solid rgba(0, 119, 158, 0.35);
+    outline-offset: 4px;
+}
+
+.boton_inicio_sesion:active {
+    transform: translateY(0);
+}
+
+@media (max-width: 768px) {
+    .pagina_recuperar_user {
+        margin: 25px auto;
+        padding: 16px;
+    }
+
+    .contenedor_recuperar_user {
+        grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+        min-height: 330px;
+    }
+
+    .imagen_recuperar_user {
+        min-height: 330px;
+    }
+
+    .imagen_recuperar_user img {
+        min-height: 330px;
+    }
+
+    .contenido_recuperar_user {
+        padding: 18px 22px;
+    }
+
+    .contenido_recuperar_user h2 {
+        margin-bottom: 10px;
+        font-size: 23px;
+    }
+
+    .contenido_recuperar_user p {
+        font-size: 15px;
+        line-height: 1.5;
+    }
+
+    .boton_inicio_sesion {
+        max-width: 260px;
+        min-height: 46px;
+        padding: 11px 16px;
+        font-size: 14px;
+    }
+}
+
+@media (max-width: 520px) {
+    .pagina_recuperar_user {
+        margin: 18px auto;
+        padding: 12px;
+    }
+
+    .contenedor_recuperar_user {
+        grid-template-columns: minmax(0, 1fr);
+
+        max-width: 390px;
+        min-height: 0;
+
+        border-radius: 10px;
+    }
+
+    .imagen_recuperar_user {
+        grid-column: 1;
+        grid-row: 1;
+
+        width: 100%;
+        height: 210px;
+        min-height: 0;
+    }
+
+    .imagen_recuperar_user img {
+        width: 100%;
+        height: 210px;
+        min-height: 0;
+
+        object-fit: contain;
+        object-position: center;
+    }
+
+    .contenido_recuperar_user {
+        grid-column: 1;
+        grid-row: 2;
+
+        padding: 20px 22px 24px;
+    }
+
+    .contenido_recuperar_user h2 {
+        margin-bottom: 10px;
+        font-size: 22px;
+    }
+
+    .contenido_recuperar_user p {
+        max-width: 320px;
+        font-size: 14px;
+        line-height: 1.5;
+    }
+
+    .boton_inicio_sesion {
+        width: 100%;
+        max-width: 300px;
+        min-height: 46px;
+    }
+}
+
+@media (max-width: 420px) {
+    .pagina_recuperar_user {
+        margin: 14px auto;
+        padding: 10px;
+    }
+
+    .contenedor_recuperar_user {
+        max-width: 360px;
+    }
+
+    .imagen_recuperar_user,
+    .imagen_recuperar_user img {
+        height: 190px;
+    }
+
+    .contenido_recuperar_user {
+        padding: 18px 18px 22px;
+    }
+}
+
+@media (max-width: 360px) {
+    .pagina_recuperar_user {
+        padding: 8px;
+    }
+
+    .imagen_recuperar_user,
+    .imagen_recuperar_user img {
+        height: 175px;
+    }
+
+    .contenido_recuperar_user {
+        padding: 16px 15px 20px;
+    }
+
+    .contenido_recuperar_user h2 {
+        margin-bottom: 8px;
+        font-size: 20px;
+    }
+
+    .contenido_recuperar_user p {
+        font-size: 13px;
+        line-height: 1.5;
+    }
+
+    .boton_inicio_sesion {
+        gap: 8px;
+        padding: 10px 12px;
+        font-size: 13px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .boton_inicio_sesion {
+        transition: none;
+    }
+}

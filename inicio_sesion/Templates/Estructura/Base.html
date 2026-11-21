@@ -6,22 +6,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="{% static 'Estilos/estilos.css' %}">
+    <link rel="stylesheet" href="{% static 'Estilos/estilos.css' %}?v=20261113-client-cart-controls-1">
     <link rel="shortcut icon" href="{% static 'Imagenes/logo.png' %}" type="image/x-icon">
-
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <title>Hielo Caipe</title>
+    <title>Hielo Caipe C.A. </title>
+   
 </head>
 
 <body data-session-user="{{ request.session.usuario|default:''|escape }}"
-    data-tab-id="{{ request.tab_id|default:''|escape }}" class="
+    data-tab-id="{{ request.tab_id|default:''|escape }}"
+    data-recovery-active="{% if request.session.usuario_credenciales %}true{% else %}false{% endif %}"
+    data-recovery-step="{% if request.session.recuperacion_codigo_enviado and not request.session.recuperacion_codigo_verificado %}verificacion{% endif %}" class="
         {% if es_404 %}
             body-404
         {% elif request.session.usuario and request.session.completar_registro %}
             body-logueado
         {% endif %}
-    " data-incognito-url="{% url 'modo_incognito' %}"
-    data-incognito-page="{% if request.resolver_match.url_name == 'modo_incognito' %}true{% else %}false{% endif %}">
+    ">
 
     {% if not es_404 %}
 
@@ -48,7 +49,7 @@
     </main>
 
 
-    {% if not request.session.usuario %}
+    {% if not request.session.usuario and not request.session.usuario_credenciales %}
     {% if not es_404 %}
     {% include 'Estructura/Pie_Pagina.html' %}
     {% endif %}
@@ -56,11 +57,13 @@
 
     {% load static %}
 
-    <!-- Biblioteca Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="{% static 'Librerias/apexcharts/dist/apexcharts.min.js' %}"></script>
+    <script src="{% static 'Librerias/chart.js/dist/chart.umd.js' %}"></script>
     <script src="{% static 'Librerias/sweetalert2/dist/sweetalert2.all.min.js' %}"></script>
-    <script src="{% static 'Funcionalidades/control_pestana.js' %}"></script>
-    <script src="{% static 'Funcionalidades/menu_responsive.js' %}"></script>
+    <script src="{% static 'Librerias/flipclock/dist/FlipClock.umd.js' %}"></script>
+
+    <script src="{% static 'Funcionalidades/control_pestana.js' %}?v=20261112-recovery-url-restore-2"></script>
+    <script src="{% static 'Funcionalidades/menu_responsive.js' %}?v=20261113-client-sidebar-dvh-1"></script>
 </body>
 
 </html>

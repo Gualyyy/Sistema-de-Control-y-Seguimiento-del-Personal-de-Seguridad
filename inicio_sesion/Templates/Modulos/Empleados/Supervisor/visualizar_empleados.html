@@ -19,8 +19,7 @@
                         <label for="cedula_identidad">Cedula Identidad:</label>
                         <div class="grupo_doble">
                             <select name="nacionalidad" id="nacionalidad" class="campo_select">
-                                <option value="">N</option>
-                                <option value="V">V</option>
+                                <option value="V" selected>V</option>
                                 <option value="E">E</option>
                             </select>
                             <input type="text" name="cedula_identidad" id="cedula_identidad" autocomplete="off">
@@ -36,13 +35,6 @@
         </div>
 
         <div class="modulo_visualizar detalle">
-            <div class="encabezado_registrados">
-                <button type="button" class="btn_pdf" id="lista_empleados_pdf">
-                    <i class="fa-regular fa-file-pdf"></i>
-                    Reporte
-                </button>
-            </div>
-
             <!-- Envoltorio para manejar el scroll y recortar bordes -->
             <div class="contenedor_tabla">
                 <table>
@@ -53,35 +45,31 @@
                             <th>APELLIDOS</th>
                             <th>C.I</th>
                             <th>PERFIL LABORAL</th>
-                            <th>TURNO LABORAL</th>
                         </tr>
                     </thead>
                     <tbody id="contenedor_empleados"></tbody>
                 </table>
             </div>
 
+            <div class="botones_navegacion">
+                <button class="btn_secundario btn_ret" type="button">Retroceder</button>
+                <button class="btn_primario btn_av" type="button">Avanzar</button>
+            </div>
         </div>
+
     </div>
 </section>
 
 <dialog id="dialogo_empleado" class="dialogo">
-    <div class="contenedor_info_reducido">
+    <div class="contenedor_datos">
         <button type="button" id="btn_cerrar" class="btn_cerrar">
             <i class="fa-solid fa-square-xmark"></i>
         </button>
 
         <h2>Datos del Empleado</h2>
 
-        <div class="contenedor_btn_pdf">
-
-            <button type="button" class="btn_pdf_dialog" id="datos_empleado_pdf">
-                <i class="fa-regular fa-file-pdf"></i>
-                Reporte
-            </button>
-        </div>
-
-        <div class="modulo_visualizar">
-            <form method="post">
+        <div class="modulo_dialogo_datos">
+            <form method="post" class="formulario_dialogo_datos">
                 {% csrf_token %}
                 <article class="paso activo">
                     <div class="bloque_paso">

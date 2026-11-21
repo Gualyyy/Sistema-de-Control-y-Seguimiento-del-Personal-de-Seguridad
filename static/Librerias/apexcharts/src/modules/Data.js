@@ -1,0 +1,2915 @@
+// @ts-check
+import CoreUtils from './CoreUtils'
+import DateTime from './../utils/DateTime'
+import Series from './Series'
+import Utils from '../utils/Utils'
+import Defaults from './settings/Defaults'
+import { isCustom, getChartClass, hasChartClass } from './ChartFactory'
+import { getSeriesTransform } from './SeriesTransformRegistry'
+import warnMissingFeature from '../utils/MissingFeature.js'
+import { stashSeries } from './helpers/RawStash'
+import {
+  isNestedTreemap,
+  resolveTreemapTree,
+} from '../charts/common/treemap/Nested'
+import {
+  RENDERER_ENTRIES,
+  TYPE_ALIASES,
+  TYPE_FEATURES,
+} from './settings/TypeAliases'
+
+/**
+ * Types whose renderer draws statistics the user may instead leave to the
+ * stats feature, by supplying the raw observations (type -> whether a flat
+ * number array as `y` counts as a sample, which it does where the precomputed
+ * form is an array of PAIRS). Mirrors `observationsOf` in charts/common/Stats,
+ * which core does not import: it comes with the statistics.
+ */
+const RAW_SAMPLE_TYPES = /** @type {Record<string, boolean>} */ ({
+  boxPlot: false,
+  violin: true,
+})
+
+/**
+ * A timeline row's key: its x, with a multi-line (array) label joined.
+ * @param {any} x
+ */
+const rowKey = (x) => (Array.isArray(x) ? x.join(' ') : x)
+
+/** What a null entry in a series' data array parses as: a gap. */
+const NULL_POINT = /** @type {any} */ ({ y: null })
+const NULL_ROW = /** @type {any[]} */ ([undefined, null])
+
+/**
+ * Whether one boxPlot or violin datum carries a raw sample instead of the
+ * precomputed input its renderer draws.
+ *
+ * @param {any} d
+ * @param {string} name
+ * @param {boolean} flatY
+ * @returns {boolean}
+ */
+function isRawSample(d, name, flatY) {
+  if (!d || typeof d !== 'object' || Array.isArray(d)) return false
+  if (name === 'boxPlot' && Array.isArray(d.y) && d.y.length === 5) {
+    return false
+  }
+  if (name === 'violin' && Array.isArray(d.y?.density) && d.y.density.length) {
+    return false
+  }
+  // A violin datum with its own five-number summary draws its box lane and
+  // its points without the feature; it only lacks a shape it never asked for.
+  if (
+    name === 'violin' &&
+    Array.isArray(d.y?.summary) &&
+    d.y.summary.length === 5
+  ) {
+    return false
+  }
+  const raw = Array.isArray(d.points)
+    ? d.points
+    : Array.isArray(d.y?.points)
+      ? d.y.points
+      : flatY && Array.isArray(d.y) && typeof d.y[0] === 'number'
+        ? d.y
+        : null
+  return (
+    !!raw &&
+    raw.some((/** @type {any} */ v) => {
+      const n = Utils.parseNumber(v)
+      return n !== null && isFinite(n)
+    })
+  )
+}
+
+/**
+ * Total of the values under a datum, for a partition branch that omits its own.
+ * Reads the `value` alias and clamps each child at 0, as the hierarchy
+ * resolver's `fillValues` does, so the legend reports what the rings draw.
+ *
+ * Private to this module on purpose: `Data.js` is a shared module, so a named
+ * export here resolves to undefined inside the split bundles and only a full
+ * build catches it (see build/shared-modules.mjs).
+ *
+ * @param {any} d
+ * @returns {number}
+ */
+function subtreeTotal(d) {
+  if (!d || typeof d !== 'object') return Utils.parseNumber(d) || 0
+  const v = d.y ?? d.value
+  if (v != null && v !== '') return Utils.parseNumber(v) || 0
+  if (!Array.isArray(d.children)) return 0
+  return d.children.reduce(
+    (/** @type {number} */ s, /** @type {any} */ c) =>
+      s + Math.max(0, subtreeTotal(c)),
+    0,
+  )
+}
+
+/**
+ * A point's x or y as a number for the data reducer's math: an ISO string or
+ * Date x to its epoch, a numeric-string y to its value. Without it an ISO x
+ * made every LTTB triangle NaN (each bucket kept its first point, so spikes
+ * vanished), a string x never matched the zoom window, and a string y was
+ * concatenated. A number returns on the first test, so numeric data pays one
+ * typeof per read. Module-private for the reason given on subtreeTotal.
+ *
+ * @param {any} v
+ * @returns {number}
+ */
+function toNum(v) {
+  return typeof v === 'number'
+    ? v
+    : v instanceof Date
+      ? v.getTime()
+      : typeof v === 'string' && isNaN(/** @type {any} */ (v))
+        ? Date.parse(v)
+        : +v
+}
+
+export default class Data {
+  /**
+   * @param {import('../types/internal').ChartStateW} w
+   * @param {{resetGlobals?: () => any, isMultipleY?: () => any, highlight?: () => any}} [hooks]
+   */
+  constructor(
+    w,
+    {
+      resetGlobals = () => {},
+      isMultipleY = () => {},
+      highlight = () => null,
+    } = {},
+  ) {
+    this.w = w
+    this.resetGlobals = resetGlobals
+    this.isMultipleY = isMultipleY
+    // The highlight filter feature, or null (see InitCtxVariables).
+    this.highlight = highlight
+    this._warnedHighlight = false
+
+    /** @type {any} */
+    this.twoDSeries = []
+    /** @type {any} */
+    this.threeDSeries = []
+    /** @type {any} */
+    this.twoDSeriesX = []
+    /** @type {any} */
+    this.seriesGoals = []
+    /**
+     * Missing features already reported for this chart, so each is said once
+     * however often parseData runs, and one does not hide another.
+     * @type {Set<string>}
+     */
+    this._warnedFeatures = new Set()
+    this.coreUtils = new CoreUtils(this.w)
+    /** @type {number} */ this.activeSeriesIndex = 0
+  }
+
+  // Helper to get the first valid data point from the active series
+  getFirstDataPoint() {
+    const series = this.w.config.series
+    // Constant for a parse, so parseDataAxisCharts pins it for its loop, which
+    // asks three or four times per series (O(S^2) on a many-series chart).
+    if (!this._pinActive) {
+      this.activeSeriesIndex = new Series(this.w).getActiveConfigSeriesIndex()
+    }
+    // Inside the parse loop, the series being parsed answers for itself.
+    if (this._ownPoint != null) return this._ownPoint
+    const activeItem = /** @type {any} */ (series[this.activeSeriesIndex])
+
+    if (
+      activeItem &&
+      activeItem.data &&
+      activeItem.data.length > 0 &&
+      activeItem.data[0] !== null &&
+      typeof activeItem.data[0] !== 'undefined'
+    ) {
+      return activeItem.data[0]
+    }
+    return null
+  }
+
+  isMultiFormat() {
+    return this.isFormatXY() || this.isFormat2DArray()
+  }
+
+  // given format is [{x, y}, {x, y}]
+  isFormatXY() {
+    const firstDataPoint = this.getFirstDataPoint()
+    if (!firstDataPoint || typeof firstDataPoint.x === 'undefined') return false
+    const data = /** @type {any} */ (
+      this.w.config.series[this.activeSeriesIndex]
+    )?.data
+    if (data) {
+      /**
+       * @param {Record<string, any>} pt
+       */
+      const isXY = (pt) => pt && typeof pt.x !== 'undefined'
+      for (let k = 1; k < Math.min(3, data.length); k++) {
+        if (isXY(data[k]) !== true) {
+          console.warn(
+            `ApexCharts: series data has mixed formats starting at index ${k}`,
+          )
+          break
+        }
+      }
+    }
+    return true
+  }
+
+  // given format is [[x, y], [x, y]]
+  isFormat2DArray() {
+    const firstDataPoint = this.getFirstDataPoint()
+    return firstDataPoint && Array.isArray(firstDataPoint)
+  }
+
+  /**
+   * Typed single pass for the dominant [[x, y], ...] shape: scalar numeric or
+   * null y, no z, no OHLC tuples. One monomorphic loop fills preallocated
+   * x/y arrays and fuses the y-extrema scan that Range.getMinYMaxY would
+   * otherwise repeat over every value (the extrema entry is ref+length
+   * guarded, so any later reshaping of the series array simply falls back to
+   * the scan). Returns false untouched on any non-conforming point so the
+   * general loop below handles mixed/exotic data with unchanged output.
+   * On a datetime axis every x must be an integer timestamp, the one value
+   * new Date(x).getTime() hands back unchanged; anything else (a string, a
+   * Date, a fractional or out-of-range number) bails to the general loop.
+   * @param {any[]} data
+   * @param {number} i
+   * @param {boolean} isDatetime
+   * @returns {boolean}
+   */
+  _fast2DArrayParse(data, i, isDatetime) {
+    const n = data.length
+    if (n === 0) return false
+    const ys = new Array(n)
+    const xs = new Array(n)
+    let maxY = -Number.MAX_VALUE
+    let lowestY = Number.MAX_VALUE
+    let negMinY = Infinity
+    let hasNulls = false
+    let yDec = 0
+    // x stats are only usable when every x is a number: string x values
+    // coerce in the legacy adjacent-diff loop, so mixed data falls back
+    let xNumeric = true
+    let minX = Infinity
+    let maxX = -Infinity
+    let xSorted = true
+    let minXDiff = Infinity
+    let prevX = NaN
+    for (let j = 0; j < n; j++) {
+      const point = data[j]
+      if (!Array.isArray(point) || point.length > 2) return false
+      const x = point[0]
+      const y = point[1]
+      if (isDatetime && !(Number.isInteger(x) && Math.abs(x) <= 8.64e15)) {
+        return false
+      }
+      if (xNumeric) {
+        if (typeof x === 'number') {
+          if (x === x) {
+            if (x < minX) minX = x
+            if (x > maxX) maxX = x
+          }
+          // NaN diffs fall through both branches, matching the legacy
+          // detector's behavior on NaN-containing arrays
+          const d = x - prevX
+          if (d > 0) {
+            if (d < minXDiff) minXDiff = d
+          } else if (d < 0) {
+            xSorted = false
+          }
+          prevX = x
+        } else {
+          xNumeric = false
+        }
+      }
+      if (typeof y === 'number') {
+        // same observable semantics as Range's plain-numeric lane:
+        // NaN/Infinity count as null values, decimals counted in plain
+        // notation for 1e-6..1e21, decimalPlaces for exponent notation
+        if (y === y && y !== Infinity && y !== -Infinity) {
+          if (y > maxY) maxY = y
+          if (y < lowestY) lowestY = y
+          if (y < 0 && y < negMinY) negMinY = y
+          if (!Number.isInteger(y)) {
+            const av = y < 0 ? -y : y
+            if (av >= 1e-6 && av < 1e21) {
+              const str = '' + y
+              const dot = str.indexOf('.')
+              const dec = dot === -1 ? 0 : str.length - dot - 1
+              if (dec > yDec) yDec = dec
+            } else {
+              yDec = Math.max(yDec, Utils.decimalPlaces(y))
+            }
+          }
+        } else {
+          hasNulls = true
+        }
+      } else if (y === null) {
+        hasNulls = true
+      } else {
+        // string/array/undefined y: needs parseNumber / OHLC handling
+        return false
+      }
+      ys[j] = y
+      xs[j] = x
+    }
+    this.twoDSeries = ys
+    this.twoDSeriesX = xs
+    this.w.axisFlags.dataFormatXNumeric = true
+    const extrema = (this.w.seriesData._parsedExtrema ??= [])
+    extrema[i] = {
+      ref: ys,
+      len: n,
+      maxY,
+      lowestY,
+      negMinY,
+      hasNulls,
+      yDec,
+      xref: xs,
+      xNumeric,
+      minX,
+      maxX,
+      xSorted,
+      minXDiff,
+    }
+    return true
+  }
+
+  /**
+   * @param {any[]} ser
+   * @param {number} i
+   */
+  handleFormat2DArray(ser, i) {
+    const cnf = this.w.config
+    const data = ser[i].data
+
+    // A legend-collapsed series arrives here as `data: []`, and a stacked chart
+    // then pads its y with zeros (Series.setNullSeriesToZeroValues). Without
+    // x values to go with them every point lands at x = NaN, the stack lookup
+    // (Line._stackKey keys by x value) misses, and the keyed morph join reads
+    // every datum as an exit plus an enter. The hidden layer then tweens into
+    // the plot's bottom-left corner instead of flattening onto the series
+    // below it. Borrow the active series' x, as handleFormatXY has done for
+    // the {x, y} format since #368, so both formats exit the same way.
+    if (data.length === 0 && this._isCollapsedIndex(i)) {
+      const activeData = ser[this.activeSeriesIndex]?.data || []
+      for (let j = 0; j < activeData.length; j++) {
+        const x = Array.isArray(activeData[j]) ? activeData[j][0] : undefined
+        this.twoDSeriesX.push(
+          cnf.xaxis.type === 'datetime' ? new Date(x).getTime() : x,
+        )
+      }
+      return
+    }
+
+    const isBoxPlot = this._isBoxPlotSeries(i)
+
+    if (
+      !isBoxPlot &&
+      this._fast2DArrayParse(data, i, cnf.xaxis.type === 'datetime')
+    ) {
+      return
+    }
+
+    for (let j = 0; j < data.length; j++) {
+      // A null entry is a gap. Its x is NaN for a datetime axis (as 0 it
+      // would pull the range back to 1970) and undefined otherwise; the x
+      // range skips both.
+      const point = data[j] || NULL_ROW
+      const x = point[0]
+      const y = point[1]
+      const z = point[2]
+
+      if (typeof y !== 'undefined') {
+        if (Array.isArray(y) && y.length === 4 && !isBoxPlot) {
+          // candlestick nested ohlc format
+          this.twoDSeries.push(Utils.parseNumber(y[3]))
+        } else if (point.length >= 5) {
+          // candlestick non-nested ohlc format
+          this.twoDSeries.push(Utils.parseNumber(point[4]))
+        } else {
+          this.twoDSeries.push(Utils.parseNumber(y))
+        }
+        this.w.axisFlags.dataFormatXNumeric = true
+      }
+      if (cnf.xaxis.type === 'datetime') {
+        // if timestamps are provided and xaxis type is datetime,
+        const ts = new Date(x).getTime()
+        this.twoDSeriesX.push(ts)
+      } else {
+        this.twoDSeriesX.push(x)
+      }
+
+      this.pushZ(z, j)
+    }
+  }
+
+  /**
+   * Record one point's `z`, the third dimension a bubble sizes itself by and
+   * the tooltip reports as "Size".
+   *
+   * Two rules, both of which used to be broken (#5323):
+   *
+   * 1. The slot is positional. `seriesZ[i][j]` is read by data-point index, so
+   *    a point WITHOUT `z` still owns its slot. Otherwise a series where only
+   *    some points carry `z` reports the previous point's value for every
+   *    point after the first gap. Nothing is allocated for a series that
+   *    carries no `z` at all: the backfill only runs once the first `z` shows
+   *    up, so an ordinary line chart pays nothing.
+   *
+   * 2. Only a MEASURABLE value makes the chart three-dimensional. `z: NaN`,
+   *    `z: ''` and `z: null` are the shapes a missing value arrives in from a
+   *    database or a CSV, and they used to set `isDataXYZ` just by being
+   *    present, which grew a stray "Size:" row on charts that have no third
+   *    dimension. A numeric string goes the other way and is coerced, the way
+   *    `y` already is, so `z: '99'` sizes a bubble instead of sitting in
+   *    `seriesZ` as a string that `Range.setZRange` then skips. Anything else
+   *    is stored as given, since a custom `tooltip.z.formatter` may still want
+   *    it; it just cannot be what declares the chart 3-D.
+   *
+   * @param {any} z the point's raw `z`, or undefined when it has none
+   * @param {number} j the point's index within the series
+   */
+  pushZ(z, j) {
+    if (typeof z === 'undefined') {
+      // Only hold the slot for a series already carrying z (rule 1).
+      if (this.threeDSeries.length) this.threeDSeries.push(null)
+      return
+    }
+
+    const num = typeof z === 'string' && z.trim() !== '' ? Number(z) : z
+    // The same test Range.setZRange applies, so a value that counts as the
+    // third dimension here is one the z extent can actually be built from.
+    const measurable = Utils.isNumber(num)
+
+    while (this.threeDSeries.length < j) this.threeDSeries.push(null)
+    this.threeDSeries.push(measurable ? num : z)
+
+    if (measurable) {
+      this.w.axisFlags.isDataXYZ = true
+    }
+  }
+
+  /**
+   * Hidden through the legend, either outright or as an ancillary series whose
+   * y axis stays drawn (`yaxis.showAlways`). Both empty the series' data.
+   * @param {number} i
+   * @returns {boolean}
+   */
+  _isCollapsedIndex(i) {
+    const gl = this.w.globals
+    return (
+      gl.collapsedSeriesIndices.indexOf(i) > -1 ||
+      gl.ancillaryCollapsedSeriesIndices.indexOf(i) > -1
+    )
+  }
+
+  /**
+   * @param {any[]} ser
+   * @param {number} i
+   */
+  handleFormatXY(ser, i) {
+    const cnf = this.w.config
+    const gl = this.w.globals
+    const dt = new DateTime(this.w)
+    const data = ser[i].data
+
+    let activeI = i
+    if (this._isCollapsedIndex(i)) {
+      // fix #368
+      activeI = this.activeSeriesIndex
+    }
+    const activeData = ser[activeI].data
+
+    // get series, goals, z
+    for (let j = 0; j < data.length; j++) {
+      // a null entry is a gap, as `{x, y: null}` is
+      const point = data[j] || NULL_POINT
+
+      if (typeof point.y !== 'undefined') {
+        const val = Array.isArray(point.y)
+          ? Utils.parseNumber(point.y[point.y.length - 1])
+          : Utils.parseNumber(point.y)
+        this.twoDSeries.push(val)
+      }
+
+      // Allocated on the first point that has goals, backfilled with nulls:
+      // an all-null array per series cost a slot per point, and its length
+      // kept Range.getMinYMaxY off its plain-numeric lane.
+      if (Array.isArray(point.goals)) {
+        ;(this.seriesGoals[i] ??= Array(j).fill(null)).push(point.goals)
+      } else {
+        this.seriesGoals[i]?.push(null)
+      }
+
+      this.pushZ(point.z, j)
+    }
+
+    // get seriesX
+    for (let j = 0; j < activeData.length; j++) {
+      const point = activeData[j]
+      if (!point) {
+        // No x to read, and none to guess the axis type from. An empty label
+        // keeps a category axis blank there; a numeric x range skips it.
+        this.twoDSeriesX.push('')
+        continue
+      }
+      const x = point.x
+
+      const isXString = typeof x === 'string'
+      const isXArr = Array.isArray(x)
+      // only read for a non-string x: a string is parsed below or kept as a
+      // category, so testing a string here was a discarded parse per point
+      const isXDate = !isXString && !isXArr && !!dt.isValidDate(x)
+
+      if (isXString || isXDate) {
+        // user supplied a date string ('01/01/2017') or a JS Date object
+        if (isXString || cnf.xaxis.convertedCatToNumeric) {
+          const isRangeColumn =
+            gl.isBarHorizontal && this.w.axisFlags.isRangeData
+
+          if (cnf.xaxis.type === 'datetime' && !isRangeColumn) {
+            this.twoDSeriesX.push(dt.parseDate(x))
+          } else {
+            // a category and not a numeric x value
+            this.fallbackToCategory = true
+            this.twoDSeriesX.push(x)
+
+            if (
+              !isNaN(x) &&
+              this.w.config.xaxis.type !== 'category' &&
+              typeof x !== 'string'
+            ) {
+              this.w.axisFlags.isXNumeric = true
+            }
+          }
+        } else {
+          if (cnf.xaxis.type === 'datetime') {
+            // A Date already carries an exact epoch value, so read it
+            // directly. Date.prototype.toString() has second resolution, and
+            // parsing its output back drops the milliseconds silently.
+            this.twoDSeriesX.push(
+              x instanceof Date ? x.getTime() : dt.parseDate(x.toString()),
+            )
+          } else {
+            this.w.axisFlags.dataFormatXNumeric = true
+            this.w.axisFlags.isXNumeric = true
+            // The two lines above have already decided this x is numeric.
+            // parseFloat() reads a Date through toString(), which starts with
+            // a weekday name, so every Date arrived here as NaN. A Date's
+            // numeric value is its epoch, the same one the datetime branch
+            // above reads.
+            this.twoDSeriesX.push(
+              x instanceof Date ? x.getTime() : parseFloat(x),
+            )
+          }
+        }
+      } else if (isXArr) {
+        // a multiline label described in array format
+        this.fallbackToCategory = true
+        this.twoDSeriesX.push(x)
+      } else {
+        // a numeric value in x property
+        this.w.axisFlags.isXNumeric = true
+        this.w.axisFlags.dataFormatXNumeric = true
+        this.twoDSeriesX.push(x)
+      }
+    }
+  }
+
+  /**
+   * @param {any[]} ser
+   * @param {number} i
+   */
+  handleRangeData(ser, i) {
+    /** @type {any} */
+    let range = { start: [], end: [], rangeUniques: [] }
+    if (this.isFormat2DArray()) {
+      range = this.handleRangeDataFormat('array', ser, i)
+    } else if (this.isFormatXY()) {
+      range = this.handleRangeDataFormat('xy', ser, i)
+    }
+
+    // Fix: RangeArea Chart: hide all series results in a crash #3984
+    this.w.rangeData.seriesRangeStart[i] =
+      range.start === undefined ? [] : range.start
+    this.w.rangeData.seriesRangeEnd[i] =
+      range.end === undefined ? [] : range.end
+
+    this.w.rangeData.seriesRange[i] = range.rangeUniques
+
+    // Check for overlaps to split clashing bars into lanes in a timeline
+    // chart. RangeBar reads them only with rangeBarOverlap off, and only this
+    // series is new: earlier ones were scanned when they were parsed. A Set
+    // keeps its insertion order, which is the lane order, so the pairwise
+    // scan stays.
+    if (!this.w.config.plotOptions.bar.rangeBarOverlap) {
+      range.rangeUniques.forEach((/** @type {Record<string, any>} */ sarr) => {
+        const yItems = /** @type {any} */ (sarr).y
+        const len = /** @type {any[]} */ (yItems).length
+
+        // Pre-check: if only one item, no overlaps possible
+        if (len <= 1) return
+
+        for (let arri = 0; arri < len; arri++) {
+          const arr = /** @type {any} */ (yItems[arri])
+          const range1y1 = arr.y1
+          const range1y2 = arr.y2
+
+          // Only check subsequent items to avoid duplicate comparisons
+          for (let sri = arri + 1; sri < len; sri++) {
+            const range2 = /** @type {any} */ (yItems[sri])
+            const range2y1 = range2.y1
+            const range2y2 = range2.y2
+
+            // Check overlap using interval intersection
+            if (range1y1 <= range2y2 && range2y1 <= range1y2) {
+              const sarrAny = /** @type {any} */ (sarr)
+              sarrAny.overlaps.add(arr.rangeName)
+              sarrAny.overlaps.add(range2.rangeName)
+            }
+          }
+        }
+      })
+    }
+
+    return range
+  }
+
+  /**
+   * Marks (#11) P3: fold a custom series' per-datum y-extent into the
+   * range-data slice so both bounds drive the y-axis scale. When `yExtent` is
+   * given it supplies the values a datum occupies (scalar or array => min/max
+   * across them); otherwise the datum's `y` is used (array => first/last,
+   * scalar => itself). The datum still carries a representative scalar `y`
+   * (folded by handleFormatXY into seriesData.series) that gates Range.
+   * @param {any[]} ser @param {number} i @param {Function|null} yExtent
+   */
+  handleCustomRangeData(ser, i, yExtent) {
+    const data = ser[i].data || []
+    /** @type {any[]} */
+    const start = []
+    /** @type {any[]} */
+    const end = []
+    for (let j = 0; j < data.length; j++) {
+      const datum = data[j]
+      let lo
+      let hi
+      if (typeof yExtent === 'function') {
+        let ext = yExtent(datum, j)
+        if (!Array.isArray(ext)) ext = [ext]
+        const nums = ext
+          .map((/** @type {any} */ v) => Utils.parseNumber(v))
+          .filter((/** @type {any} */ v) => v !== null && !isNaN(v))
+        lo = nums.length ? Math.min(...nums) : null
+        hi = nums.length ? Math.max(...nums) : null
+      } else {
+        const y = datum == null ? null : datum.y
+        if (Array.isArray(y)) {
+          lo = Utils.parseNumber(y[0])
+          hi = Utils.parseNumber(y[y.length - 1])
+        } else {
+          lo = hi = Utils.parseNumber(y)
+        }
+      }
+      start.push(lo)
+      end.push(hi)
+    }
+    this.w.rangeData.seriesRangeStart[i] = start
+    this.w.rangeData.seriesRangeEnd[i] = end
+  }
+
+  /**
+   * @param {any[]} ser
+   * @param {number} i
+   */
+  handleCandleStickBoxData(ser, i) {
+    /** @type {any} */
+    let ohlc = { o: [], h: [], m: [], l: [], c: [] }
+    // A line or other series in a candlestick/boxPlot chart has no OHLC rows.
+    // Parsed as candles, each scalar point became a null gap, and the nulls
+    // pulled the y range down to 0 (#5407).
+    const own = ser[i].type
+    const isOhlcSeries = !own || own === 'candlestick' || own === 'boxPlot'
+    if (isOhlcSeries && this.isFormat2DArray()) {
+      ohlc = this.handleCandleStickBoxDataFormat('array', ser, i)
+    } else if (isOhlcSeries && this.isFormatXY()) {
+      ohlc = this.handleCandleStickBoxDataFormat('xy', ser, i)
+    }
+
+    this.w.candleData.seriesCandleO[i] = ohlc.o
+    this.w.candleData.seriesCandleH[i] = ohlc.h
+    this.w.candleData.seriesCandleM[i] = ohlc.m
+    this.w.candleData.seriesCandleL[i] = ohlc.l
+    this.w.candleData.seriesCandleC[i] = ohlc.c
+    this.w.candleData.seriesBoxPoints[i] = ohlc.points || []
+
+    return ohlc
+  }
+
+  /**
+   * Parse a violin series. Each data point carries a precomputed density
+   * profile (the violin shape) and an array of raw observations (the jitter):
+   *
+   *   { x, y: { density: [[value, weight], ...], points: [v1, v2, ...],
+   *             summary?: [whiskerLow, q1, median, q3, whiskerHigh] } }
+   *
+   * Array fallback form: [x, densityPairs, pointsArray, summary?]. The
+   * optional summary feeds the box lane (raincloud, or violin `box.show`).
+   *
+   * Density `weight` need not be normalized — Violin.js scales each violin by
+   * its own maxWeight. The representative scalar pushed into the main series
+   * (so generic code paths see a non-null y) is the density mode — the value
+   * carrying the greatest weight.
+   *
+   * @param {any[]} ser
+   * @param {number} i
+   */
+  handleViolinData(ser, i) {
+    const w = this.w
+    const data = ser[i].data
+
+    /** @type {any[]} */ const densityArr = []
+    /** @type {any[]} */ const pointsArr = []
+    /** @type {Array<number[] | null>} */ const summaryArr = []
+    /** @type {number[]} */ const minArr = []
+    /** @type {number[]} */ const maxArr = []
+    /** @type {number[]} */ const placeholders = []
+
+    for (let j = 0; j < data.length; j++) {
+      const d = data[j]
+      const dens = d?.y?.density ?? d?.[1] ?? []
+      const pts = d?.y?.points ?? d?.[2] ?? []
+      const summary = this._parseViolinSummary(d?.y?.summary ?? d?.[3])
+
+      /** @type {number[]} */ const values = []
+      /** @type {number[]} */ const weights = []
+      let maxWeight = 0
+      let modeValue = null
+      let minVal = Infinity
+      let maxVal = -Infinity
+
+      for (let k = 0; k < dens.length; k++) {
+        const v = Utils.parseNumber(dens[k][0])
+        const wt = Utils.parseNumber(dens[k][1])
+        if (v === null || wt === null) continue
+        values.push(v)
+        weights.push(wt)
+        if (wt > maxWeight) {
+          maxWeight = wt
+          modeValue = v
+        }
+        if (v < minVal) minVal = v
+        if (v > maxVal) maxVal = v
+      }
+
+      /** @type {number[]} */ const cleanPts = []
+      for (let k = 0; k < pts.length; k++) {
+        const p = Utils.parseNumber(pts[k])
+        if (p === null) continue
+        cleanPts.push(p)
+        if (p < minVal) minVal = p
+        if (p > maxVal) maxVal = p
+      }
+
+      if (summary) {
+        // Whiskers normally sit inside the observation range, but a
+        // hand-supplied summary is drawn as given, so let it size the axis.
+        if (summary[0] < minVal) minVal = summary[0]
+        if (summary[4] > maxVal) maxVal = summary[4]
+      }
+
+      densityArr.push({ values, weights, maxWeight })
+      pointsArr.push(cleanPts)
+      summaryArr.push(summary)
+      minArr.push(minVal === Infinity ? 0 : minVal)
+      maxArr.push(maxVal === -Infinity ? 0 : maxVal)
+      // Representative value: density mode, else median of points, else 0.
+      placeholders.push(
+        modeValue !== null
+          ? modeValue
+          : cleanPts.length
+            ? cleanPts[Math.floor(cleanPts.length / 2)]
+            : 0,
+      )
+    }
+
+    w.violinData.seriesViolinDensity[i] = densityArr
+    w.violinData.seriesViolinPoints[i] = pointsArr
+    w.violinData.seriesViolinSummary[i] = summaryArr
+    w.violinData.seriesViolinMin[i] = minArr
+    w.violinData.seriesViolinMax[i] = maxArr
+
+    // Overwrite the y-placeholders that handleFormatXY/2DArray pushed (it could
+    // not interpret the object/array y) with the representative scalars.
+    this.twoDSeries = placeholders
+  }
+
+  /**
+   * Validate a five-number summary ([whiskerLow, q1, median, q3, whiskerHigh]):
+   * exactly five finite, non-decreasing numbers, else null. Pure shape check;
+   * the statistics themselves come from the datum (hand-supplied or a stats
+   * transform).
+   *
+   * @param {any} raw
+   * @returns {number[] | null}
+   */
+  _parseViolinSummary(raw) {
+    if (!Array.isArray(raw) || raw.length !== 5) return null
+    /** @type {number[]} */ const out = []
+    for (let k = 0; k < 5; k++) {
+      const v = Utils.parseNumber(raw[k])
+      if (v === null || (k > 0 && v < out[k - 1])) return null
+      out.push(v)
+    }
+    return out
+  }
+
+  /**
+   * @param {string} format
+   * @param {any[]} ser
+   * @param {number} i
+   */
+  handleRangeDataFormat(format, ser, i) {
+    const rangeStart = []
+    const rangeEnd = []
+
+    const uniqueKeysMap = new Map()
+    /** @type {any[]} */
+    const uniqueKeys = []
+
+    // unique keys map. A row is keyed by its label as drawn: a multi-line
+    // (array) x is a new array on every datum, so it is keyed by its joined
+    // text, the form RangeBar looks a row up by. `label` keeps the x as given.
+    /**
+     * @param {Record<string, any>} item
+     */
+    ser[i].data.forEach((/** @type {any} */ item) => {
+      const key = rowKey(item.x)
+      if (!uniqueKeysMap.has(key)) {
+        const keyObj = {
+          x: key,
+          label: item.x,
+          overlaps: new Set(),
+          y: [],
+        }
+        uniqueKeysMap.set(key, keyObj)
+        uniqueKeys.push(keyObj)
+      }
+    })
+
+    if (format === 'array') {
+      for (let j = 0; j < ser[i].data.length; j++) {
+        if (Array.isArray(ser[i].data[j])) {
+          rangeStart.push(ser[i].data[j][1][0])
+          rangeEnd.push(ser[i].data[j][1][1])
+        } else {
+          rangeStart.push(ser[i].data[j])
+          rangeEnd.push(ser[i].data[j])
+        }
+      }
+    } else if (format === 'xy') {
+      for (let j = 0; j < ser[i].data.length; j++) {
+        const isDataPoint2D = Array.isArray(ser[i].data[j].y)
+        const id = Utils.randomId()
+        const x = ser[i].data[j].x
+        const y = {
+          y1: isDataPoint2D ? ser[i].data[j].y[0] : ser[i].data[j].y,
+          y2: isDataPoint2D ? ser[i].data[j].y[1] : ser[i].data[j].y,
+          rangeName: id,
+        }
+
+        // Stash the per-point range id off to the side (keyed by series/point
+        // index) rather than mutating the user's config data point. RangeBar
+        // reads it back via w.globals.seriesRangeName[i][j] to compute the
+        // overlap offset. Avoids leaking a `rangeName` onto user objects (which
+        // breaks framework reactivity / immutable diffing). See audit D1.
+        const gl = this.w.globals
+        if (!gl.seriesRangeName) gl.seriesRangeName = {}
+        if (!gl.seriesRangeName[i]) gl.seriesRangeName[i] = {}
+        gl.seriesRangeName[i][j] = id
+
+        const keyObj = uniqueKeysMap.get(rowKey(x))
+        if (keyObj) {
+          keyObj.y.push(y)
+        }
+
+        rangeStart.push(y.y1)
+        rangeEnd.push(y.y2)
+      }
+    }
+
+    return {
+      start: rangeStart,
+      end: rangeEnd,
+      rangeUniques: uniqueKeys,
+    }
+  }
+
+  /**
+   * Is series `i` read as a box plot (o, q1, median, q3, c) rather than as
+   * candles (o, h, l, c)? A box or candle series is read as its own type, as
+   * BoxCandleStick draws it, so a candlestick series in a 'boxPlot' chart is
+   * read as candles. Any other series goes by the chart's type, as before.
+   * @param {number} i
+   * @returns {boolean}
+   */
+  _isBoxPlotSeries(i) {
+    const own = /** @type {any} */ (this.w.config.series[i])?.type
+    if (own === 'boxPlot' || own === 'candlestick') return own === 'boxPlot'
+    return this.w.config.chart.type === 'boxPlot'
+  }
+
+  /**
+   * @param {string} format
+   * @param {any[]} ser
+   * @param {number} i
+   */
+  handleCandleStickBoxDataFormat(format, ser, i) {
+    const isBoxPlot = this._isBoxPlotSeries(i)
+
+    const serO = []
+    const serH = []
+    const serM = []
+    const serL = []
+    const serC = []
+    // Raw observations for optional boxPlot jitter (object form only — the
+    // flat-array form has no slot for them).
+    const serPoints = []
+
+    const data = ser[i].data
+    let getVals
+
+    if (format === 'array') {
+      // Guard data[0]: an empty series (e.g. one blank series in a multi-series
+      // candlestick/boxPlot) still enters this branch; the loop below no-ops on
+      // empty data, so we only need to avoid dereferencing data[0].length.
+      const first = data[0]
+      const isFlat =
+        (isBoxPlot && first && first.length === 6) ||
+        (!isBoxPlot && first && first.length === 5)
+      if (isFlat) {
+        /**
+         * @param {any[]} d
+         */
+        getVals = (d) => d.slice(1)
+      } else {
+        /**
+         * @param {any} d
+         */
+        getVals = (d) => (Array.isArray(d[1]) ? d[1] : [])
+      }
+    } else {
+      // format === 'xy'
+      /**
+       * @param {Record<string, any>} d
+       */
+      getVals = (d) => (Array.isArray(d.y) ? d.y : [])
+    }
+
+    for (let j = 0; j < data.length; j++) {
+      const vals = getVals(data[j])
+      if (vals && vals.length >= 2) {
+        serO.push(vals[0])
+        serH.push(vals[1])
+        if (isBoxPlot) {
+          serM.push(vals[2])
+          serL.push(vals[3])
+          serC.push(vals[4])
+        } else {
+          serL.push(vals[2])
+          serC.push(vals[3])
+        }
+      } else {
+        // A gap keeps its slot: these arrays are read by data-point index, so
+        // compacting them drew every later candle with its neighbour's values.
+        serO.push(null)
+        serH.push(null)
+        serM.push(null)
+        serL.push(null)
+        serC.push(null)
+      }
+      const pts = data[j] && /** @type {any} */ (data[j]).points
+      // null, not a fresh [] per candle: every reader skips a falsy slot
+      serPoints.push(Array.isArray(pts) ? pts : null)
+    }
+
+    return {
+      o: serO,
+      h: serH,
+      m: serM,
+      l: serL,
+      c: serC,
+      points: serPoints,
+    }
+  }
+
+  /**
+   * @param {any[]} ser
+   */
+  parseDataAxisCharts(ser) {
+    const cnf = this.w.config
+    const gl = this.w.globals
+
+    const dt = new DateTime(this.w)
+
+    // per-parse fused-extrema entries filled by _fast2DArrayParse, consumed
+    // by Range.getMinYMaxY (ref+length guarded)
+    this.w.seriesData._parsedExtrema = []
+    // Goals are read by point index, so a parse never appends to the last one.
+    this.seriesGoals = []
+
+    const xlabels =
+      cnf.labels.length > 0 ? cnf.labels.slice() : cnf.xaxis.categories.slice()
+
+    this.w.axisFlags.isRangeBar =
+      cnf.chart.type === 'rangeBar' && gl.isBarHorizontal
+
+    this.w.labelData.hasXaxisGroups =
+      cnf.xaxis.type === 'category' && cnf.xaxis.group.groups.length > 0
+    if (this.w.labelData.hasXaxisGroups) {
+      this.w.labelData.groups = cnf.xaxis.group.groups
+    }
+
+    /**
+     * @param {Record<string, any>} s
+     * @param {number} i
+     */
+    ser.forEach((s, i) => {
+      if (s.name !== undefined) {
+        this.w.seriesData.seriesNames.push(s.name)
+      } else {
+        this.w.seriesData.seriesNames.push(
+          'series-' + parseInt(String(i + 1), 10),
+        )
+      }
+    })
+
+    this.coreUtils.setSeriesYAxisMappings()
+    // A series with no user defined group is grouped by the yaxis that
+    // references it, so all series of an axis form one group. The name is
+    // derived here, never written back onto the caller's series objects.
+    const rev = this.w.globals.seriesYAxisReverseMap
+    const keys = cnf.series.map(
+      (/** @type {any} */ s, /** @type {number} */ i) =>
+        s.group ?? 'apexcharts-axis-' + rev[i],
+    )
+    /** @type {any[]} */
+    const buckets = []
+    const groups = [...new Set(keys)]
+    // Membership is recorded by index: groups may reuse series names.
+    this.w.labelData.seriesGroupIndex = keys.map(
+      (/** @type {any} */ k, /** @type {number} */ i) => {
+        const index = groups.indexOf(k)
+        if (!buckets[index]) buckets[index] = []
+
+        buckets[index].push(this.w.seriesData.seriesNames[i])
+        return index
+      },
+    )
+    this.w.labelData.seriesGroups = buckets
+
+    // The labels are the same for every series, so they are parsed once and
+    // the series share the array, as the numeric branch below shares xlabels.
+    /** @type {any[] | undefined} */
+    let dates
+    const handleDates = () =>
+      (dates ??= Array.from(xlabels, (l) => {
+        if (typeof l !== 'string') return l // user provided timestamps
+        const t = dt.parseDate(l)
+        if (isNaN(t)) {
+          throw new Error(
+            'You have provided invalid Date format. Please provide a valid JavaScript Date',
+          )
+        }
+        return t
+      }))
+
+    this._pinActive = false
+    this.getFirstDataPoint()
+    this._pinActive = true
+    for (let i = 0; i < ser.length; i++) {
+      this.twoDSeries = []
+      this.twoDSeriesX = []
+      this.threeDSeries = []
+
+      if (typeof ser[i].data === 'undefined') {
+        console.error(
+          "It is a possibility that you may have not included 'data' property in series.",
+        )
+        // Treat a series missing `data` as an empty series and keep parsing, so
+        // the parsed arrays (series / labels / seriesZ / seriesColors) stay
+        // index-aligned with the remaining series (and seriesNames) instead of
+        // aborting the whole parse. Replace (not mutate) ser[i], matching the
+        // downsample path below, so the caller's series object is left intact.
+        ser[i] = { ...ser[i], data: [] }
+      }
+
+      // Classify the series by its own first non-null point: read through
+      // the active series' format, an {x, y} series beside a [x, y] one was
+      // parsed as pairs and drew nothing. An empty (collapsed) row has no
+      // point, so it falls back to the active series. One read per series,
+      // more only over leading nulls.
+      this._ownPoint = null
+      for (let k = 0; this._ownPoint == null && k < ser[i].data.length; k++) {
+        this._ownPoint = ser[i].data[k]
+      }
+
+      // Zoom-aware LTTB downsampling — runs before any parsing so all
+      // downstream paths benefit. Only applies to multiFormat (XY/{x,y}) data
+      // where both x and y are available for triangle-area calculation.
+      // On zoom, cnf.xaxis.min/max define the visible window; we slice the
+      // stashed raw series to that window and downsample the slice so users
+      // see progressively higher-resolution detail as they zoom in.
+      const dr = cnf.chart.dataReducer
+      const rawStash = gl.dataReducerRawSeries?.[i]?.data
+      // A legend-hidden row stays empty: refilling it from the stash parsed
+      // the hidden series again, and it kept scaling the y axis.
+      if (
+        dr?.enabled &&
+        !this._isCollapsedIndex(i) &&
+        this.isMultiFormat() &&
+        Array.isArray(rawStash) &&
+        rawStash.length > (dr.threshold ?? 500)
+      ) {
+        const targetPoints = dr.targetPoints ?? 250
+        const xmin = cnf.xaxis.min
+        const xmax = cnf.xaxis.max
+        const windowed =
+          xmin == null && xmax == null
+            ? rawStash
+            : Data.sliceByXRange(rawStash, xmin, xmax)
+
+        // Pick the reduction strategy by the data's *shape*, not the chart-type
+        // config (so combo charts work too). A point whose y is a 4-tuple is
+        // candlestick/OHLC: aggregate into OHLC buckets so the high/low extremes
+        // survive — LTTB would silently drop them. A 2-tuple is range data
+        // (rangeArea/rangeBar): aggregate into [min low, max high] buckets, same
+        // extreme-preserving idea. Scalar-y series (line/area) use LTTB, which
+        // preserves visual shape. Any other array-y data (e.g. a boxPlot
+        // 5-tuple) can't be meaningfully merged, so it's left as the windowed
+        // slice rather than corrupted.
+        let reduced = windowed
+        if (windowed.length > targetPoints) {
+          // The first point with a y, so a leading gap does not hand OHLC
+          // tuples to LTTB.
+          let sampleY = null
+          for (let k = 0; sampleY == null && k < windowed.length; k++) {
+            const p = windowed[k]
+            sampleY = Array.isArray(p) ? p[1] : p?.y
+          }
+          if (Array.isArray(sampleY)) {
+            if (sampleY.length === 4) {
+              reduced = Data.ohlcAggregate(windowed, targetPoints)
+            } else if (sampleY.length === 2) {
+              reduced = Data.rangeAggregate(windowed, targetPoints)
+            }
+          } else {
+            reduced = Data.lttbDownsample(windowed, targetPoints)
+          }
+        }
+        ser[i] = { ...ser[i], data: reduced }
+      }
+
+      if (
+        cnf.chart.type === 'rangeBar' ||
+        cnf.chart.type === 'rangeArea' ||
+        ser[i].type === 'rangeBar' ||
+        ser[i].type === 'rangeArea'
+      ) {
+        this.w.axisFlags.isRangeData = true
+        this.handleRangeData(ser, i)
+      }
+
+      // Marks (#11) P3: a custom series type may declare range/extent semantics
+      // (dumbbell y:[lo,hi], bullet, ...) so BOTH y-bounds fold into the axis
+      // scale. Reuses the range-data slice: Range.getMinYMaxY folds
+      // seriesRangeStart/End, and the tooltip renders "lo - hi".
+      const customType = ser[i].type || cnf.chart.type
+      if (isCustom(customType)) {
+        const cls = /** @type {any} */ (getChartClass(customType))
+        const yExtent = cls && cls.yExtent
+        if ((cls && cls.dataType === 'rangeXY') || typeof yExtent === 'function') {
+          this.w.axisFlags.isRangeData = true
+          this.handleCustomRangeData(ser, i, yExtent)
+        }
+      }
+
+      if (this.isMultiFormat()) {
+        if (this.isFormat2DArray()) {
+          this.handleFormat2DArray(ser, i)
+        } else if (this.isFormatXY()) {
+          this.handleFormatXY(ser, i)
+        }
+
+        if (
+          cnf.chart.type === 'candlestick' ||
+          ser[i].type === 'candlestick' ||
+          cnf.chart.type === 'boxPlot' ||
+          ser[i].type === 'boxPlot'
+        ) {
+          this.handleCandleStickBoxData(ser, i)
+        }
+
+        if (cnf.chart.type === 'violin' || ser[i].type === 'violin') {
+          // Must run after handleFormatXY/2DArray — it rebuilds this.twoDSeries
+          // with representative scalars before the push below.
+          this.handleViolinData(ser, i)
+        }
+
+        this.w.seriesData.series.push(this.twoDSeries)
+        this.w.labelData.labels.push(this.twoDSeriesX)
+        this.w.seriesData.seriesX.push(this.twoDSeriesX)
+        this.w.seriesData.seriesGoals = this.seriesGoals
+
+        if (i === this.activeSeriesIndex && !this.fallbackToCategory) {
+          this.w.axisFlags.isXNumeric = true
+        }
+      } else {
+        if (cnf.xaxis.type === 'datetime') {
+          // user didn't supplied [{x,y}] or [[x,y]], but single array in data.
+          // Also labels/categories were supplied differently
+          this.w.axisFlags.isXNumeric = true
+
+          this.twoDSeriesX = handleDates()
+
+          this.w.seriesData.seriesX.push(this.twoDSeriesX)
+        } else if (cnf.xaxis.type === 'numeric') {
+          this.w.axisFlags.isXNumeric = true
+
+          if (xlabels.length > 0) {
+            this.twoDSeriesX = xlabels
+            this.w.seriesData.seriesX.push(this.twoDSeriesX)
+          }
+        }
+        this.w.labelData.labels.push(this.twoDSeriesX)
+        /**
+         * @param {any} d
+         */
+        const singleArray = ser[i].data.map((/** @type {any} */ d) =>
+          Utils.parseNumber(d),
+        )
+        this.w.seriesData.series.push(singleArray)
+      }
+
+      this.w.seriesData.seriesZ.push(this.threeDSeries)
+
+      // overrided default color if user inputs color with series data
+      if (ser[i].color !== undefined) {
+        this.w.seriesData.seriesColors.push(ser[i].color)
+      } else {
+        this.w.seriesData.seriesColors.push(/** @type {any} */ (undefined))
+      }
+    }
+    this._pinActive = false
+    this._ownPoint = null
+
+    return this.w
+  }
+
+  /**
+   * @param {any[]} ser
+   */
+  parseDataNonAxisCharts(ser) {
+    const cnf = this.w.config
+
+    // Reset any per-unit data from a previous parse; only the unit chart's
+    // object form (below) repopulates it.
+    this.w.seriesData.unitData = []
+
+    // Check if we have both old format (numeric series + labels) and new format
+    const hasOldFormat =
+      Array.isArray(ser) &&
+      ser.every((s) => typeof s === 'number') &&
+      cnf.labels.length > 0
+    const hasNewFormat =
+      Array.isArray(ser) &&
+      ser.some(
+        (s) =>
+          (s && typeof s === 'object' && s.data) ||
+          (s && typeof s === 'object' && s.parsing),
+      )
+
+    // Unit chart with the per-unit object form: each category is an array of
+    // unit data (one datum per dot), not a single aggregate. Handle it before
+    // the pie extraction below (which would treat every unit as its own slice).
+    if (cnf.chart.type === 'unit' && hasNewFormat && !hasOldFormat) {
+      return this.parseUnitSeries(ser)
+    }
+
+    if (hasOldFormat && hasNewFormat) {
+      console.warn(
+        'ApexCharts: Both old format (numeric series + labels) and new format (series objects with data/parsing) detected. Using old format for backward compatibility.',
+      )
+    }
+
+    // If old format exists, use it (backward compatibility priority)
+    if (hasOldFormat) {
+      this.w.seriesData.series = /** @type {any} */ (ser.slice())
+      this.w.seriesData.seriesNames = cnf.labels.slice()
+      for (let i = 0; i < this.w.seriesData.series.length; i++) {
+        if (this.w.seriesData.seriesNames[i] === undefined) {
+          this.w.seriesData.seriesNames.push('series-' + (i + 1))
+        }
+      }
+      return this.w
+    }
+
+    // Check if it's just a plain numeric array without labels (radialBar common case)
+    if (Array.isArray(ser) && ser.every((s) => typeof s === 'number')) {
+      this.w.seriesData.series = /** @type {any} */ (ser.slice())
+      this.w.seriesData.seriesNames = []
+      for (let i = 0; i < this.w.seriesData.series.length; i++) {
+        this.w.seriesData.seriesNames.push(cnf.labels[i] || `series-${i + 1}`)
+      }
+      return this.w
+    }
+
+    const processedData = this.extractPieDataFromSeries(ser)
+
+    this.w.seriesData.series = processedData.values
+    this.w.seriesData.seriesNames = processedData.labels
+
+    // Special handling for radialBar - ensure percentages are valid
+    if (cnf.chart.type === 'radialBar') {
+      /**
+       * @param {any} val
+       */
+      this.w.seriesData.series = this.w.seriesData.series.map((val) => {
+        const numVal = Utils.parseNumber(val)
+        if (numVal > 100) {
+          console.warn(
+            `ApexCharts: RadialBar value ${numVal} > 100, consider using percentage values (0-100)`,
+          )
+        }
+        return numVal
+      })
+    }
+
+    // Ensure we have proper fallback names
+    for (let i = 0; i < this.w.seriesData.series.length; i++) {
+      if (this.w.seriesData.seriesNames[i] === undefined) {
+        this.w.seriesData.seriesNames.push('series-' + (i + 1))
+      }
+    }
+
+    return this.w
+  }
+
+  /**
+   * Parse the unit chart's per-unit object form:
+   *   series: [{ name, data: [datum, datum, ...] }, ...]
+   * Each category's dot count is `data.length` (one dot per datum), and the
+   * per-unit data is kept on `w.seriesData.unitData` so the renderer can colour
+   * dots individually and the tooltip can show each unit's own info.
+   * @param {any[]} ser
+   * @returns {any} w
+   */
+  parseUnitSeries(ser) {
+    const cnf = this.w.config
+    /** @type {number[]} */
+    const series = []
+    /** @type {string[]} */
+    const seriesNames = []
+    /** @type {any[][]} */
+    const unitData = []
+
+    ser.forEach((s, i) => {
+      const data = s && Array.isArray(s.data) ? s.data : []
+      series.push(data.length)
+      const name =
+        s && s.name !== undefined && s.name !== null ? s.name : undefined
+      seriesNames.push(name ?? cnf.labels[i] ?? `series-${i + 1}`)
+      unitData.push(data.slice())
+    })
+
+    this.w.seriesData.series = /** @type {any} */ (series)
+    this.w.seriesData.seriesNames = seriesNames
+    this.w.seriesData.unitData = unitData
+
+    return this.w
+  }
+
+  /**
+   * Reset parsing flags to allow re-parsing of data during updates
+   */
+  resetParsingFlags() {
+    const w = this.w
+    w.axisFlags.dataWasParsed = false
+
+    if (w.config.series) {
+      /**
+       * @param {Object} serie
+       */
+      w.config.series.forEach((serie) => {
+        if (/** @type {any} */ (serie).__apexParsed) {
+          delete (/** @type {any} */ (serie).__apexParsed)
+        }
+      })
+    }
+  }
+
+  /**
+   * @param {any[]} ser
+   */
+  extractPieDataFromSeries(ser) {
+    /** @type {any[]} */
+    const values = []
+    /** @type {any[]} */
+    const labels = []
+
+    if (!Array.isArray(ser)) {
+      console.warn('ApexCharts: Expected array for series data')
+      return { values: [], labels: [] }
+    }
+
+    if (ser.length === 0) {
+      console.warn('ApexCharts: Empty series array')
+      return { values: [], labels: [] }
+    }
+
+    // Handle only series objects with data property
+    const firstItem = ser[0]
+
+    if (typeof firstItem === 'object' && firstItem !== null && firstItem.data) {
+      // Format: [{ data: [{x: 'A', y: 10}] }] or [{ data: rawData, parsing: {...} }]
+      this.extractPieDataFromSeriesObjects(ser, values, labels)
+    } else {
+      // Unsupported format
+      console.warn(
+        'ApexCharts: Unsupported series format for pie/donut/radialBar. Expected series objects with data property.',
+      )
+      return { values: [], labels: [] }
+    }
+
+    return { values, labels }
+  }
+
+  // Extract data from series objects: [{ data: [...], parsing: {...} }]
+  /**
+   * @param {any[]} seriesArray
+   * @param {any[]} values
+   * @param {any[]} labels
+   */
+  extractPieDataFromSeriesObjects(seriesArray, values, labels) {
+    // A sunburst paints a root in the datum's own `color`, but the legend
+    // draws before the plot and reads `globals.colors`, so hand the colour
+    // over here for Theme to apply, as an axis series' `color` is. Not the
+    // icicle: a lone root is its trunk there and `colors[0]` its first band.
+    const rootColors =
+      this.w.config.chart.type === 'sunburst' && this.w.seriesData.seriesColors
+    /**
+     * @param {Object} serie
+     * @param {number} serieIndex
+     */
+    seriesArray.forEach((serie, serieIndex) => {
+      if (!serie.data || !Array.isArray(serie.data)) {
+        console.warn(`ApexCharts: Series ${serieIndex} has no valid data array`)
+        return
+      }
+
+      // If series was already parsed by parseRawDataIfNeeded, data should be in {x, y} format
+      /**
+       * @param {Record<string, any>} dataPoint
+       */
+      serie.data.forEach((/** @type {any} */ dataPoint) => {
+        if (typeof dataPoint === 'object' && dataPoint !== null) {
+          // `name` and `value` are the hierarchy node's aliases of x and y,
+          // which the partition charts' tree resolver reads too.
+          const x = dataPoint.x !== undefined ? dataPoint.x : dataPoint.name
+          const y = dataPoint.y !== undefined ? dataPoint.y : dataPoint.value
+          if (rootColors && x !== undefined) {
+            rootColors[labels.length] = dataPoint.color
+          }
+          if (x !== undefined && Array.isArray(dataPoint.children)) {
+            // A partition chart (sunburst, icicle) may leave a branch's own
+            // value out (or null / '') and let it be the sum of its children.
+            // The hierarchy resolver does exactly that in `fillValues`, but
+            // that runs long after this parse, and dropping the datum here left
+            // the chart with an EMPTY series, which makes the renderer bail
+            // before it ever builds the tree: a blank chart and a warning about
+            // pie data. So roll the subtree up now, which is the same number.
+            labels.push(String(x))
+            values.push(subtreeTotal(dataPoint))
+          } else if (x !== undefined && y !== undefined) {
+            labels.push(String(x))
+            values.push(Utils.parseNumber(y))
+          } else {
+            console.warn(
+              'ApexCharts: Invalid data point format for pie chart. Expected {x, y} format:',
+              dataPoint,
+            )
+          }
+        } else {
+          console.warn(
+            'ApexCharts: Expected object data point, got:',
+            typeof dataPoint,
+          )
+        }
+      })
+    })
+  }
+
+  /** User possibly set string categories in xaxis.categories or labels prop
+   * Or didn't set xaxis labels at all - in which case we manually do it.
+   * If user passed series data as [[3, 2], [4, 5]] or [{ x: 3, y: 55 }],
+   * this shouldn't be called
+   * @param {any[]} ser - the series which user passed to the config
+   */
+  handleExternalLabelsData(ser) {
+    const cnf = this.w.config
+
+    if (cnf.xaxis.categories.length > 0) {
+      // user provided labels in xaxis.category prop
+      this.w.labelData.labels = cnf.xaxis.categories
+    } else if (cnf.labels.length > 0) {
+      // user provided labels in labels props
+      this.w.labelData.labels = cnf.labels.slice()
+    } else if (this.fallbackToCategory) {
+      // user provided labels in x prop in [{ x: 3, y: 55 }] data, and those labels are already stored in this.w.labelData.labels[0], so just re-arrange the this.w.labelData.labels array
+      this.w.labelData.labels = /** @type {string[]} */ (
+        /** @type {unknown} */ (this.w.labelData.labels[0])
+      )
+
+      if (this.w.rangeData.seriesRange.length) {
+        // Add the rows only other series name. On a copy: labels[0] is also
+        // seriesX[0], which maps the first series' points to their x.
+        const labels = this.w.labelData.labels.slice()
+        const seen = new Set(labels.map(rowKey))
+        this.w.rangeData.seriesRange.forEach((srt) => {
+          srt.forEach((/** @type {any} */ sr) => {
+            if (sr.x != null && !seen.has(sr.x)) {
+              seen.add(sr.x)
+              labels.push(sr.label)
+            }
+          })
+        })
+        this.w.labelData.labels = labels
+        // remove duplicate x-axis labels
+        const _labels = this.w.labelData.labels
+        if (
+          _labels.length > 0 &&
+          (typeof _labels[0] === 'number' || typeof _labels[0] === 'string')
+        ) {
+          this.w.labelData.labels = [...new Set(_labels)]
+        } else {
+          const _seen = new Map()
+          for (const _label of _labels) {
+            const _key = JSON.stringify(_label)
+            if (!_seen.has(_key)) _seen.set(_key, _label)
+          }
+          this.w.labelData.labels = Array.from(_seen.values())
+        }
+      }
+
+      if (cnf.xaxis.convertedCatToNumeric) {
+        const defaults = new Defaults(cnf)
+        defaults.convertCatToNumericXaxis(cnf, this.w.seriesData.seriesX[0])
+        this._generateExternalLabels(ser)
+      }
+    } else {
+      this._generateExternalLabels(ser)
+    }
+  }
+
+  /**
+   * @param {any[]} ser
+   */
+  _generateExternalLabels(ser) {
+    const gl = this.w.globals
+    const cnf = this.w.config
+    // user didn't provided any labels, fallback to 1-2-3-4-5
+    let labelArr = []
+
+    if (gl.axisCharts) {
+      if (this.w.seriesData.series.length > 0) {
+        if (this.isFormatXY()) {
+          // A combo chart (boxplot/scatter, #2706) stacks several outliers on
+          // one category, so a repeated x there must not add a column: those
+          // series count their distinct x only.
+          //
+          // A line or area series is different: each point is the next step
+          // of one path, and a repeated x (two readings in the same second of
+          // a live feed) is still a step of its own. Counting it once left
+          // the labels, and the seriesX built from them, shorter than the
+          // series, so its last points had no x and the path was dropped
+          // (Blazor-ApexCharts #509). Points are still placed by their index.
+          /**
+           * @param {Object} serie
+           */
+          const seriesDataFiltered = cnf.series.map(
+            (/** @type {any} */ serie) => {
+              const type = serie.type || cnf.chart.type
+              if (type === 'line' || type === 'area') return serie.data
+              const seen = new Map()
+              for (const point of serie.data) {
+                if (!seen.has(point?.x)) seen.set(point?.x, point)
+              }
+              return Array.from(seen.values())
+            },
+          )
+
+          /**
+           * @param {number} p
+           * @param {any} c
+           * @param {number} i
+           * @param {any} a
+           */
+          const len = seriesDataFiltered.reduce(
+            (p, c, i, a) => (a[p].length > c.length ? p : i),
+            0,
+          )
+
+          for (let i = 0; i < seriesDataFiltered[len].length; i++) {
+            labelArr.push(i + 1)
+          }
+        } else {
+          for (
+            let i = 0;
+            i < this.w.seriesData.series[gl.maxValsInArrayIndex].length;
+            i++
+          ) {
+            labelArr.push(i + 1)
+          }
+        }
+      }
+
+      this.w.seriesData.seriesX = []
+      // create this.w.seriesData.seriesX as it will be used in calculations of x positions
+      for (let i = 0; i < ser.length; i++) {
+        this.w.seriesData.seriesX.push(labelArr)
+      }
+
+      // turn on the isXNumeric flag to allow minX and maxX to function properly
+      if (!this.w.globals.isBarHorizontal) {
+        this.w.axisFlags.isXNumeric = true
+      }
+    }
+
+    // no series to pull labels from, put a 0-10 series
+    // possibly, user collapsed all series. Hence we can't work with above calc
+    if (labelArr.length === 0) {
+      labelArr = gl.axisCharts
+        ? []
+        : /**
+           * @param {Record<string, any>} gls
+           * @param {number} glsi
+           */
+          this.w.seriesData.series.map((gls, glsi) => {
+            return glsi + 1
+          })
+      for (let i = 0; i < ser.length; i++) {
+        this.w.seriesData.seriesX.push(labelArr)
+      }
+    }
+
+    // Finally, pass the labelArr in this.w.labelData.labels which will be printed on x-axis
+    this.w.labelData.labels = /** @type {string[]} */ (
+      /** @type {unknown} */ (labelArr)
+    )
+
+    if (cnf.xaxis.convertedCatToNumeric) {
+      /**
+       * @param {number} l
+       */
+      this.w.labelData.categoryLabels = labelArr.map((l) => {
+        return cnf.xaxis.labels.formatter(l)
+      })
+    }
+
+    // Turn on this global flag to indicate no labels were provided by user
+    this.w.axisFlags.noLabelsProvided = true
+  }
+
+  /**
+   * @param {any[]} series
+   */
+  parseRawDataIfNeeded(series) {
+    const cnf = this.w.config
+    const globalParsing = cnf.parsing
+
+    // If data was already parsed, don't parse again
+    if (this.w.axisFlags.dataWasParsed) {
+      return series
+    }
+
+    // If no global parsing config and no series-level parsing, return as-is.
+    // The config default is `parsing: { x: undefined, y: undefined }`, a
+    // truthy object, so test the FIELDS, not the object: otherwise every
+    // chart without parsing still walks the series on every update.
+    const hasGlobalParsing = !!(
+      globalParsing &&
+      (globalParsing.x || globalParsing.y || globalParsing.z)
+    )
+    /**
+     * @param {Record<string, any>} s
+     */
+    const hasSeriesParsing = series.some(
+      (s) => s.parsing && (s.parsing.x || s.parsing.y || s.parsing.z),
+    )
+    if (!hasGlobalParsing && !hasSeriesParsing) {
+      return series
+    }
+
+    /**
+     * @param {Object} serie
+     * @param {number} index
+     */
+    const processedSeries = series.map((serie, index) => {
+      if (
+        !serie.data ||
+        !Array.isArray(serie.data) ||
+        serie.data.length === 0
+      ) {
+        return serie
+      }
+
+      // Resolve effective parsing config for this series
+      const effectiveParsing = {
+        x: serie.parsing?.x || globalParsing?.x,
+        y: serie.parsing?.y || globalParsing?.y,
+        z: serie.parsing?.z || globalParsing?.z,
+      }
+
+      // If no effective parsing config, return as-is
+      if (!effectiveParsing.x && !effectiveParsing.y) {
+        return serie
+      }
+
+      // Check if data is already in {x, y} format or 2D array format. A raw
+      // row may carry `x` or `y` too, so it only counts as parsed when no
+      // mapped field other than x/y/z is on it: `{x, y, value}` with
+      // `y: 'value'` still maps, while a row already parsed (appendData,
+      // updateSeries(w.config.series)) has lost `value` and is left alone.
+      // Once per series, on its first row.
+      const firstDataPoint = serie.data[0]
+
+      if (
+        (typeof firstDataPoint === 'object' &&
+          firstDataPoint !== null &&
+          (Object.prototype.hasOwnProperty.call(firstDataPoint, 'x') ||
+            Object.prototype.hasOwnProperty.call(firstDataPoint, 'y')) &&
+          ![effectiveParsing.x, effectiveParsing.y, effectiveParsing.z]
+            .flat()
+            .some(
+              (f) =>
+                f &&
+                f !== 'x' &&
+                f !== 'y' &&
+                f !== 'z' &&
+                this.getNestedValue(firstDataPoint, f) !== undefined,
+            )) ||
+        Array.isArray(firstDataPoint)
+      ) {
+        return serie
+      }
+
+      // Validate that we have both x and y parsing config
+      if (
+        !effectiveParsing.x ||
+        !effectiveParsing.y ||
+        (Array.isArray(effectiveParsing.y) && effectiveParsing.y.length === 0)
+      ) {
+        const missing = []
+        if (!effectiveParsing.x) missing.push('x')
+        if (
+          !effectiveParsing.y ||
+          (Array.isArray(effectiveParsing.y) && effectiveParsing.y.length === 0)
+        ) {
+          missing.push('y')
+        }
+        const seriesName = serie.name ?? `series[${index}]`
+        console.warn(
+          `ApexCharts [${this.w.globals.chartID}]: "${seriesName}" has a parseData config but is missing the '${missing.join(
+            "', '",
+          )}' field specification.`,
+          { parsing: serie.parsing ?? globalParsing },
+        )
+        return serie
+      }
+
+      // Transform raw data to {x, y} format
+      /**
+       * @param {Record<string, any>} item
+       * @param {number} itemIndex
+       */
+      const transformedData = serie.data.map(
+        (/** @type {any} */ item, /** @type {any} */ itemIndex) => {
+          if (typeof item !== 'object' || item === null) {
+            console.warn(
+              `ApexCharts: Series ${index}, data point ${itemIndex} is not an object, skipping parsing`,
+            )
+            return item
+          }
+
+          const x = this.getNestedValue(item, effectiveParsing.x)
+
+          let y
+          let z = undefined
+          if (Array.isArray(effectiveParsing.y)) {
+            const yValues = effectiveParsing.y.map((fieldName) =>
+              this.getNestedValue(item, fieldName),
+            )
+
+            if (this.w.config.chart.type === 'bubble') {
+              if (yValues.length < 2) {
+                console.warn(
+                  `ApexCharts: series[${index}] bubble chart requires parseData.y to have at least 2 fields (y and z). Got: ${JSON.stringify(effectiveParsing.y)}`,
+                )
+              }
+              // For bubble: [y-value, z-value] → y = yValues[0], z = yValues[1]
+              y = yValues[0]
+            } else {
+              y = yValues
+            }
+          } else {
+            y = this.getNestedValue(item, effectiveParsing.y)
+          }
+
+          // explicit z field for bubble charts
+          if (effectiveParsing.z) {
+            z = this.getNestedValue(item, effectiveParsing.z)
+          }
+
+          // Warn if fields don't exist
+          if (x === undefined) {
+            console.warn(
+              `ApexCharts: Series ${index}, data point ${itemIndex} missing field '${effectiveParsing.x}'`,
+            )
+          }
+
+          if (y === undefined) {
+            console.warn(
+              `ApexCharts: Series ${index}, data point ${itemIndex} missing field '${effectiveParsing.y}'`,
+            )
+          }
+
+          const result = { x, y, z: undefined }
+
+          if (
+            this.w.config.chart.type === 'bubble' &&
+            Array.isArray(effectiveParsing.y) &&
+            effectiveParsing.y.length === 2
+          ) {
+            const zValue = this.getNestedValue(item, effectiveParsing.y[1])
+            if (zValue !== undefined) {
+              result.z = zValue
+            }
+          }
+
+          if (z !== undefined) {
+            result.z = z
+          }
+
+          return result
+        },
+      )
+
+      return {
+        ...serie,
+        data: transformedData,
+        __apexParsed: true,
+      }
+    })
+
+    // Mark that data was parsed
+    this.w.axisFlags.dataWasParsed = true
+
+    return processedSeries
+  }
+
+  /**
+   * Get nested object value using dot notation path
+   * @param {Object} obj - The object to search in
+   * @param {string} path - Dot notation path (e.g., 'user.profile.name')
+   * @returns {*} The value at the path, or undefined if not found
+   */
+  getNestedValue(obj, path) {
+    if (!obj || typeof obj !== 'object' || !path) {
+      return undefined
+    }
+
+    // Handle simple property access (no dots)
+    if (path.indexOf('.') === -1) {
+      return /** @type {any} */ (obj)[path]
+    }
+
+    // Handle nested property access
+    const keys = path.split('.')
+    let current = obj
+
+    for (let i = 0; i < keys.length; i++) {
+      if (
+        current === null ||
+        current === undefined ||
+        typeof current !== 'object'
+      ) {
+        return undefined
+      }
+      current = /** @type {any} */ (current)[keys[i]]
+    }
+
+    return current
+  }
+
+  /**
+   * Optional pre-parse series transform. A chart type whose series carries RAW
+   * observations rather than the values it draws (a histogram's sample, and in
+   * time a boxPlot's or a violin's) registers a transform through
+   * `apexcharts/features/stats`. Core keeps only this lookup, so a bundle that
+   * never asks for a raw-sample type never pays for the statistics.
+   *
+   * @param {any[]} ser
+   * @returns {any[]}
+   */
+  applySeriesTransform(ser) {
+    const cnf = this.w.config
+    const name = cnf.chart.requestedType || cnf.chart.type
+
+    // A transform-derived slice is refilled by its transform on every parse,
+    // and a chart that has CHANGED type no longer runs the one that filled it.
+    // Cleared here rather than at the read sites: the waterfall's steps are read
+    // by the label and the tooltip, and left behind they made a plain bar chart
+    // print the numbers of the waterfall it used to be.
+    if (name !== 'waterfall' && this.w.waterfallData.geometry) {
+      this.w.waterfallData = {
+        values: [],
+        geometry: null,
+      }
+    }
+    // Same reason: the endpoint identities are read by the markers, the end
+    // labels and the tooltip, and left behind they would have a plain range bar
+    // colouring its ends after series it no longer has.
+    if (name !== 'dumbbell' && this.w.dumbbellData) {
+      this.w.dumbbellData = null
+    }
+    // Same reason again: the band values are read by the tooltip and the band
+    // labels, and left behind they would have a plain range area writing the
+    // names of a streamgraph it used to be over bands it no longer has.
+    if (name !== 'streamgraph' && this.w.streamgraphData) {
+      this.w.streamgraphData = null
+    }
+    // The raw stash too, and it hands back the user's series: `ser` is the
+    // rows the old type derived (levels, offsets, bins, merged pairs), and
+    // drawn by the new type they were the wrong numbers. A stash left set
+    // also took every appendData and resetSeries after the switch. A
+    // legend-hidden series stays hidden: its values go to its collapse record.
+    // Only when `ser` IS those rows (what the last parse wrote back): a payload
+    // with its own series (a drilldown child, a replay) is drawn as given, and
+    // the stash stays for the level it came from.
+    const gl = /** @type {any} */ (this.w.globals)
+    for (const t of ['histogram', 'waterfall', 'dumbbell', 'streamgraph']) {
+      const raw = gl[t + 'RawSeries']
+      if (name !== t && raw && ser === this._rows) {
+        gl[t + 'RawSeries'] = null
+        const recs = gl.collapsedSeries.concat(gl.ancillaryCollapsedSeries)
+        ser = raw.map((/** @type {any} */ s, /** @type {number} */ i) => {
+          const r = recs.find((/** @type {any} */ r) => r.index === i)
+          return r ? ((r.data = s.data), { ...s, data: [] }) : s
+        })
+      }
+    }
+
+    // The samples behind the rows, which only a transform that summarised raw
+    // observations writes. Cleared on every parse rather than when the type
+    // changes: a boxPlot whose data is now precomputed has no sample either.
+    this.w.seriesObservations = null
+
+    // A combo's raw boxPlot or violin series is summarised under its own type:
+    // the chart type below picks one transform, and with another chart type
+    // the series drew nothing. Each transform skips series of other types.
+    if (Array.isArray(ser)) {
+      for (const t in RAW_SAMPLE_TYPES) {
+        if (t !== name && ser.some((s) => s?.type === t)) {
+          const f = getSeriesTransform(t)
+          ser = f ? f(ser, this.w) : this._withoutStats(ser, t)
+        }
+      }
+    }
+
+    const transform = getSeriesTransform(name)
+    if (transform) return transform(ser, this.w)
+    if (Array.isArray(ser) && name in RAW_SAMPLE_TYPES) {
+      return this._withoutStats(ser, name)
+    }
+    const feature = /** @type {Record<string,string>} */ (TYPE_FEATURES)[name]
+    if (!Array.isArray(ser) || !feature) return ser
+    // Without the feature the series is not what the renderer draws (see
+    // TYPE_FEATURES), so draw nothing and say why. Warn once per chart:
+    // parseData runs on every render, and a resize should not spam the console.
+    if (!this._warnedFeatures.has(feature)) {
+      this._warnedFeatures.add(feature)
+      // With the renderer on the page (the default bundle has bar and
+      // rangeArea), the feature is all that is missing: the type's own entry
+      // would bring the feature AND a second copy of the renderer, about
+      // 15-20 KB gzipped for a 1-5 KB feature. Only a page without the
+      // renderer (the lean core, or a raincloud without violin) needs the
+      // entry, and its script-tag route adds the renderer's file first.
+      const base = TYPE_ALIASES[name]
+      warnMissingFeature(
+        `chart.type '${name}'`,
+        feature,
+        hasChartClass(base)
+          ? {}
+          : {
+              module: name,
+              scripts: [
+                `${RENDERER_ENTRIES[base] || base}.js`,
+                `features/${feature}.js`,
+              ],
+            },
+      )
+    }
+    return ser.map((/** @type {any} */ s) => ({ ...s, data: [] }))
+  }
+
+  /**
+   * A boxPlot or violin on a page without the stats feature. Precomputed input
+   * (a five-number `y`, a density profile) draws as it always has. Raw
+   * observations are what the feature turns into that input, so without it
+   * the renderer got no summary and no density and drew a sliver or nothing,
+   * with no word as to why. That only happens off the default bundle, which
+   * has the feature: the lean core, or a page assembled from type entries.
+   *
+   * Said, not blanked. Unlike a TYPE_FEATURES type, nothing here draws a WRONG
+   * chart, and the series stays as given: parseData writes it back to the
+   * config, so a stats feature that registers later (a deferred import, an
+   * async script tag) finds the observations on the next render.
+   *
+   * Only series that are this type: a combo's other series (a precomputed
+   * boxPlot in a violin chart, a rangeArea's `y: [lo, hi]`) are not samples.
+   *
+   * @param {any[]} ser
+   * @param {string} name 'boxPlot' or 'violin'
+   * @returns {any[]}
+   */
+  _withoutStats(ser, name) {
+    if (this._warnedFeatures.has('stats')) return ser
+    const flatY = RAW_SAMPLE_TYPES[name]
+    const raw = ser.some(
+      (/** @type {any} */ s) =>
+        (s?.type || name) === name &&
+        Array.isArray(s?.data) &&
+        s.data.some((/** @type {any} */ d) => isRawSample(d, name, flatY)),
+    )
+    if (raw) {
+      this._warnedFeatures.add('stats')
+      warnMissingFeature(
+        `chart.type '${name}' with raw observations (\`points\`${
+          flatY ? ', or a flat number array as `y`' : ''
+        })`,
+        'stats',
+        {
+          tail: 'Precomputed input draws without it; raw series draw nothing until it loads and the chart renders again.',
+        },
+      )
+    }
+    return ser
+  }
+
+  /**
+   * Nested treemap: resolve a `children` hierarchy into the tree the renderer
+   * lays out, and return the leaves as a flat series.
+   *
+   * Everything downstream of here addresses a treemap by `(seriesIndex,
+   * dataPointIndex)` into a flat matrix, so the leaves are flattened in
+   * depth-first order and `dataPointIndex` keeps meaning "the nth leaf of this
+   * series". The tree itself goes on globals for the renderer.
+   *
+   * `cnf.series` is replaced with the flattened leaves further down parseData,
+   * which is the only copy that survives — so the nested input is stashed on
+   * the first parse and every later parse resolves from the stash, never from
+   * the already-flattened view. That is the same contract the histogram's raw
+   * observations and the downsampler's raw series use, and `_updateSeries`
+   * clears all three when the user pushes new data.
+   *
+   * @param {any[]} ser
+   * @returns {any[]}
+   */
+  flattenTreemapHierarchy(ser) {
+    const w = this.w
+    const gl = w.globals
+    if (w.config.chart.type !== 'treemap' || !Array.isArray(ser)) return ser
+
+    // Nesting turned off by updateOptions: `ser` is the flattened leaves the
+    // last parse wrote back, so gate on the stash and hand back the input, as
+    // the alias types do. It becomes config.series, so appendData reaches it,
+    // and turning nesting on again re-stashes its levels.
+    let raw = gl.treemapRawSeries
+    if (!isNestedTreemap(w, raw || ser)) {
+      // Flat treemap: the renderer builds the two-level tree itself. Clear
+      // any tree left over from a previous (nested) data set.
+      gl.treemapRoots = null
+      if (raw && ser === this._rows) {
+        gl.treemapRawSeries = null
+        return raw
+      }
+      return ser
+    }
+    if (!raw) {
+      raw = gl.treemapRawSeries = ser.map((/** @type {any} */ s) => ({
+        ...s,
+        data: Array.isArray(s?.data) ? s.data.slice() : s?.data,
+      }))
+    }
+
+    const { roots, leafSeries, maxDepth } = resolveTreemapTree(w, raw)
+    gl.treemapRoots = roots
+    gl.treemapMaxDepth = maxDepth
+    return leafSeries
+  }
+
+  /**
+   * Scatter strip-plot support. When `plotOptions.scatter.jitter.enabled` and a
+   * series carries compact `{ x: 'Category', y: [v1, v2, ...] }` data, expand
+   * each observation into its own `{ x: bandIndex, y }` point (so every dot is a
+   * first-class, hoverable marker) and frame the x-axis as evenly-spaced,
+   * labelled bands. The reference per-point form (numeric x + `xaxis.categories`)
+   * is reframed too, without expansion. Returns `ser` unchanged for non-scatter
+   * charts and for plain numeric/datetime data (continuous overplotting jitter
+   * is offset at render time instead).
+   *
+   * @param {any[]} ser
+   * @returns {any[]}
+   */
+  expandScatterJitterData(ser) {
+    const cnf = this.w.config
+    const isScatter =
+      cnf.chart.type === 'scatter' || cnf.chart.type === 'bubble'
+    const jt = cnf.plotOptions?.scatter?.jitter
+    if (!isScatter || !jt || !jt.enabled || !Array.isArray(ser)) return ser
+
+    const hasArrayY = ser.some(
+      (/** @type {any} */ s) =>
+        Array.isArray(s?.data) &&
+        s.data.some(
+          (/** @type {any} */ d) =>
+            d && !Array.isArray(d) && Array.isArray(d.y),
+        ),
+    )
+
+    if (!hasArrayY) {
+      // Reference form: plain points at numeric band indices + xaxis.categories.
+      // Just frame the axis; the data is already one point per observation.
+      if (cnf.xaxis.type !== 'datetime') {
+        if (
+          Array.isArray(cnf.xaxis.categories) &&
+          cnf.xaxis.categories.length
+        ) {
+          this._applyBandAxis(cnf.xaxis.categories.slice())
+        } else if (
+          Array.isArray(cnf.xaxis._scatterBandLabels) &&
+          cnf.xaxis._scatterBandLabels.length
+        ) {
+          // Re-render after the compact data was expanded in place (zoom,
+          // pan, any updateOptions): the config now carries plain points and
+          // no categories, so re-frame from the labels persisted by the
+          // first pass. Without this, zoom windows never get band-snapped.
+          this._applyBandAxis(cnf.xaxis._scatterBandLabels)
+        }
+      }
+      return ser
+    }
+
+    // Compact form: collect bands (in first-seen order) then expand.
+    /** @type {any[]} */
+    const bandLabels = []
+    const bandIndex = new Map()
+    ser.forEach((/** @type {any} */ s) => {
+      if (!Array.isArray(s?.data)) return
+      s.data.forEach((/** @type {any} */ d) => {
+        if (d && Array.isArray(d.y)) {
+          const key = String(d.x)
+          if (!bandIndex.has(key)) {
+            bandIndex.set(key, bandLabels.length)
+            bandLabels.push(d.x)
+          }
+        }
+      })
+    })
+
+    const maxPoints = jt.maxPoints || 5000
+
+    const expanded = ser.map((/** @type {any} */ s) => {
+      if (!Array.isArray(s?.data)) return s
+      /** @type {any[]} */
+      const out = []
+      s.data.forEach((/** @type {any} */ d) => {
+        if (d && Array.isArray(d.y)) {
+          const bi = bandIndex.get(String(d.x))
+          const ys = d.y
+          const stride =
+            ys.length > maxPoints ? Math.ceil(ys.length / maxPoints) : 1
+          for (let k = 0; k < ys.length; k += stride) {
+            const yv = Utils.parseNumber(ys[k])
+            if (yv === null) continue
+            out.push({ x: bi, y: yv })
+          }
+        } else if (d && typeof d === 'object' && !Array.isArray(d)) {
+          // a plain { x, y } mixed into compact data — map known labels to bands
+          const key = String(d.x)
+          out.push({ x: bandIndex.has(key) ? bandIndex.get(key) : d.x, y: d.y })
+        } else {
+          out.push(d)
+        }
+      })
+      return { ...s, data: out }
+    })
+
+    this._applyBandAxis(bandLabels)
+    return expanded
+  }
+
+  /**
+   * Frame the x-axis as N evenly-spaced bands (one per category) on a numeric
+   * scale. Bands sit at integer positions 0..N-1; the range is padded by a full
+   * band on each side (min -1, max N) so jittered dots never clip. Crucially the
+   * range bounds and tick count are integers, so the ticks land exactly on the
+   * band centers regardless of how the numeric scale "nices" the step. Only
+   * fills in options the user hasn't set, so explicit
+   * min/max/tickAmount/formatter still win. The exception is an interactive
+   * zoom/pan window (w.interact.zoomed): its fractional bounds are snapped to
+   * whole bands so tick labels stay on band centers and edge bands are never
+   * half-cropped.
+   *
+   * @param {any[]} bandLabels
+   */
+  _applyBandAxis(bandLabels) {
+    const xa = this.w.config.xaxis
+    const n = bandLabels.length
+    if (!n) return
+
+    // Track the values we auto-assigned so a re-render with a different band
+    // set refreshes them, while values the user set explicitly are left alone.
+    // An option is ours only while it still holds the value we wrote: one set
+    // later through updateOptions lands on the same field and is the user's.
+    const owned =
+      /** @type {Record<string, any>} */ (
+        (xa._scatterBand = xa._scatterBand || {})
+      )
+
+    // Persist the labels: once the compact data has been expanded into plain
+    // points, re-renders can no longer derive the bands from the series (see
+    // expandScatterJitterData's reference-form branch).
+    xa._scatterBandLabels = bandLabels.slice()
+
+    xa.type = 'numeric'
+    if (
+      this.w.interact?.zoomed &&
+      typeof xa.min === 'number' &&
+      typeof xa.max === 'number' &&
+      isFinite(xa.min) &&
+      isFinite(xa.max)
+    ) {
+      // A zoom or pan window arrives with fractional bounds (a rubber-band
+      // selection, wheel zoom, pinch). On a band axis a fractional window is
+      // doubly broken: ticks no longer land on band centers (every label
+      // formats to ''), and a band sitting on the window edge shows half a
+      // dot cloud. Snap the window to the touched band centers plus one full
+      // band of padding per side, mirroring the initial frame: integer bounds
+      // and an integer tick count survive the numeric scale's nicing, so
+      // every tick lands exactly on a band center. Neighbouring bands peek in
+      // half-cropped at the window edges (zoom context); the selected bands
+      // themselves are never edge-cropped. The 0.49 bias keeps a band whose
+      // center sits exactly on the window edge (a zoom-out clamped to the
+      // data bounds 0..n-1 must keep the outermost bands).
+      const clampBand = (/** @type {number} */ b) =>
+        Math.max(0, Math.min(n - 1, b))
+      let first = clampBand(Math.round(xa.min + 0.49))
+      let last = clampBand(Math.round(xa.max - 0.49))
+      if (last < first) {
+        // window narrower than one band: show the band nearest its center
+        first = last = clampBand(Math.round((xa.min + xa.max) / 2))
+      }
+      owned.min = xa.min = first - 1
+      owned.max = xa.max = last + 1
+      owned.tick = xa.tickAmount = last - first + 2
+    } else {
+      if (xa.min == null || xa.min === owned.min) {
+        owned.min = xa.min = -1
+      }
+      if (xa.max == null || xa.max === owned.max) {
+        owned.max = xa.max = n
+      }
+      if (
+        xa.tickAmount == null ||
+        xa.tickAmount === 'dataPoints' ||
+        xa.tickAmount === owned.tick
+      ) {
+        owned.tick = xa.tickAmount = n + 1
+      }
+    }
+
+    xa.labels = xa.labels || {}
+    const existing = /** @type {any} */ (xa.labels.formatter)
+    if (typeof existing !== 'function' || existing._scatterBand) {
+      const fmt = /** @type {any} */ (
+        (/** @type {number} */ val) => {
+          const r = Math.round(val)
+          return Math.abs(val - r) < 1e-6 && bandLabels[r] !== undefined
+            ? bandLabels[r]
+            : ''
+        }
+      )
+      fmt._scatterBand = true
+      xa.labels.formatter = fmt
+    }
+  }
+
+  /**
+   * Refuse a series list an axis chart cannot read, naming the entry.
+   *
+   * A flat list of numbers is the shape pie, donut, polarArea and radialBar
+   * take. Handed to an axis chart it reached `setSeriesYAxisMappings`, which
+   * writes a group name onto every series, and the reader got `Cannot create
+   * property 'group' on number '44'`: no mention of `series`, of the chart
+   * type, or of the shape that would have worked. `column` made it easy to
+   * reach, since it sounds like a sibling of the slice charts and is a bar.
+   *
+   * Checked here because every series reaches the renderer through parseData,
+   * from `new ApexCharts`, `updateOptions` and `updateSeries` alike. A null
+   * entry is let through: a series may be bare until loaded in realtime, and
+   * `setSeriesYAxisMappings` already skips one.
+   *
+   * @param {any[]} ser
+   */
+  assertAxisSeriesShape(ser) {
+    if (!this.w.globals.axisCharts || !Array.isArray(ser)) return
+    const at = ser.findIndex(
+      (/** @type {any} */ s) =>
+        s !== null && s !== undefined && typeof s !== 'object',
+    )
+    if (at === -1) return
+
+    const chart = this.w.config.chart
+    // `column` is rewritten to `bar` without a trace (see
+    // Config.normalizeAliasedChartType), so name both rather than tell someone
+    // who wrote `column` about a bar chart they never asked for.
+    const type = chart.requestedType
+      ? chart.requestedType
+      : chart.type === 'bar'
+        ? 'bar or column'
+        : chart.type
+    const value = ser[at]
+    const shown =
+      typeof value === 'string' ? JSON.stringify(value) : String(value)
+    throw new Error(
+      `ApexCharts: a ${type} chart needs each series as an object with its ` +
+        `own data, like series: [{ name: 'Sales', data: [44, 55, 13] }], but ` +
+        `series[${at}] is the ${typeof value} ${shown}. A flat list of ` +
+        `numbers is the form pie, donut, polarArea and radialBar take.`,
+    )
+  }
+
+  // Segregate user provided data into appropriate vars
+  /**
+   * @param {any[]} ser
+   * @param {boolean} [overwriteInitialSeries=true] false when the caller hands
+   *   back the series the chart already has (an internal re-render), so the
+   *   baseline resetSeries() restores must not move.
+   */
+  parseData(ser, overwriteInitialSeries = true) {
+    const w = this.w
+    const cnf = w.config
+    const gl = w.globals
+
+    this.assertAxisSeriesShape(ser)
+
+    ser = this.parseRawDataIfNeeded(ser)
+
+    // Raw-sample types (histogram today): turn the observations into the rows
+    // the renderer draws, before anything else reads the data. A no-op for
+    // every other chart type.
+    ser = this.applySeriesTransform(ser)
+
+    // Scatter "jitter": expand compact { x, y:[...] } strip-plot data into one
+    // point per observation and frame the x-axis as evenly-spaced bands. A no-op
+    // for non-scatter charts and for plain { x, y } data (overplotting jitter is
+    // applied at render time instead — see Scatter.drawPoint).
+    ser = this.expandScatterJitterData(ser)
+
+    // Nested treemap: resolve `children` into the tree the renderer lays out and
+    // hand the rest of the pipeline the leaves as a flat series. A no-op for
+    // every other chart type and for a treemap without `children`.
+    ser = this.flattenTreemapHierarchy(ser)
+
+    // Stash raw series once per chart lifetime so zoom/pan can re-downsample
+    // against full-resolution data. Cleared by _updateSeries when user pushes
+    // new data. We hold references — parseDataAxisCharts replaces ser[i] but
+    // never mutates the underlying data array.
+    if (
+      cnf.chart.dataReducer?.enabled &&
+      gl.axisCharts &&
+      !gl.dataReducerRawSeries
+    ) {
+      gl.dataReducerRawSeries = stashSeries(ser, gl)
+      // Also capture true x-bounds from the raw data so zoom-out/pan clamps
+      // don't shrink to the current window's bounds (initialMinX/initialMaxX
+      // are recomputed from the downsampled-and-sliced data each parse).
+      let rawMinX = Infinity
+      let rawMaxX = -Infinity
+      for (const s of gl.dataReducerRawSeries) {
+        const d = s?.data
+        if (!Array.isArray(d) || d.length === 0) continue
+        const isXY = !Array.isArray(d[0])
+        const firstX = toNum(isXY ? d[0]?.x : d[0]?.[0])
+        const lastX = toNum(isXY ? d[d.length - 1]?.x : d[d.length - 1]?.[0])
+        if (firstX === firstX) rawMinX = Math.min(rawMinX, firstX)
+        if (lastX === lastX) rawMaxX = Math.max(rawMaxX, lastX)
+      }
+      if (rawMinX !== Infinity) {
+        gl.dataReducerRawMinX = rawMinX
+        gl.dataReducerRawMaxX = rawMaxX
+      }
+    }
+
+    // When zoom-aware downsampling is active, parseDataAxisCharts replaces
+    // ser[i] with the windowed/downsampled view. `ser` shares its array
+    // reference with the caller's `options.series` (Utils.extend copies arrays
+    // by reference), so writing the reduced view back into it would corrupt the
+    // user's original full-resolution data: every later re-render created from
+    // that same options object would start already reduced and could never
+    // recover the raw points (nor be un-downsampled by disabling the reducer).
+    // Detach with a shallow clone so the reduction only touches our copy. The
+    // raw stash above was taken before any reduction, so it stays intact.
+    if (gl.dataReducerRawSeries && cnf.chart.dataReducer?.enabled) {
+      ser = ser.map((s) => ({ ...s }))
+    }
+
+    // Remembered so a type switch can tell its own rows from a new payload.
+    cnf.series = this._rows = ser
+    // parseDataAxisCharts mutates ser[i] to the windowed/downsampled view.
+    // Re-cloning from cnf.series each parse would corrupt initialSeries and
+    // break resetZoom (it would only restore one zoom step). Instead, snapshot
+    // from the raw stash so initialSeries always represents the true input.
+    if (!overwriteInitialSeries) {
+      // An internal re-render replays the series the chart already has, so the
+      // baseline it was given stays put (#5283).
+    } else if (gl.dataReducerRawSeries && cnf.chart.dataReducer?.enabled) {
+      const stash = gl.dataReducerRawSeries
+      gl.initialSeries = ser.map((s, i) => ({
+        ...s,
+        data: stash[i]?.data?.slice() ?? s.data,
+      }))
+    } else if (gl.histogramRawSeries) {
+      // Same reason as the reducer branch above: `ser` is the binned view, so
+      // snapshotting it would make resetSeries() restore counts as if they
+      // were observations, and every reset would bin one level deeper.
+      gl.initialSeries = gl.histogramRawSeries
+    } else if (gl.dumbbellRawSeries) {
+      // Same reason again: `ser` is the merged rows, so snapshotting it would
+      // make resetSeries() restore one series of pairs in place of the measures
+      // the chart was given, and the endpoint names would not come back.
+      gl.initialSeries = gl.dumbbellRawSeries
+    } else if (gl.streamgraphRawSeries) {
+      // Same reason again: `ser` is the stacked bands, so snapshotting it would
+      // make resetSeries() restore stacking offsets as if they were values, and
+      // every reset would stack one level deeper.
+      gl.initialSeries = gl.streamgraphRawSeries
+    } else if (gl.waterfallRawSeries) {
+      // Same reason again: `ser` is the accumulated pairs, so snapshotting it
+      // would make resetSeries() restore levels as if they were deltas, and
+      // every reset would accumulate one level deeper.
+      gl.initialSeries = gl.waterfallRawSeries
+    } else if (gl.treemapRawSeries) {
+      // Same reason again: `ser` is the flattened leaves, so snapshotting it
+      // would make resetSeries() restore a treemap that has lost its levels.
+      gl.initialSeries = gl.treemapRawSeries
+    } else {
+      // lazy snapshot: the globals setter stores a cheap per-series shallow
+      // copy; the deep clone materializes only if something reads it
+      gl.initialSeries = ser
+    }
+
+    this.excludeCollapsedSeriesInYAxis()
+
+    // If we detected string in X prop of series, we fallback to category x-axis
+    this.fallbackToCategory = false
+
+    this.resetGlobals()
+    this.isMultipleY()
+
+    if (gl.axisCharts) {
+      // axisCharts includes line / area / column / scatter
+      this.parseDataAxisCharts(ser)
+      this.coreUtils.getLargestSeries()
+    } else {
+      // non-axis charts are pie / donut
+      this.parseDataNonAxisCharts(ser)
+    }
+
+    // set Null values to 0 in all series when user hides/shows some series
+    if (cnf.chart.stacked) {
+      const series = new Series(this.w)
+      this.w.seriesData.series = series.setNullSeriesToZeroValues(
+        this.w.seriesData.series,
+      )
+    }
+
+    this.coreUtils.getSeriesTotals()
+    if (gl.axisCharts) {
+      // Lazy: three additional O(n) passes over every series that most axis
+      // charts never read (only stacked charts and percent formatters do).
+      // The property getters compute on first access after each parse.
+      Data._defineLazyResult(this.w.seriesData, 'stackedSeriesTotals', () =>
+        this.coreUtils.getStackedSeriesTotals(),
+      )
+      Data._defineLazyResult(
+        this.w.seriesData,
+        'stackedSeriesTotalsByGroups',
+        () => this.coreUtils.getStackedSeriesTotalsByGroups(),
+      )
+      Data._defineLazyResult(gl, 'seriesPercent', () => {
+        this.coreUtils.getPercentSeries()
+        // getPercentSeries assigns through this property's setter
+        return gl.seriesPercent
+      })
+    } else {
+      this.coreUtils.getPercentSeries()
+    }
+
+    if (
+      !this.w.axisFlags.dataFormatXNumeric &&
+      (!this.w.axisFlags.isXNumeric ||
+        (cnf.xaxis.type === 'numeric' &&
+          cnf.labels.length === 0 &&
+          cnf.xaxis.categories.length === 0))
+    ) {
+      // x-axis labels couldn't be detected; hence try searching every option in config
+      this.handleExternalLabelsData(ser)
+    }
+
+    // check for multiline xaxis. A converted category axis keeps its names on
+    // the formatter; probing that formatter here would read them through an x
+    // range that is not computed yet, and every probe came back ''. Any other
+    // axis still goes through the formatter: on xy data the raw labels hold
+    // the series' x values as a nested array, which is not a multi-line label.
+    const catLabels =
+      (cnf.xaxis.convertedCatToNumeric &&
+        /** @type {any} */ (cnf.xaxis.labels.formatter).categoryNames) ||
+      this.coreUtils.getCategoryLabels(this.w.labelData.labels)
+    for (let l = 0; l < catLabels.length; l++) {
+      if (Array.isArray(catLabels[l])) {
+        this.w.axisFlags.isMultiLineX = true
+        break
+      }
+    }
+
+    // Highlight filter: the feature reads the parts off the parsed rows. When
+    // it is not loaded, a chart handed parts would otherwise just draw without
+    // them, so say once what is missing. Checked per series, never per point.
+    const hf = this.highlight()
+    if (hf) {
+      hf.parse()
+    } else if (
+      !this._warnedHighlight &&
+      (cnf.highlightFilter?.data ||
+        ser.some(
+          (/** @type {any} */ s) =>
+            s &&
+            (s.highlightData ||
+              (s.data?.[0] && typeof s.data[0] === 'object' && 'highlight' in s.data[0])),
+        ))
+    ) {
+      this._warnedHighlight = true
+      // Through the helper, like every missing-feature line: a bare
+      // console.warn is stripped from apexcharts.min.js.
+      warnMissingFeature(
+        'Highlight parts (`highlightData`, `highlightFilter.data`)',
+        'highlight-filter',
+        { tail: 'Drawing the chart without them.' },
+      )
+    }
+  }
+
+  /**
+   * Slice a sorted-by-x series to a [xmin, xmax] window using binary search.
+   *
+   * Pads with one extra point on each side so lines extend cleanly to the
+   * chart edges. Either bound may be null/undefined to disable that side.
+   *
+   * @param {any[]} data - Series data in [{x,y}] or [[x,y]] format, sorted by x.
+   * @param {number|null|undefined} xmin
+   * @param {number|null|undefined} xmax
+   * @returns {any[]} Sliced array (new array, never the input reference).
+   */
+  /**
+   * Define `key` on `obj` as a lazily computed property: `compute` runs on
+   * first read after this call and its result is cached; assigning to the
+   * property stores the assigned value directly (so code that writes the
+   * field, like getPercentSeries, keeps working). Re-calling resets the cache
+   * (used once per parse).
+   * @param {any} obj
+   * @param {string} key
+   * @param {() => any} compute
+   */
+  static _defineLazyResult(obj, key, compute) {
+    let has = false
+    /** @type {any} */
+    let value
+    Object.defineProperty(obj, key, {
+      configurable: true,
+      enumerable: true,
+      get() {
+        if (!has) {
+          has = true
+          value = compute()
+        }
+        return value
+      },
+      set(v) {
+        has = true
+        value = v
+      },
+    })
+  }
+
+  /**
+   * @param {any[]} data
+   * @param {any} xmin
+   * @param {any} xmax
+   */
+  static sliceByXRange(data, xmin, xmax) {
+    const len = data.length
+    if (len === 0) return data
+    const isXY = !Array.isArray(data[0])
+    const getX = isXY
+      ? (/** @type {any} */ p) => toNum(p.x)
+      : (/** @type {any} */ p) => toNum(p[0])
+
+    let lo = 0
+    if (xmin != null) {
+      let l = 0
+      let r = len - 1
+      while (l <= r) {
+        const m = (l + r) >> 1
+        if (getX(data[m]) < xmin) l = m + 1
+        else r = m - 1
+      }
+      lo = Math.max(0, l - 1)
+    }
+
+    let hi = len
+    if (xmax != null) {
+      let l = 0
+      let r = len - 1
+      while (l <= r) {
+        const m = (l + r) >> 1
+        if (getX(data[m]) > xmax) r = m - 1
+        else l = m + 1
+      }
+      hi = Math.min(len, l + 1)
+    }
+
+    return lo === 0 && hi === len ? data.slice() : data.slice(lo, hi)
+  }
+
+  /**
+   * Largest-Triangle-Three-Bucket (LTTB) downsampling.
+   *
+   * Reduces `data` to `targetPoints` points while preserving the visual shape
+   * of the series as perceived by the human eye.
+   *
+   * @param {any[]} data   - Raw series data in [{x,y}] or [[x,y]] format.
+   * @param {number} targetPoints - Desired output length (>= 3).
+   * @returns {any[]} Downsampled array in the same format as the input.
+   */
+  static lttbDownsample(data, targetPoints) {
+    const len = data.length
+    if (targetPoints >= len || targetPoints < 3) return data
+
+    // Normalise each element to {x, y} for the algorithm, remembering format.
+    /**
+     * @param {number} p
+     */
+    const isXY = !Array.isArray(data[0])
+    const getX = isXY
+      ? (/** @type {any} */ p) => toNum(p.x)
+      : (/** @type {any} */ p) => toNum(p[0])
+    const getY = isXY
+      ? (/** @type {any} */ p) => toNum(p.y)
+      : (/** @type {any} */ p) => toNum(p[1])
+
+    const sampled = []
+    // Always include the first point.
+    sampled.push(data[0])
+
+    const bucketSize = (len - 2) / (targetPoints - 2)
+    let a = 0 // index of the last selected point
+
+    for (let i = 0; i < targetPoints - 2; i++) {
+      // Calculate point average for next bucket (used as the "future" anchor).
+      const avgRangeStart = Math.floor((i + 1) * bucketSize) + 1
+      const avgRangeEnd = Math.min(Math.floor((i + 2) * bucketSize) + 1, len)
+
+      let avgX = 0
+      let avgY = 0
+      const avgRangeLen = avgRangeEnd - avgRangeStart
+      for (let j = avgRangeStart; j < avgRangeEnd; j++) {
+        avgX += getX(data[j])
+        avgY += getY(data[j])
+      }
+      avgX /= avgRangeLen
+      avgY /= avgRangeLen
+
+      // Pick the point in the current bucket with the largest triangle area.
+      const rangeStart = Math.floor(i * bucketSize) + 1
+      const rangeEnd = Math.min(Math.floor((i + 1) * bucketSize) + 1, len)
+
+      const pointAX = getX(data[a])
+      const pointAY = getY(data[a])
+
+      let maxArea = -1
+      let maxAreaIdx = rangeStart
+
+      for (let j = rangeStart; j < rangeEnd; j++) {
+        const area =
+          Math.abs(
+            (pointAX - avgX) * (getY(data[j]) - pointAY) -
+              (pointAX - getX(data[j])) * (avgY - pointAY),
+          ) * 0.5
+        if (area > maxArea) {
+          maxArea = area
+          maxAreaIdx = j
+        }
+      }
+
+      sampled.push(data[maxAreaIdx])
+      a = maxAreaIdx
+    }
+
+    // Always include the last point.
+    sampled.push(data[len - 1])
+    return sampled
+  }
+
+  /**
+   * OHLC-aware bucket aggregation for candlestick / OHLC series.
+   *
+   * Each point's y is a 4-tuple `[open, high, low, close]`. LTTB is unusable
+   * here — it treats y as a scalar, so the triangle-area math degenerates and
+   * silently discards the high/low extremes that *define* a candle. Instead we
+   * split the series into `targetPoints` contiguous buckets and roll each up
+   * into a single candle: open = first bucket open, close = last bucket close,
+   * high = max of highs, low = min of lows. The x is the first point's x in the
+   * bucket. Output keeps the input's format ([{x,y}] or [[x,y]]).
+   *
+   * @param {any[]} data         - Raw OHLC series in [{x,y:[o,h,l,c]}] or [[x,[o,h,l,c]]] format.
+   * @param {number} targetPoints - Desired output length (>= 1).
+   * @returns {any[]} Aggregated array in the same format as the input.
+   */
+  static ohlcAggregate(data, targetPoints) {
+    const len = data.length
+    if (targetPoints >= len || targetPoints < 1) return data
+
+    const isXY = !Array.isArray(data[0])
+    const getX = isXY
+      ? (/** @type {any} */ p) => p.x
+      : (/** @type {any} */ p) => p[0]
+    const getY = isXY
+      ? (/** @type {any} */ p) => p.y
+      : (/** @type {any} */ p) => p[1]
+    const make = isXY
+      ? (/** @type {any} */ x, /** @type {any} */ y) => ({ x, y })
+      : (/** @type {any} */ x, /** @type {any} */ y) => [x, y]
+
+    const out = []
+    const bucketSize = len / targetPoints
+
+    for (let i = 0; i < targetPoints; i++) {
+      const start = Math.floor(i * bucketSize)
+      // Last bucket absorbs any remainder so the final close is never dropped.
+      const end =
+        i === targetPoints - 1 ? len : Math.floor((i + 1) * bucketSize)
+      if (end <= start) continue
+
+      // A gap (`y: null`, a holiday) is skipped rather than read, and a null
+      // high or low is not folded in. A bucket of gaps stays a gap.
+      /** @type {any} */
+      let first = null
+      /** @type {any} */
+      let last = null
+      let high = -Infinity
+      let low = Infinity
+      for (let j = start; j < end; j++) {
+        const y = getY(data[j])
+        if (!Array.isArray(y)) continue
+        if (!first) first = y
+        last = y
+        if (y[1] != null && y[1] > high) high = y[1]
+        if (y[2] != null && y[2] < low) low = y[2]
+      }
+
+      out.push(
+        make(
+          getX(data[start]),
+          first && [
+            first[0],
+            high === -Infinity ? null : high,
+            low === Infinity ? null : low,
+            last[3],
+          ],
+        ),
+      )
+    }
+
+    return out
+  }
+
+  /**
+   * Bucket-aggregate 2-tuple range data (`y: [low, high]`, rangeArea/rangeBar)
+   * into `targetPoints` points, the range analog of {@link ohlcAggregate}. Each
+   * bucket emits `[min low, max high]` so the band's vertical extent is never
+   * understated by downsampling (LTTB, built for scalar y, would drop these
+   * extremes). Order-agnostic: the min/max scan both tuple slots, so it is
+   * correct whether a point is stored `[low, high]` or `[high, low]`.
+   *
+   * Null bounds (e.g. an indicator's warm-up period) are ignored, not treated
+   * as 0 — `Math.min(null, x)` would coerce to 0 and pin the band to the
+   * baseline. A bucket with no finite bounds emits `[null, null]` so it renders
+   * as a gap, matching the un-downsampled series.
+   * @param {any[]} data
+   * @param {number} targetPoints
+   * @returns {any[]}
+   */
+  static rangeAggregate(data, targetPoints) {
+    const len = data.length
+    if (targetPoints >= len || targetPoints < 1) return data
+
+    const isXY = !Array.isArray(data[0])
+    const getX = isXY
+      ? (/** @type {any} */ p) => p.x
+      : (/** @type {any} */ p) => p[0]
+    const getY = isXY
+      ? (/** @type {any} */ p) => p.y
+      : (/** @type {any} */ p) => p[1]
+    const make = isXY
+      ? (/** @type {any} */ x, /** @type {any} */ y) => ({ x, y })
+      : (/** @type {any} */ x, /** @type {any} */ y) => [x, y]
+
+    const out = []
+    const bucketSize = len / targetPoints
+
+    for (let i = 0; i < targetPoints; i++) {
+      const start = Math.floor(i * bucketSize)
+      const end =
+        i === targetPoints - 1 ? len : Math.floor((i + 1) * bucketSize)
+      if (end <= start) continue
+
+      let low = Infinity
+      let high = -Infinity
+      for (let j = start; j < end; j++) {
+        const y = getY(data[j])
+        if (y == null) continue
+        // Scan both slots independently so a single finite bound still counts
+        // and tuple order does not matter.
+        for (let k = 0; k < 2; k++) {
+          const v = y[k]
+          if (v == null || !isFinite(v)) continue
+          if (v < low) low = v
+          if (v > high) high = v
+        }
+      }
+
+      out.push(
+        make(getX(data[start]), low === Infinity ? [null, null] : [low, high]),
+      )
+    }
+
+    return out
+  }
+
+  excludeCollapsedSeriesInYAxis() {
+    const w = this.w
+    // Post revision 3.46.0 there is no longer a strict one-to-one
+    // correspondence between series and Y axes.
+    // An axis can be ignored only while all series referenced by it
+    // are collapsed.
+    /** @type {any[]} */
+    const yAxisIndexes = []
+    /**
+     * @param {any[]} yAxisArr
+     * @param {number} yi
+     */
+    w.globals.seriesYAxisMap.forEach((yAxisArr, yi) => {
+      let collapsedCount = 0
+      /**
+       * @param {number} seriesIndex
+       */
+      yAxisArr.forEach((seriesIndex) => {
+        if (w.globals.collapsedSeriesIndices.indexOf(seriesIndex) !== -1) {
+          collapsedCount++
+        }
+      })
+      // It's possible to have a yaxis that doesn't reference any series yet,
+      // eg, because there are no series' yet, so don't list it as ignored
+      // prematurely.
+      if (collapsedCount > 0 && collapsedCount == yAxisArr.length) {
+        yAxisIndexes.push(yi)
+      }
+    })
+    w.globals.ignoreYAxisIndexes = yAxisIndexes.map((x) => x)
+  }
+}

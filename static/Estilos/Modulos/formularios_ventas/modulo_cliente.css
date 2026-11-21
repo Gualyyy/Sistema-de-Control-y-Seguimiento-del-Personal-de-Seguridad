@@ -1,0 +1,214 @@
+.modulo_clientes {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 24px;
+    background: #ffffff;
+    border: 2px solid #00779e;
+    border-radius: 12px;
+    box-shadow: 0 4px 14px rgba(0, 68, 95, 0.08);
+}
+
+.modulo_clientes .formulario_cliente {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px 24px;
+    width: 100%;
+    min-width: 0;
+}
+
+.modulo_clientes .campo_formulario {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+}
+
+.modulo_clientes .campo_formulario label {
+    color: #102f4e;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.modulo_clientes .campo_formulario input,
+.modulo_clientes .campo_formulario select,
+.modulo_clientes .campo_formulario textarea {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 10px 12px;
+    border: 1px solid #cbd7e0;
+    border-radius: 7px;
+    background-color: #ffffff;
+    color: #102f4e;
+    font-family: inherit;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.modulo_clientes .campo_formulario input,
+.modulo_clientes .campo_formulario select {
+    height: 42px;
+}
+
+.modulo_clientes .campo_formulario textarea {
+    display: block;
+    min-height: 120px;
+    line-height: 1.5;
+    resize: vertical;
+}
+
+.modulo_clientes .campo_formulario input:focus,
+.modulo_clientes .campo_formulario select:focus,
+.modulo_clientes .campo_formulario textarea:focus {
+    border-color: #00779e;
+    background-color: #ffffff;
+    color: #102f4e;
+    box-shadow: 0 0 0 3px rgba(0, 119, 158, 0.12);
+}
+
+.modulo_clientes .campo_formulario input::placeholder,
+.modulo_clientes .campo_formulario textarea::placeholder {
+    color: #8495a3;
+    font-size: 12px;
+    opacity: 1;
+}
+
+.modulo_clientes .campo_formulario select option {
+    background-color: #ffffff;
+    color: #102f4e;
+}
+
+.modulo_clientes .campo_formulario:has(textarea) {
+    grid-column: 1 / -1;
+}
+
+.modulo_clientes #controles_individuo,
+.modulo_clientes #control_empresa {
+    display: contents;
+}
+
+.modulo_clientes .grupo_doble {
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+}
+
+.modulo_clientes .grupo_doble input {
+    flex: 1;
+    min-width: 0;
+}
+
+.modulo_clientes .grupo_doble .select_ci {
+    flex: 0 0 60px;
+    width: 60px;
+}
+
+.modulo_clientes .grupo_doble .select_prefijo {
+    flex: 0 0 85px;
+    width: 85px;
+}
+
+.modulo_clientes .grupo_doble .select_dominio {
+    flex: 0 0 140px;
+    width: 140px;
+}
+
+.modulo_clientes .mensaje-feedback {
+    display: block;
+    min-height: 16px;
+    color: #b42318;
+    font-size: 12px;
+    overflow-wrap: anywhere;
+}
+
+.modulo_clientes .contenedor_boton_submit {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 4px;
+}
+
+.modulo_clientes .btn_submit {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    gap: 9px;
+    min-width: 160px;
+    min-height: 42px;
+    padding: 10px 22px;
+    border: 1px solid #00445f;
+    border-radius: 7px;
+    background: #ffffff;
+    color: #00445f;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.modulo_clientes .btn_submit:hover {
+    background: #00445f;
+    color: #ffffff;
+}
+
+.modulo_clientes .btn_submit:active {
+    transform: scale(0.98);
+}
+
+.modulo_clientes .btn_submit:disabled {
+    background: #aab8c2;
+    border-color: #aab8c2;
+    color: #f4f6f9;
+    cursor: not-allowed;
+    opacity: 0.75;
+    transform: none;
+}
+
+.modulo_clientes #controles_individuo[hidden],
+.modulo_clientes #control_empresa[hidden] {
+    display: none !important;
+}
+
+@media (max-width: 700px) {
+    .modulo_clientes {
+        padding: 18px;
+    }
+
+    .modulo_clientes .formulario_cliente {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 18px;
+    }
+
+    .modulo_clientes .contenedor_boton_submit {
+        grid-column: auto;
+    }
+
+    .modulo_clientes .btn_submit {
+        width: 100%;
+    }
+}
+
+@media (max-width: 400px) {
+    .modulo_clientes {
+        padding: 14px;
+    }
+
+    .modulo_clientes .grupo_doble {
+        gap: 6px;
+    }
+
+    .modulo_clientes .grupo_doble .select_prefijo {
+        flex: 0 0 95px;
+        width: 95px;
+    }
+
+    .modulo_clientes .grupo_doble .select_dominio {
+        flex: 0 0 125px;
+        width: 125px;
+    }
+}

@@ -1,0 +1,960 @@
+// @ts-check
+import Defaults from '../settings/Defaults'
+import Config from '../settings/Config'
+import CoreUtils from '../CoreUtils'
+import Graphics from '../Graphics'
+import Utils from '../../utils/Utils'
+import PerformanceCache from '../../utils/PerformanceCache'
+
+/**
+ * Drop every stash of RAW series input a series transform accumulates from.
+ *
+ * The transforms that derive their rows (the zoom-aware downsampler, the
+ * histogram's observations, the waterfall's deltas, the dumbbell's measures,
+ * the streamgraph's values, the treemap's levels) keep the caller's input in a
+ * stash, because `Data.parseData` writes what they return back to
+ * `config.series`: re-running against the derived rows would bin, accumulate or
+ * stack a level deeper on every render. The flip side is that a stash outlives
+ * the input it was taken from, so whenever a caller REDEFINES the series it has
+ * to go, or the transform keeps rebuilding the first dataset forever.
+ *
+ * One list, called from both update paths, so the two cannot drift apart.
+ *
+ * @param {any} w
+ */
+function clearRawSeriesStashes(w) {
+  w.globals.dataReducerRawSeries = null
+  // The raw x bounds pan and zoom clamp to describe that stash.
+  w.globals.dataReducerRawMinX = w.globals.dataReducerRawMaxX = undefined
+  w.globals.histogramRawSeries = null
+  w.globals.waterfallRawSeries = null
+  w.globals.dumbbellRawSeries = null
+  w.globals.streamgraphRawSeries = null
+  w.globals.treemapRawSeries = null
+}
+
+/**
+ * The category names on a category axis, as one comparable string, or null
+ * when the x axis is numeric (its ticks come from the value domain, which the
+ * axis-scale signature already compares).
+ *
+ * A converted axis (line, area, scatter and bubble with no xaxis.type) keeps
+ * its names in `categoryLabels`, and the render rewrites `labels` into tick
+ * values, so signing `labels` there never matched: every update lost the fast
+ * path, and a rename still went unseen.
+ *
+ * @param {any} w
+ * @returns {string | null}
+ */
+function categorySignature(w) {
+  if (w.config.xaxis.convertedCatToNumeric) {
+    return JSON.stringify(w.labelData.categoryLabels ?? [])
+  }
+  if (w.axisFlags.isXNumeric) return null
+  return JSON.stringify(w.labelData.labels ?? [])
+}
+
+/**
+ * What the legend shows per series, as one comparable string: the series
+ * meta (name, colour, hidden, type, group) and, under a function
+ * `legend.formatter`, the text it returns for the data parsed at the time.
+ * The fast path keeps the legend DOM, so a change here needs the full render.
+ * Formatted text rather than "has a formatter", or every formatter chart
+ * would lose the fast path. O(series).
+ *
+ * Names and groups are read as parsed, not off the series: the parse names
+ * an unnamed series and puts an ungrouped one in its axis's group, so a raw
+ * series (a resetSeries replay) never matched the parsed one on screen.
+ *
+ * @param {any} w
+ * @returns {string}
+ */
+function legendSignature(w) {
+  const fmt = w.config.legend.formatter
+  const names = w.globals.seriesNames
+  return JSON.stringify([
+    w.labelData.seriesGroups,
+    w.config.series.map((/** @type {any} */ s, /** @type {number} */ i) => [
+      names[i],
+      s?.color,
+      !!s?.hidden,
+      s?.type,
+      typeof fmt === 'function' && fmt(names[i], { seriesIndex: i, w }),
+    ]),
+  ])
+}
+
+/**
+ * @param {any} s
+ * @returns {boolean}
+ */
+function isNamedOrNotAnObject(s) {
+  return !s || typeof s !== 'object' || !!s.name
+}
+
+/**
+ * Where the series called name sits, under the name extendYAxis would give an
+ * unnamed one.
+ * @param {any[]} series
+ * @param {string} name
+ * @returns {number}
+ */
+function seriesIndexOf(series, name) {
+  for (let i = 0; i < series.length; i++) {
+    const s = series[i]
+    if ((s && s.name ? s.name : `series-${i + 1}`) === name) return i
+  }
+  return -1
+}
+
+export default class UpdateHelpers {
+  /**
+   * @param {import('../../types/internal').ChartStateW} w
+   * @param {import('../../types/internal').ChartContext} ctx
+   */
+  constructor(w, ctx) {
+    this.w = w
+    this.ctx = ctx // needed: getSyncedCharts, series, data, pie, update
+  }
+
+  /**
+   * private method to update Options.
+   *
+   * @param {Record<string, any>} options - A new config object can be passed which will be merged with the existing config object
+   * @param {boolean} redraw - should redraw from beginning or should use existing paths and redraw from there
+   * @param {boolean} animate - should animate or not on updating Options
+   * @param {boolean} overwriteInitialConfig - should update the initial config or not
+   */
+  _updateOptions(
+    options,
+    redraw = false,
+    animate = true,
+    updateSyncedCharts = true,
+    overwriteInitialConfig = false,
+  ) {
+    return new Promise((resolve, reject) => {
+      let charts = [this.ctx]
+      if (updateSyncedCharts) {
+        charts = this.ctx.getSyncedCharts()
+      }
+
+      if (this.w.globals.isExecCalled) {
+        // If the user called exec method, we don't want to get grouped charts as user specifically provided a chartID to update
+        charts = [this.ctx]
+        this.w.globals.isExecCalled = false
+      }
+
+      // Every chart of a group gets its own copy of the payload (and of the
+      // `chart` section the alias handover writes): a sibling deletes
+      // `series` and `yaxis` from it, which used to empty the caller's object.
+      const payload = options
+      const updates = charts.map((ch) => {
+        const w = ch.w
+        options = payload
+        if (options && typeof options === 'object') {
+          options = { ...options }
+          if (options.chart) options.chart = { ...options.chart }
+        }
+
+        w.globals.shouldAnimate = animate
+
+        if (!redraw) {
+          w.globals.resized = true
+          w.globals.dataChanged = true
+
+          // A `chart` section can switch the morph on or change the type,
+          // both read after this capture, so it captures as before.
+          ch.updateHelpers.capture(animate, options?.chart)
+        } else {
+          // From scratch: render as the chart did when it mounted (or, with
+          // animate=false, simply at rest). Both flags outlive the update
+          // that set them, so after any earlier update a redraw used to morph
+          // from the paths THAT update captured: shapes two updates old,
+          // jumped to on the first frame. `resized` is what keeps the mount
+          // animation from replaying when the caller asked for none.
+          w.globals.resized = !animate
+          w.globals.dataChanged = false
+          w.globals.previousPaths = []
+        }
+
+        // Cross-type morph capture (opt-in via the 'morph' feature). Runs
+        // before the config merge so it sees the OLD chart.type while the
+        // outgoing DOM is still mounted. Null-safe — if the feature isn't
+        // registered, this no-ops via optional chaining.
+        //
+        // `requestedType` preserves the user-facing alias (funnel, pyramid,
+        // gauge) that Config.normalizeAliasedChartType collapses into the
+        // internal chart.type (bar, radialBar). Without it, a chart that
+        // started as funnel would report `fromType: 'bar'` and lose the
+        // ability to morph FROM funnel into anything in the bar family
+        // (funnel → pyramid, funnel → bar). The incoming `options.chart.type`
+        // is the raw value the user passed and has not yet been normalized.
+        // Read before the merge, and outside the `animate` guard below: the
+        // type-default handover has to know what the chart WAS whether or not
+        // the change is being animated.
+        const fromType = w.config.chart.requestedType || w.config.chart.type
+        const wasSparkline = w.config.chart.sparkline?.enabled
+        const wasHorizontal = Defaults.isHorizontalBar(w.config)
+
+        if (animate && options && typeof options === 'object') {
+          const newType = options?.chart?.type
+          if (newType && newType !== fromType) {
+            ch.morphTypeChange?.captureBeforeDestroy({
+              fromType,
+              toType: newType,
+              newSeries: options.series || w.config.series,
+            })
+          }
+        }
+
+        if (options && typeof options === 'object') {
+          // `tooltip: undefined` in a payload means "not given", as it does
+          // on a new chart (see Config.dropEmptyOptions).
+          options = Config.dropEmptyOptions(options)
+          ch.config = new Config(options)
+          // Collapse user-facing chart-type aliases (funnel / pyramid → bar
+          // with isFunnel; gauge → radialBar). On the initial render this
+          // runs inside Config.init(), but the update path constructs Config
+          // directly and skips init(), so we'd otherwise merge an
+          // unrecognized chart.type into w.config and crash in
+          // Core.plotChartType's switch fallthrough.
+          //
+          // When transitioning OUT of an alias state (the previous render
+          // was funnel/pyramid/gauge and the new request is a non-alias
+          // type), explicitly clear the alias residue on `options` so the
+          // Utils.extend merge below overrides w.config's stale fields.
+          // We can't clear them in `normalizeAliasedChartType` itself —
+          // that runs on initial chart creation too, where the legacy
+          // contract `chart.type: 'bar' + plotOptions.bar.isFunnel: true`
+          // must leave both `requestedType` undefined and `isFunnel: true`.
+          const incomingType = options.chart && options.chart.type
+          const isAliasRequest =
+            incomingType === 'funnel' ||
+            incomingType === 'pyramid' ||
+            incomingType === 'gauge'
+          const wasAlias = !!w.config.chart.requestedType
+          if (incomingType && !isAliasRequest && wasAlias) {
+            options.chart = options.chart || {}
+            options.chart.requestedType = incomingType
+            // Only clear isFunnel when the previous alias was funnel/pyramid
+            // (gauge doesn't touch this flag).
+            const prev = w.config.chart.requestedType
+            if (prev === 'funnel' || prev === 'pyramid') {
+              options.plotOptions = options.plotOptions || {}
+              options.plotOptions.bar = options.plotOptions.bar || {}
+              if (options.plotOptions.bar.isFunnel === undefined) {
+                options.plotOptions.bar.isFunnel = false
+              }
+              if (options.plotOptions.bar.isPyramid === undefined) {
+                options.plotOptions.bar.isPyramid = false
+              }
+            }
+          }
+          ch.config.normalizeAliasedChartType(options)
+          // Axis bounds are coerced on the PAYLOAD, not on the merged config,
+          // because `lastXAxis` / `lastYAxis` are snapshotted from it below and
+          // revertDefaultAxisMinMax writes those straight back into w.config.
+          // Coercing after the merge would leave the snapshot holding the
+          // original Date or string, and the next revert would undo the work.
+          // The incoming axis type wins; absent, the chart's current one does.
+          Config.normalizeAxisBounds(options, {
+            xaxisType: w.config.xaxis.type,
+            datetimeUTC: w.config.xaxis.labels.datetimeUTC,
+          })
+          options = CoreUtils.extendArrayProps(ch.config, options, w)
+
+          // fixes #914, #623
+          if (ch.w.globals.chartID !== this.w.globals.chartID) {
+            // don't overwrite series of synchronized charts
+            delete options.series
+            // don't overwrite yaxis of synchronized charts - a chart's own
+            // yaxis count/shape may differ from the chart that triggered
+            // this sync (e.g. differing series counts per chart), and
+            // applying a mismatched yaxis array here leaves w.config.yaxis
+            // out of sync with this chart's own series-to-axis indices,
+            // which can throw in Scales.setYScaleForIndex on next render
+            delete options.yaxis
+          }
+
+          // updateOptions({ series }) redefines the INPUT just as updateSeries()
+          // does, so the raw stashes have to go with it — otherwise a waterfall
+          // keeps re-accumulating the deltas it was first given and silently
+          // ignores every later series (same for histogram, dumbbell,
+          // streamgraph and treemap, which stash the same way).
+          //
+          // `overwriteInitialConfig` draws the line `_updateSeries` draws with
+          // `overwriteInitialSeries`: the public API sets it, while the
+          // library's own replays (a Rewind restore, a trellis panel sync, a
+          // storyboard beat) pass false and hand back DERIVED rows. Clearing on
+          // those would feed the accumulated pairs back in as deltas.
+          if (overwriteInitialConfig && Array.isArray(options.series)) {
+            clearRawSeriesStashes(w)
+          }
+
+          // A payload that names yaxis went through extendYAxis above.
+          if (!options.yaxis && Array.isArray(options.series)) {
+            options.series = this.syncSharedLogAxes(options.series)
+          }
+
+          // A palette the payload names is the page's choice from now on, so
+          // a later mode switch keeps it (see Theme.applyModePalette).
+          if (options.theme?.palette) w.globals.themePaletteExplicit = true
+
+          w.config = Utils.extend(w.config, options)
+          // A payload that sets the mode moves a chart with no palette of its
+          // own onto that mode's default. '' (the default mode) and null count
+          // as light, as they do for the tooltip and foreColor defaults in
+          // updateThemeOptions, so leaving dark this way also leaves palette4.
+          if (options.theme && options.theme.mode !== undefined) {
+            ch.theme?.applyModePalette(
+              w.config.theme.mode === 'dark' ? 'dark' : 'light',
+            )
+          }
+          // A path an active breakpoint also sets keeps the payload's value
+          // for when the breakpoint is left (#5347).
+          ch.responsive?.absorb(options)
+
+          // Type defaults are applied once, by Config.init, and this path
+          // skips it — so every leaf the OUTGOING type had chosen for itself
+          // would otherwise outlive that type. Runs before the initialConfig
+          // snapshot below, so a later resetSeries restores the config the
+          // chart actually has rather than the stale one.
+          Defaults.handOverTypeDefaults(w.config, fromType, options)
+          Defaults.syncCatToNumeric(w.config, options)
+          Defaults.syncSparkline(w.config, wasSparkline, options)
+          Defaults.syncHorizontal(w.config, wasHorizontal, options)
+
+          if (overwriteInitialConfig) {
+            // we need to forget the lastXAxis and lastYAxis as user forcefully overwriteInitialConfig. If we do not do this, and next time when user zooms the chart after setting yaxis.min/max or xaxis.min/max - the stored lastXAxis will never allow the chart to use the updated min/max by user.
+            // Only for an axis the payload names: emptying the other one let
+            // the next updateSeries() write `undefined` over its bounds, so an
+            // unrelated updateOptions({ title }) dropped a fixed window.
+            if (options.xaxis) w.globals.lastXAxis = Utils.clone(options.xaxis)
+            if (options.yaxis) w.globals.lastYAxis = Utils.clone(options.yaxis)
+
+            // After forgetting lastAxes, we need to restore the new config in initialConfig/initialSeries
+            // Two traps here. Utils.extend() copies arrays by reference, so
+            // the snapshot would hand back the LIVE series array; and
+            // w.config.series carries the legend-collapse state
+            // (`series[i].data = []` for every hidden series), so
+            // re-snapshotting it made the "initial" config forget the data of
+            // everything the user had toggled off (#5118). Only a call that
+            // actually redefines the series may move that baseline; a plain
+            // updateOptions() keeps the one it already had.
+            const prevInitialSeries =
+              w.globals.initialConfig && w.globals.initialConfig.series
+            // Without the active breakpoint's options: a snapshot taken
+            // inside a breakpoint would otherwise restore them for good, on
+            // a zoom reset or once the breakpoint is left (#5347).
+            const initialConfig =
+              /** @type {NonNullable<typeof w.globals.initialConfig>} */ (
+                Utils.extend(
+                  {},
+                  ch.responsive
+                    ? ch.responsive.withoutBreakpoints(w.config)
+                    : w.config,
+                )
+              )
+            initialConfig.series =
+              !options.series && prevInitialSeries
+                ? prevInitialSeries
+                : Utils.copySeriesShallow(w.config.series)
+            w.globals.initialConfig = initialConfig
+            if (options.series) {
+              // lazy snapshot: deep clone deferred to first read
+              w.globals.initialSeries = w.config.series
+            }
+          }
+
+          // Keep legend-hidden (collapsed) series hidden across ANY series
+          // update, INCLUDING a storyboard beat that supplies fresh series with
+          // overwriteInitialConfig:false (which previously skipped this, so a
+          // deactivated series reappeared on the next beat). Reconciled BY
+          // CATEGORY NAME: a beat that keeps the same categories persists the
+          // hide (at its possibly-new index), while one that regroups into
+          // different categories correctly drops it.
+          // On the chart's own copy: the merge left config.series as the
+          // caller's array, and emptying a hidden slice wrote `0` into it (or
+          // threw on a frozen one). initialSeries keeps the caller's values.
+          if (
+            options.series &&
+            (w.globals.collapsedSeriesIndices.length > 0 ||
+              w.globals.ancillaryCollapsedSeriesIndices.length > 0)
+          ) {
+            w.config.series = Utils.copySeriesShallow(w.config.series)
+            ch.series.reconcileCollapsedByName()
+          }
+        }
+
+        return ch.update(options)
+      })
+      // Settles once the whole group has, with the chart it was called on.
+      // Reject the public promise if a render fails, rather than leaving it
+      // pending forever (and surfacing only as an UnhandledPromiseRejection).
+      Promise.all(updates)
+        .then(() => resolve(this.ctx))
+        .catch(reject)
+    })
+  }
+
+  /**
+   * A logarithmic chart that declares one axis gets one hidden copy of it per
+   * extra series when it is created (Config.extendYAxis), and those copies keep
+   * every series on the declared axis. updateSeries() changes the series count
+   * without running that step, so a series added later fell onto a hidden
+   * axis with its own scale. Build the axes again for the new series.
+   * @param {any} newSeries
+   * @returns {any} the series to use: copies when the axes were rebuilt
+   */
+  syncSharedLogAxes(newSeries) {
+    const w = this.w
+    if (!Array.isArray(newSeries) || !this.isSharedLogAxes(w.config.yaxis)) {
+      return newSeries
+    }
+    const stale = this.sharedLogAxesStale(w.config.yaxis, newSeries)
+    // Series are matched to axes by name, and extendYAxis names the unnamed
+    // ones. Without that an unnamed series falls off its axis on every update,
+    // even when the axes themselves are still right.
+    if (!stale && newSeries.every(isNamedOrNotAnObject)) return newSeries
+    // The objects belong to the caller, who may have frozen them.
+    const series = newSeries.map(
+      (/** @type {any} */ s, /** @type {number} */ i) =>
+        s && typeof s === 'object'
+          ? { ...s, name: s.name || `series-${i + 1}` }
+          : s,
+    )
+    if (!stale) return series
+    const rebuilt = this.buildSharedLogAxes(w.config.yaxis[0], series)
+    // A responsive yaxis override saved the old axes, and the next render puts
+    // them back, so the saved copy is rebuilt as well.
+    const saved = this.ctx.responsive.withoutBreakpoints(w.config).yaxis
+    if (this.sharedLogAxesStale(saved, series)) {
+      this.ctx.responsive.absorb({
+        yaxis: this.buildSharedLogAxes(saved[0], series),
+      })
+    }
+    w.config.yaxis = rebuilt
+    // Zoom and pan restore the axes from this snapshot.
+    const initial = w.globals.initialConfig
+    if (initial && this.sharedLogAxesStale(initial.yaxis, series)) {
+      initial.yaxis = this.buildSharedLogAxes(initial.yaxis[0], series)
+    }
+    return series
+  }
+
+  /**
+   * Whether yaxis is a first logarithmic axis followed by hidden copies of it,
+   * the shape extendYAxis generates. Allocates nothing, since it runs on every
+   * update of every chart.
+   * @param {any} yaxis
+   * @returns {boolean}
+   */
+  isSharedLogAxes(yaxis) {
+    if (!Array.isArray(yaxis) || yaxis.length < 2) return false
+    const first = yaxis[0]
+    if (!first.logarithmic || first.seriesName === undefined) return false
+    for (let i = 1; i < yaxis.length; i++) {
+      const y = yaxis[i]
+      if (
+        !y.logarithmic ||
+        y.show !== false ||
+        y.seriesName !== first.seriesName
+      )
+        return false
+    }
+    return true
+  }
+
+  /**
+   * Whether yaxis is a set of generated shared log axes that no longer fit
+   * newSeries.
+   * @param {any} yaxis
+   * @param {any[]} newSeries
+   * @returns {boolean}
+   */
+  sharedLogAxesStale(yaxis, newSeries) {
+    if (!this.isSharedLogAxes(yaxis)) return false
+    if (newSeries.length !== yaxis.length) return true
+    // Same count: every series goes to the axis at the index of the series the
+    // axes name (setSeriesYAxisMappings), so they still fit only while that
+    // series stays where it was. A reorder that moves it would leave every
+    // series on a hidden axis with its own scale (#5353). An axis that already
+    // named another series keeps naming it. Where it was comes from the last
+    // mapping, not w.config.series, which resetSeries() replaces first.
+    const at = seriesIndexOf(newSeries, yaxis[0].seriesName)
+    return at === -1 || at !== this.w.globals.seriesYAxisReverseMap[0]
+  }
+
+  /**
+   * The axes a new chart gets for series: the first axis plus one hidden copy
+   * per extra series.
+   * @param {any} first the declared axis
+   * @param {any[]} series
+   * @returns {any[]}
+   */
+  buildSharedLogAxes(first, series) {
+    const w = this.w
+    return new Config({}).extendYAxis(
+      { yaxis: [first], series, chart: w.config.chart },
+      w,
+    ).yaxis
+  }
+
+  /**
+   * Capture what is on screen for an update to morph from. Previous paths
+   * (and the stream, axis chrome and label frames taken with them) only feed
+   * data-change MORPHS, which need dynamicAnimation; the capture is O(n). An
+   * update that does not capture drops the last one instead: a frame left in
+   * place reads as this update's (a canvas line kept building path strings
+   * for it on every later pan).
+   *
+   * @param {boolean} animate
+   * @param {any} [chart] the payload's `chart` section, if any
+   */
+  capture(animate, chart) {
+    const w = this.w
+    const gl = w.globals
+    const a = w.config.chart.animations
+    if (animate && a.enabled && (a.dynamicAnimation.enabled || chart)) {
+      this.ctx.series.getPreviousPaths()
+    } else {
+      gl.previousPaths = []
+      gl.prevStreamFrame = null
+      gl.streamScrolled = false
+    }
+  }
+
+  /**
+   * Private method to update Series.
+   *
+   * @param {any[]} newSeries - New series which will override the existing
+   * @param {boolean} animate
+   */
+  _updateSeries(newSeries, animate, overwriteInitialSeries = false) {
+    return new Promise((resolve, reject) => {
+      const w = this.w
+
+      w.globals.shouldAnimate = animate
+
+      w.globals.dataChanged = true
+
+      // Snapshot the axis scale currently on screen BEFORE parseData recomputes
+      // bounds. fastUpdate() compares this against the recomputed scale to
+      // detect a domain change it cannot repaint in place (axes are preserved
+      // on the fast path), and falls back to a full render when they differ.
+      const prevAxisScaleSig = JSON.stringify({
+        y: (w.globals.yAxisScale || []).map((s) => (s ? s.result : null)),
+        xMin: w.globals.minX,
+        xMax: w.globals.maxX,
+      })
+
+      PerformanceCache.invalidateSelectors(w)
+
+      this.capture(animate)
+
+      // The category names on screen. The fast path keeps the axis DOM and the
+      // layout, and the axis-scale signature above only knows the value scale,
+      // so new names at the same count ({ x: 'United Kingdom' } for 'UK') used
+      // to leave the old names on the axis, in room sized for them.
+      const prevCategorySig = categorySignature(w)
+      // The same for the legend, which the fast path does not rebuild either.
+      const prevLegendSig = legendSignature(w)
+
+      // The numeric-axis bar pad the layout on screen was built with: the plot
+      // is inset by it on both sides so edge columns, candles and boxes have
+      // room. parseData resets it with the other per-render values and only
+      // Dimensions sets it again, which the fast path skips on a numeric (not
+      // datetime) x axis, so it is put back for the fast path below. The x
+      // label rotation is the same kind of layout value: left reset, the
+      // chrome refresh drew the labels flat in a band sized for rotated ones.
+      const prevBarPad = w.globals.barPadForNumericAxis
+      const prevRotate = w.layout.rotateXLabels
+
+      // Capture previous series count and per-series data lengths BEFORE
+      // parsing (parseData overwrites w.seriesData.series)
+      const prevSeriesCount = w.config.series.length
+      const prevDataLengths = w.config.series.map(
+        (/** @type {any} */ s) => s?.data?.length ?? 0,
+      )
+
+      // Drop any stashed raw data ONLY when the caller is redefining the input,
+      // so the next parseData re-stashes from it (zoom-aware downsampling, the
+      // histogram's raw observations, the treemap's levels).
+      //
+      // `overwriteInitialSeries` is exactly that distinction: the public
+      // updateSeries/appendSeries default it to true, while the library's own
+      // re-renders pass false and hand back the DERIVED series they were given
+      // (a legend collapse re-submits config.series, the zoom reset re-submits
+      // initialSeries). Clearing on those fed the derived rows back in as
+      // input: one legend click on a histogram re-binned its own bin counts,
+      // turning 900 observations into 62, and every click after that binned a
+      // level deeper. `Data.parseData` already draws this same line for each of
+      // these when it decides what initialSeries means.
+      if (overwriteInitialSeries) {
+        clearRawSeriesStashes(w)
+      }
+
+      newSeries = this.syncSharedLogAxes(newSeries)
+      const definedSeries = newSeries
+      let reconciledCollapses = false
+
+      // Keep legend-hidden (collapsed) series hidden across a data update,
+      // reconciled BY CATEGORY NAME by the same code the options path uses: a
+      // name still present stays hidden at its possibly-new index, one the
+      // update dropped comes back. Without this, updateSeries() disagreed with
+      // updateOptions({ series }) and a viewer's legend click was undone by
+      // the next refresh.
+      //
+      // Before parseData, or the collapsed row's values are parsed into the
+      // axis range and the chart rescales to fit a series nobody can see. On a
+      // COPY, because emptying writes `data: []` into each collapsed row and
+      // these objects belong to the caller.
+      // Axis charts only: a non-axis chart records collapses per slice, which
+      // does not reconcile against a series list at all. See prepareDataUpdate.
+      if (
+        w.globals.axisCharts &&
+        (w.globals.collapsedSeriesIndices.length > 0 ||
+          w.globals.ancillaryCollapsedSeriesIndices.length > 0)
+      ) {
+        newSeries = newSeries.map((/** @type {any} */ s) =>
+          s && typeof s === 'object' ? { ...s } : s,
+        )
+        this.ctx.series.reconcileCollapsedByName(newSeries)
+        reconciledCollapses = true
+      }
+
+      this.ctx.data.resetParsingFlags()
+      this.ctx.data.parseData(newSeries, overwriteInitialSeries)
+
+      if (overwriteInitialSeries) {
+        // Refresh the initialConfig snapshot with the series the caller just
+        // defined. A copy, never the live array: this site used to assign
+        // w.config.series itself, restoring the very alias #5118 came from, so
+        // one updateSeries() would undo the capture Globals.init now makes.
+        // Both snapshots come off the array the caller handed in once the
+        // reconcile above has run, since that emptied the collapsed rows and
+        // parseData baselines from what it parses: the baseline would forget
+        // the data of exactly the series the viewer switched off.
+        // _updateOptions gets this for free, it reconciles after capturing.
+        if (w.globals.initialConfig) {
+          w.globals.initialConfig.series = Utils.copySeriesShallow(
+            reconciledCollapses ? definedSeries : w.config.series,
+          )
+        }
+        // With no reconcile, initialSeries stays as parseData left it: on the
+        // raw-stash and dataReducer types config.series holds rows this library
+        // derived, and reassigning it here made the baseline the bin counts,
+        // the accumulated pairs or the downsampled window (#5283).
+        if (reconciledCollapses) {
+          w.globals.initialSeries = definedSeries
+        }
+      }
+
+      // Use the fast path when the series structure is compatible:
+      // same series count, same data lengths, same chart type, axis chart,
+      // no series collapse in progress.
+      if (
+        this._canUseFastPath(newSeries, prevSeriesCount, prevDataLengths, w) &&
+        categorySignature(w) === prevCategorySig &&
+        legendSignature(w) === prevLegendSig
+      ) {
+        // Left at 0, a mark standing in the inset read as off-screen to
+        // Bar.renderSeries and was not drawn (or drawn leaving, then removed),
+        // and the tooltip, crosshair and gridlines lost their edge pad.
+        w.globals.barPadForNumericAxis = prevBarPad
+        w.layout.rotateXLabels = prevRotate
+        return this.ctx
+          .fastUpdate(animate, prevAxisScaleSig)
+          .then(() => {
+            resolve(this.ctx)
+          })
+          .catch(reject)
+      }
+
+      // structural change (series count/lengths/type): full render
+      if (this.ctx._updateStats) this.ctx._updateStats.full++
+      return this.ctx
+        .update()
+        .then(() => {
+          resolve(this.ctx)
+        })
+        .catch(reject)
+    })
+  }
+
+  /**
+   * Returns true if the data-only fast path can be used for this update.
+   * Fast path skips rebuilding grid, axes, legend, annotations, and tooltip DOM.
+   *
+   * Requirements:
+   * - Chart has been fully rendered (DOM exists)
+   * - Axis chart (non-axis charts like pie always need full rebuild due to radial layout)
+   * - Series count unchanged (grid column/row counts depend on it)
+   * - Per-series data lengths unchanged (the fast path preserves the axis DOM,
+   *   and a changed point count re-slots categories/ticks: with explicit
+   *   categories the axis-scale signature can still match, leaving a stale
+   *   ruler under the re-slotted marks; length changes also want the full
+   *   render so enter/exit and axis transitions run)
+   * - No series currently collapsing (collapsed series changes visible data range)
+   * - Not a combo chart (combo charts mix types and need coordinated axis recalc)
+   * - Not currently zoomed (zoomed charts have altered x-labels that need recalculation)
+   * - The series renderer a full render would select is the one on screen
+   * @param {any[]} newSeries
+   * @param {number} prevSeriesCount
+   * @param {number[]} prevDataLengths
+   * @param {import('../../types/internal').ChartStateW} w
+   */
+  _canUseFastPath(newSeries, prevSeriesCount, prevDataLengths, w) {
+    if (!w.dom.elGraphical) return false
+    if (!w.globals.axisCharts) return false
+    if (newSeries.length !== prevSeriesCount) return false
+    if (
+      newSeries.some(
+        (/** @type {any} */ s, /** @type {number} */ i) =>
+          (s?.data?.length ?? 0) !== prevDataLengths[i],
+      )
+    ) {
+      return false
+    }
+    if (w.globals.collapsedSeries.length > 0) return false
+    if (w.globals.ancillaryCollapsedSeries.length > 0) return false
+    if (w.globals.risingSeries.length > 0) return false
+    if (w.globals.comboCharts) return false
+    if (w.interact.zoomed) return false
+    // Radar's transitions (the circle, rings and polygons) run on the full
+    // render; fastUpdate redraws none of them.
+    if (w.config.chart.type === 'radar') return false
+    // The gradient legend keeps the colour extent it was drawn with (its end
+    // labels, stops and hover arrow). O(points), on an opted-in strip only.
+    const strip = /** @type {any} */ (this.ctx.legend)?.heatmapGradientLegend
+    if (strip && strip.constructor.isEnabled(w)) {
+      const { min, max } = strip._computeStops()
+      if (min !== strip._min || max !== strip._max) return false
+    }
+    // The fast path repaints into the series renderer already on screen and
+    // keeps the tooltip's listeners, both chosen for that backend. When a
+    // full render would now pick another one ('auto' crossing its threshold,
+    // or a backend registered since the chart drew), only that render swaps
+    // the series layer and rewires the hover for it.
+    const rc = this.ctx.rendererController
+    if (rc && rc.pendingKind() !== rc.getActiveKind()) return false
+    return true
+  }
+
+  /**
+   * @param {any} s
+   * @param {number} i
+   * @param {any} ser the baseline row a partial `s` inherits from. No
+   *   fallback to the live config row: a row past the end of the baseline
+   *   is new and inherits nothing.
+   */
+  _extendSeries(s, i, ser) {
+    return {
+      .../** @type {Record<string,any>} */ (ser),
+      name: s.name ? s.name : /** @type {any} */ (ser)?.name,
+      color: s.color ? s.color : /** @type {any} */ (ser)?.color,
+      type: s.type ? s.type : /** @type {any} */ (ser)?.type,
+      group: s.group ? s.group : /** @type {any} */ (ser)?.group,
+      hidden:
+        typeof s.hidden !== 'undefined'
+          ? s.hidden
+          : /** @type {any} */ (ser)?.hidden,
+      data: s.data ? s.data : /** @type {any} */ (ser)?.data,
+      // Not inherited: a series sent without its part has been cleared.
+      highlightData: s.highlightData,
+      zIndex: typeof s.zIndex !== 'undefined' ? s.zIndex : i,
+    }
+  }
+
+  /**
+   * @param {number} seriesIndex
+   * @param {number} dataPointIndex
+   */
+  toggleDataPointSelection(seriesIndex, dataPointIndex) {
+    const w = this.w
+    let elPath = null
+    const parent = `.apexcharts-series[data\\:realIndex='${seriesIndex}']`
+
+    if (w.globals.axisCharts) {
+      elPath = w.dom.Paper.findOne(
+        `${parent} path[j='${dataPointIndex}'], ${parent} circle[j='${dataPointIndex}'], ${parent} rect[j='${dataPointIndex}']`,
+      )
+    } else {
+      // dataPointIndex will be undefined here, hence using seriesIndex
+      if (typeof dataPointIndex === 'undefined') {
+        elPath = w.dom.Paper.findOne(`${parent} path[j='${seriesIndex}']`)
+
+        if (
+          w.config.chart.type === 'pie' ||
+          w.config.chart.type === 'polarArea' ||
+          w.config.chart.type === 'donut'
+        ) {
+          this.ctx.pie.pieClicked(seriesIndex)
+        }
+      }
+    }
+
+    if (elPath) {
+      const graphics = new Graphics(this.w)
+      graphics.pathMouseDown(elPath, /** @type {any} */ (null))
+    } else {
+      console.warn('toggleDataPointSelection: Element not found')
+      return null
+    }
+
+    return elPath.node ? elPath.node : null
+  }
+
+  /**
+   * @param {Record<string, any>} options
+   */
+  forceXAxisUpdate(options) {
+    const w = this.w
+    const minmax = ['min', 'max']
+
+    minmax.forEach((/** @type {string} */ a) => {
+      if (typeof options.xaxis[a] !== 'undefined') {
+        w.config.xaxis[a] = options.xaxis[a]
+        ;/** @type {Record<string,any>} */ (w.globals.lastXAxis)[a] =
+          options.xaxis[a]
+      }
+    })
+
+    if (options.xaxis.categories && options.xaxis.categories.length) {
+      w.config.xaxis.categories = options.xaxis.categories
+    }
+
+    // A category axis drawn as numbers keeps its names only in its label
+    // formatter. Converting a payload that names no categories rebuilt that
+    // formatter without them and wrote `categories: []` over the chart's, so
+    // any xaxis update (a bound, a label style, `xaxis: {}`) turned the
+    // names into 1, 2, 3 and dropped the user's formatter with them.
+    if (w.config.xaxis.convertedCatToNumeric) {
+      const x = options.xaxis
+      // The conversion fills in a tickAmount when the object it is handed has
+      // none. Here that object is the update, not the chart, so the default
+      // it wrote replaced the tick count the chart already had: a formatter
+      // or categories update turned tickAmount: 5 into 'dataPoints', and an
+      // explicit 'dataPoints' into the automatic one. A payload that does not
+      // name a tickAmount keeps the chart's.
+      const namesTickAmount = 'tickAmount' in x
+      if ('categories' in x || 'labels' in options) {
+        // New names, or an explicit empty list to clear them.
+        options = new Defaults(options).convertCatToNumericXaxis(options)
+      } else if (x.labels?.formatter) {
+        // A new formatter over the names the chart already has.
+        const names = /** @type {any} */ (w.config.xaxis.labels.formatter)
+          ?.categoryNames
+        options = new Defaults(options).convertCatToNumericXaxis(
+          options,
+          names,
+        )
+      }
+      // Otherwise the payload says nothing about the labels, and the
+      // converted formatter already in the config stands.
+      if (!namesTickAmount) {
+        delete options.xaxis.tickAmount
+        delete options.xaxis.autoDataPointsTicks
+      }
+    }
+    return options
+  }
+
+  /**
+   * @param {Record<string, any>} options
+   */
+  forceYAxisUpdate(options) {
+    if (
+      options.chart &&
+      options.chart.stacked &&
+      options.chart.stackType === '100%'
+    ) {
+      if (Array.isArray(options.yaxis)) {
+        /**
+         * @param {ApexYAxis} yaxe
+         * @param {number} index
+         */
+        options.yaxis.forEach(
+          (/** @type {any} */ yaxe, /** @type {any} */ index) => {
+            options.yaxis[index].min = 0
+            options.yaxis[index].max = 100
+          },
+        )
+      } else {
+        options.yaxis.min = 0
+        options.yaxis.max = 100
+      }
+    }
+    return options
+  }
+
+  /**
+   * This function reverts the yaxis and xaxis min/max values to what it was when the chart was defined.
+   * This function fixes an important bug where a user might load a new series after zooming in/out of previous series which resulted in wrong min/max
+   * Also, this should never be called internally on zoom/pan - the reset should only happen when user calls the updateSeries() function externally
+   * The function also accepts an object {xaxis, yaxis} which when present is set as the new xaxis/yaxis
+   * @param {Record<string, any>} [opts]
+   */
+  revertDefaultAxisMinMax(opts) {
+    const w = this.w
+
+    let xaxis = w.globals.lastXAxis
+    let yaxis = w.globals.lastYAxis
+
+    if (opts && opts.xaxis) {
+      xaxis = opts.xaxis
+    }
+    if (opts && opts.yaxis) {
+      yaxis = opts.yaxis
+    }
+    const _xaxis = /** @type {any} */ (xaxis)
+    w.config.xaxis.min = _xaxis.min
+    w.config.xaxis.max = _xaxis.max
+
+    /**
+     * @param {number} index
+     */
+    const getLastYAxis = (index) => {
+      if (typeof yaxis[index] !== 'undefined') {
+        const _y = /** @type {any} */ (yaxis[index])
+        w.config.yaxis[index].min = _y.min
+        w.config.yaxis[index].max = _y.max
+      }
+    }
+
+    /**
+     * @param {ApexYAxis} yaxe
+     * @param {number} index
+     */
+    w.config.yaxis.map((yaxe, index) => {
+      if (w.interact.zoomed) {
+        // user has zoomed, check the last yaxis
+        getLastYAxis(index)
+      } else {
+        // user hasn't zoomed, check the last yaxis first
+        if (typeof yaxis[index] !== 'undefined') {
+          getLastYAxis(index)
+        } else {
+          // if last y-axis don't exist, check the original yaxis
+          if (typeof this.ctx.opts.yaxis[index] !== 'undefined') {
+            yaxe.min = this.ctx.opts.yaxis[index].min
+            yaxe.max = this.ctx.opts.yaxis[index].max
+          }
+        }
+      }
+    })
+  }
+
+  /**
+   * A series fed in from outside (updateSeries, appendSeries,
+   * updateOptions({ series })) drops any zoom: revert the axes, then clear the
+   * zoomed flag and the on-demand reset control so they match the full range
+   * that is drawn (#5388). The flag clears AFTER the revert, whose y branch
+   * still has to see the zoom.
+   */
+  revertZoom() {
+    this.revertDefaultAxisMinMax()
+    this.w.interact.zoomed = false
+    this.ctx.toolbar?.clearZoomAffordance()
+  }
+}

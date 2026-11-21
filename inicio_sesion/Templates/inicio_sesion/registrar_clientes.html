@@ -1,0 +1,229 @@
+{% extends 'Estructura/Base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="pagina_registro_clientes">
+    <div class="contenedor_retroceso">
+        <a href="{% url 'menu_acceso' %}">
+            <i class="fa-solid fa-arrow-left"></i>
+            Regresar
+        </a>
+    </div>
+
+    <div class="modulo_registrar_clientes">
+        <div class="contenedor_img_registro">
+            <img src="{% static 'Imagenes/registrar_cliente.png' %}" alt="">
+            <h2>Registro del Clientes</h2>
+            <p>Compras, soporte ténico y productos imperdibles.</p>
+        </div>
+
+        <div class="contenedor_registro_datos">
+            <form method="post" id="formulario_registrar">
+                {% csrf_token %}
+
+                <!-- INFORMACIÓN DEL CLIENTE -->
+                <div class="contenedor_datos_basicos">
+                    <h3>Datos Básicos</h3>
+
+                    <div class="campo_formulario">
+                        <label for="tipo_cliente">Tipo de Cliente:</label>
+                        <select name="tipo_cliente" id="tipo_cliente" required>
+                            <option value="NATURAL" selected>Persona Natural</option>
+                            <option value="EMPRESA">Empresa</option>
+                        </select>
+                    </div>
+
+                    <div id="controles_individuo" class="natural">
+                        <div class="campo_formulario">
+                            <label for="nombre_cliente">Nombres:</label>
+                            <input type="text" name="nombre_cliente" id="nombre_cliente" minlength="3" maxlength="30"
+                                placeholder="Ingresa los nombres del cliente (3 - 30 caracteres)" autocomplete="off"
+                                required>
+                        </div>
+
+                        <div class="campo_formulario">
+                            <label for="apellido_cliente">Apellidos:</label>
+                            <input type="text" name="apellido_cliente" id="apellido_cliente" minlength="3"
+                                maxlength="30" placeholder="Ingresa los apellidos del cliente (3 - 30 caracteres)"
+                                autocomplete="off" required>
+                        </div>
+                    </div>
+
+                    <div id="control_empresa" class="comercial">
+                        <div class="campo_formulario">
+                            <label for="nombre_empresa">Nombre de la Empresa:</label>
+                            <input type="text" name="nombre_empresa" id="nombre_empresa" minlength="3" maxlength="30"
+                                placeholder="Ingresa el nombre de la empresa (3 - 30 caracteres)" autocomplete="off"
+                                required>
+                        </div>
+                    </div>
+
+                    <!-- IDENTIFICACIÓN DEL CLIENTE -->
+                    <div class="campo_formulario">
+                        <label for="identificador">Identificador Cliente:</label>
+                        <div class="grupo_doble">
+                            <select name="tipo_identificador" id="tipo_identificador" class="select_ci"
+                                required></select>
+                            <input type="text" name="identificador" id="identificador" autocomplete="off" required>
+                        </div>
+                        <small id="contenedor_mensaje_identificador" class="mensaje-feedback"></small>
+                    </div>
+
+                    <!-- DATOS DE CONTACTO -->
+                    <div class="campo_formulario">
+                        <label for="num_telefono">Teléfono:</label>
+                        <div class="grupo_doble">
+                            <select name="prefijo" id="prefijo" class="select_prefijo" required></select>
+                            <input type="text" name="num_telefono" id="num_telefono" minlength="7" maxlength="7"
+                                autocomplete="off" required>
+                        </div>
+                        <small id="contenedor_mensaje_telefono" class="mensaje-feedback"></small>
+                    </div>
+
+                    <div class="campo_formulario">
+                        <label for="correo">Correo Electrónico:</label>
+                        <div class="grupo_doble grupo_correo">
+                            <input type="text" name="correo" id="correo" minlength="5" maxlength="20"
+                                placeholder="Email (5-20 caracteres)" autocomplete="off" required>
+                            <select name="dominio" id="dominio" class="select_dominio"></select>
+                        </div>
+                        <small id="contenedor_mensaje_correo" class="mensaje-feedback"></small>
+                    </div>
+                </div>
+
+                <!-- CREDENCIALES DE ACCESO -->
+                <div class="contenedor_credenciales">
+                    <h3>Credenciales de Acceso</h3>
+
+                    <div class="campo_formulario">
+                        <label for="nombre_usuario">Nombre de usuario:</label>
+                        <input type="text" name="nombre_usuario" id="nombre_usuario"
+                            placeholder="Ingrese su nombre de usuario (15 caracteres máximo)" autocomplete="off"
+                            maxlength="15" required>
+                        <small id="contenedor_mensaje_user" class="mensaje-feedback"></small>
+                    </div>
+
+                    <div class="campo_formulario">
+                        <label for="clave">Contraseña:</label>
+                        <div class="password_contenedor">
+                            <input type="password" name="contrasenia" id="clave"
+                                placeholder="Ingrese su contraseña (15 caracteres máximo)" autocomplete="off"
+                                maxlength="15" required>
+                            <input type="checkbox" id="mostrar_contrasenia" class="checkbox_ojo"
+                                aria-label="Mostrar contraseña">
+                            <label for="mostrar_contrasenia" class="icono_ojo" title="Mostrar u ocultar contraseña">
+                                <i class="fa-regular fa-eye icono_mostrar"></i>
+                                <i class="fa-regular fa-eye-slash icono_ocultar"></i>
+                            </label>
+                        </div>
+                        <small id="contenedor_mensaje_password" class="mensaje-feedback"></small>
+                    </div>
+
+                    <!-- VALIDACIONES DE CONTRASEÑA -->
+                    <div class="indicadores_password" id="indicadores_password" aria-live="polite">
+                        <p class="titulo_indicadores">La contraseña debe cumplir con:</p>
+
+                        <ul class="lista_indicadores">
+                            <li class="indicador_password" data-regla="longitud">
+                                <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>
+                                <span>Entre 8 y 15 caracteres.</span>
+                            </li>
+                            <li class="indicador_password" data-regla="alfabetico">
+                                <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>
+                                <span>Al menos un carácter alfabético válido.</span>
+                            </li>
+                            <li class="indicador_password" data-regla="especial">
+                                <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>
+                                <span>Al menos un carácter especial.</span>
+                            </li>
+                            <li class="indicador_password" data-regla="numero">
+                                <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>
+                                <span>Al menos un número.</span>
+                            </li>
+                            <li class="indicador_password" data-regla="repetidos">
+                                <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>
+                                <span>No incluir tres caracteres o números iguales consecutivos.</span>
+                            </li>
+                            <li class="indicador_password" data-regla="nacimiento">
+                                <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>
+                                <span>No contener una fecha de nacimiento.</span>
+                            </li>
+                            <li class="indicador_password" data-regla="telefono">
+                                <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>
+                                <span>No contener el número telefónico.</span>
+                            </li>
+                            <li class="indicador_password" data-regla="cedula">
+                                <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>
+                                <span>No contener la cédula de identidad.</span>
+                            </li>
+                            <li class="indicador_password" data-regla="nombre">
+                                <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>
+                                <span>No contener el nombre.</span>
+                            </li>
+                            <li class="indicador_password" data-regla="apellido">
+                                <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>
+                                <span>No contener el apellido.</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="contenedor_residencia">
+                    <h3>Residencia</h3>
+
+                    <div class="campo_formulario">
+                        <label for="condicion_residencia_usuario">Condición de Residencia:</label>
+                        <select name="condicion_residencia" id="condicion_residencia_usuario" required>
+                            <option value="Propietario" selected>Propietario</option>
+                            <option value="Alquilado">Alquilado</option>
+                            <option value="Familiar">Familiar</option>
+                            <option value="Prestado">Prestado</option>
+                            <option value="Compartido">Compartido</option>
+                        </select>
+                    </div>
+
+                    <div class="campo_formulario">
+                        <label for="municipio_residencia">Municipio:</label>
+                        <select name="municipio_residencia" id="municipio_residencia" required></select>
+                    </div>
+
+                    <div class="campo_formulario">
+                        <label for="parroquia_residencia">Parroquia:</label>
+                        <select name="parroquia_residencia" id="parroquia_residencia" required></select>
+                    </div>
+
+                    <div class="campo_formulario">
+                        <label for="direccion_domicilio">Dirección:</label>
+                        <textarea name="direccion_residencia" id="direccion_domicilio" maxlength="250"
+                            placeholder="Ingrese su dirección de residencia cuenta con (250 caracteres máximo)."
+                            required></textarea>
+
+                        <div class="contador_caracteres">
+                            <span id="contador_residencia">0</span> / 250 caracteres
+                        </div>
+                    </div>
+                </div>
+
+                <!-- REGISTRO -->
+                <div class="contenedor_boton_submit">
+                    <button type="submit" class="btn_submit" id="btn_registrar">
+                        <i class="fa-solid fa-user-lock"></i>
+                        Registrar
+                    </button>
+                </div>
+            </form>
+        </div>
+
+    </div>
+</section>
+
+<script src="{% static 'Funcionalidades/residencia.js' %}"></script>
+<script src="{% static 'Funcionalidades/identificador.js' %}"></script>
+<script src="{% static 'Funcionalidades/correo_electronico.js' %}"></script>
+<script src="{% static 'Funcionalidades/telefono.js' %}"></script>
+<script src="{% static 'Funcionalidades/contrasenia.js' %}"></script>
+<script src="{% static 'Funcionalidades_Asincronas/inicio_sesion/registrar_clientes.js' %}"></script>
+
+{% endblock %}

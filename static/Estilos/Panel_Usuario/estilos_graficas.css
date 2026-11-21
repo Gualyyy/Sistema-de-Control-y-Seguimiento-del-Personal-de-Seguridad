@@ -1,3 +1,7 @@
+/* ==========================================
+   ESTRUCTURA GENERAL DEL PANEL
+========================================== */
+
 .panel_usuario {
     display: flex;
     flex-direction: column;
@@ -31,7 +35,10 @@
     box-sizing: border-box;
 }
 
-/* ESTADISTICA GENERAL */
+/* ==========================================
+   TARJETAS DE ESTADÍSTICAS
+========================================== */
+
 .contenedor_estadisticas {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -47,16 +54,17 @@
     min-width: 0;
     padding: 22px 20px;
     background: #ffffff;
-    border: 1px solid #e5eaf0;
+    border: 1px solid #b8d8e8;
     border-radius: 14px;
-    box-shadow: 0 4px 14px rgba(16, 47, 78, 0.06);
+    box-shadow: 0 3px 10px rgba(0, 68, 95, 0.05);
     box-sizing: border-box;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .tarjeta_estadistica:hover {
     transform: translateY(-3px);
-    box-shadow: 0 8px 20px rgba(16, 47, 78, 0.11);
+    border-color: #83bfd8;
+    box-shadow: 0 6px 16px rgba(0, 68, 95, 0.10);
 }
 
 .icono_estadistica {
@@ -68,26 +76,6 @@
     height: 52px;
     border-radius: 12px;
     font-size: 22px;
-}
-
-.empleados .icono_estadistica {
-    color: #00779e;
-    background: #e5f4fa;
-}
-
-.equipos .icono_estadistica {
-    color: #16835d;
-    background: #e5f5ec;
-}
-
-.incidencias .icono_estadistica {
-    color: #d97706;
-    background: #fff2dc;
-}
-
-.asignaciones .icono_estadistica {
-    color: #6854b8;
-    background: #eee9fc;
 }
 
 .informacion_estadistica {
@@ -111,9 +99,91 @@
     font-weight: 800;
     line-height: 1.2;
     overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
-/* GRÁFICA DEL PANEL */
+/* ==========================================
+   COLORES DE LOS PANELES GENERALES
+========================================== */
+
+.empleados .icono_estadistica,
+.clientes .icono_estadistica,
+.productos .icono_estadistica {
+    color: #00779e;
+    background: #e5f4fa;
+}
+
+.equipos .icono_estadistica,
+.confirmadas .icono_estadistica {
+    color: #16835d;
+    background: #e5f5ec;
+}
+
+.incidencias .icono_estadistica,
+.rechazadas .icono_estadistica {
+    color: #c46b16;
+    background: #fff2dc;
+}
+
+.asignaciones .icono_estadistica,
+.confirmacion .icono_estadistica {
+    color: #6854b8;
+    background: #eee9fc;
+}
+
+/* ==========================================
+   COLORES DE LAS ESTADÍSTICAS DE VENTAS
+========================================== */
+
+.ventas .icono_estadistica {
+    color: #00779e;
+    background: #e5f4fa;
+}
+
+.espera .icono_estadistica {
+    color: #b7791f;
+    background: #fff6df;
+}
+
+.cuentas .icono_estadistica {
+    color: #365f9c;
+    background: #eaf0fb;
+}
+
+.pago_movil .icono_estadistica {
+    color: #16835d;
+    background: #e5f5ec;
+}
+
+.transferencias .icono_estadistica {
+    color: #6854b8;
+    background: #eee9fc;
+}
+
+.ingresos_bolivares .icono_estadistica {
+    color: #087c68;
+    background: #e3f5ef;
+}
+
+.ingresos_dolares .icono_estadistica {
+    color: #2371ad;
+    background: #e5f1fc;
+}
+
+/* ==========================================
+   ESTADÍSTICAS MONETARIAS
+========================================== */
+
+.ingresos_bolivares .numero_contador,
+.ingresos_dolares .numero_contador {
+    font-size: 25px;
+    color: #102f4e;
+    letter-spacing: -0.4px;
+}
+
+/* ==========================================
+   GRÁFICAS DEL PANEL
+========================================== */
 
 .contenedor_graficas_panel {
     display: grid;
@@ -127,21 +197,23 @@
 .estadistica_perfiles_registrados,
 .estadistica_equipos_entregados,
 .estadistica_tipos_incidencias,
-.estadistica_equipos_asignados {
+.estadistica_equipos_asignados,
+.estadistica_incidencia {
     width: 100%;
     min-width: 0;
     padding: 24px;
     background: #ffffff;
-    border: 1px solid #e5eaf0;
+    border: 1px solid #b8d8e8;
     border-radius: 14px;
-    box-shadow: 0 4px 14px rgba(16, 47, 78, 0.06);
+    box-shadow: 0 3px 10px rgba(0, 68, 95, 0.05);
     box-sizing: border-box;
 }
 
 .estadistica_perfiles_registrados h3,
 .estadistica_equipos_entregados h3,
 .estadistica_tipos_incidencias h3,
-.estadistica_equipos_asignados h3 {
+.estadistica_equipos_asignados h3,
+.estadistica_incidencia h3 {
     margin: 0 0 22px;
     color: #102f4e;
     font-size: 16px;
@@ -149,8 +221,6 @@
     line-height: 1.5;
     overflow-wrap: anywhere;
 }
-
-/* CONTENEDOR DEL GRUPO DE GRÁFICAS */
 
 .contenedor_grafica_perfiles,
 .contenedor_grafica_entregado,
@@ -170,16 +240,18 @@
     max-width: 100%;
 }
 
-/* ÚLTIMO INICIO DE SESIÓN */
+/* ==========================================
+   ÚLTIMO INICIO DE SESIÓN
+========================================== */
 
 .estadistica_ultimo_inicio {
     width: 100%;
     min-width: 0;
     padding: 24px;
     background: #ffffff;
-    border: 1px solid #e1e8ee;
+    border: 1px solid #b8d8e8;
     border-radius: 14px;
-    box-shadow: 0 4px 14px rgba(16, 47, 78, 0.05);
+    box-shadow: 0 3px 10px rgba(0, 68, 95, 0.05);
     box-sizing: border-box;
 }
 
@@ -204,7 +276,7 @@
     gap: 15px;
     min-width: 0;
     padding-bottom: 20px;
-    border-bottom: 1px solid #edf1f5;
+    border-bottom: 1px solid #c8e0ec;
 }
 
 .ultimo_inicio_icono {
@@ -275,8 +347,8 @@
     gap: 13px;
     min-width: 0;
     padding: 17px;
-    background: #f8fafc;
-    border: 1px solid #edf1f5;
+    background: #f8fbfd;
+    border: 1px solid #c8e0ec;
     border-radius: 11px;
     box-sizing: border-box;
 }
@@ -321,8 +393,8 @@
 .ultimo_inicio_mensaje {
     padding: 13px 15px;
     color: #64748b;
-    background: #f8fafc;
-    border: 1px solid #edf1f5;
+    background: #f8fbfd;
+    border: 1px solid #c8e0ec;
     border-radius: 9px;
     font-size: 13px;
     line-height: 1.6;
@@ -333,7 +405,121 @@
     display: none;
 }
 
+/* ==========================================
+   TASAS DE CAMBIO
+========================================== */
+
+.contenedor_tasas_cambio {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+    width: 100%;
+    min-width: 0;
+}
+
+.tarjeta_tasa_cambio {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    min-width: 0;
+    padding: 22px;
+    background: #ffffff;
+    border: 1px solid #b8d8e8;
+    border-radius: 14px;
+    box-shadow: 0 3px 10px rgba(0, 68, 95, 0.05);
+    box-sizing: border-box;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.tarjeta_tasa_cambio:hover {
+    border-color: #83bfd8;
+    box-shadow: 0 6px 16px rgba(0, 68, 95, 0.09);
+}
+
+.informacion_tasa {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex: 1;
+    min-width: 0;
+}
+
+.imagen_tasa {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 52px;
+    width: 52px;
+    height: 52px;
+    overflow: hidden;
+    background: #eaf6fa;
+    border: 1px solid #c8e0ec;
+    border-radius: 50%;
+}
+
+.imagen_tasa img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.datos_tasa {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.datos_tasa span {
+    color: #102f4e;
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+
+.datos_tasa small {
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.valor_tasa {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 7px;
+    flex: 0 0 auto;
+    min-width: 0;
+}
+
+.valor_tasa span {
+    color: #00779e;
+    font-size: 23px;
+    font-weight: 800;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+}
+
+.valor_tasa small {
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.4;
+    text-align: right;
+    overflow-wrap: anywhere;
+}
+
+/* ==========================================
+   TABLETAS Y PANTALLAS MEDIANAS
+========================================== */
+
 @media (max-width: 1100px) {
+
     .contenedor_estadisticas {
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 18px;
@@ -350,11 +536,26 @@
     .numero_contador {
         font-size: 28px;
     }
+
+    .ingresos_bolivares .numero_contador,
+    .ingresos_dolares .numero_contador {
+        font-size: 23px;
+    }
+
+    .tarjeta_tasa_cambio {
+        padding: 20px;
+    }
+
+    .valor_tasa span {
+        font-size: 21px;
+    }
 }
 
-/* Tabletas y móviles */
+/* ==========================================
+   TABLETAS PEQUEÑAS Y MÓVILES
+========================================== */
 
-@media (max-width: 700px) {
+@media (max-width: 850px) {
 
     .panel_usuario,
     .contenedor_panel_usuario {
@@ -370,10 +571,16 @@
         gap: 18px;
     }
 
+    .contenedor_tasas_cambio {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 16px;
+    }
+
     .estadistica_perfiles_registrados,
     .estadistica_equipos_entregados,
     .estadistica_tipos_incidencias,
     .estadistica_equipos_asignados,
+    .estadistica_incidencia,
     .estadistica_ultimo_inicio {
         padding: 20px;
     }
@@ -388,11 +595,18 @@
     .ultimo_inicio_resumen {
         grid-template-columns: minmax(0, 1fr);
     }
+
+    .tarjeta_tasa_cambio {
+        padding: 20px;
+    }
 }
 
-/* Móviles pequeños */
+/* ==========================================
+   MÓVILES PEQUEÑOS
+========================================== */
 
 @media (max-width: 480px) {
+
     .contenedor_estadisticas {
         grid-template-columns: minmax(0, 1fr);
         gap: 14px;
@@ -418,10 +632,16 @@
         font-size: 26px;
     }
 
+    .ingresos_bolivares .numero_contador,
+    .ingresos_dolares .numero_contador {
+        font-size: 23px;
+    }
+
     .estadistica_perfiles_registrados,
     .estadistica_equipos_entregados,
     .estadistica_tipos_incidencias,
     .estadistica_equipos_asignados,
+    .estadistica_incidencia,
     .estadistica_ultimo_inicio {
         padding: 16px;
         border-radius: 12px;
@@ -430,7 +650,8 @@
     .estadistica_perfiles_registrados h3,
     .estadistica_equipos_entregados h3,
     .estadistica_tipos_incidencias h3,
-    .estadistica_equipos_asignados h3 {
+    .estadistica_equipos_asignados h3,
+    .estadistica_incidencia h3 {
         margin-bottom: 18px;
         font-size: 15px;
     }
@@ -461,10 +682,76 @@
         gap: 11px;
         padding: 14px;
     }
+
+    .tarjeta_tasa_cambio {
+        gap: 12px;
+        padding: 16px;
+        border-radius: 12px;
+    }
+
+    .informacion_tasa {
+        gap: 10px;
+    }
+
+    .imagen_tasa {
+        flex-basis: 44px;
+        width: 44px;
+        height: 44px;
+    }
+
+    .datos_tasa span {
+        font-size: 13px;
+    }
+
+    .datos_tasa small {
+        font-size: 11px;
+    }
+
+    .valor_tasa span {
+        font-size: 19px;
+    }
+
+    .valor_tasa small {
+        font-size: 10px;
+    }
 }
 
+/* ==========================================
+   MÓVILES MUY ESTRECHOS
+========================================== */
+
+@media (max-width: 360px) {
+
+    .tarjeta_tasa_cambio {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .valor_tasa {
+        align-items: flex-start;
+        width: 100%;
+        padding-top: 12px;
+        border-top: 1px solid #d5e8f0;
+    }
+
+    .valor_tasa small {
+        text-align: left;
+    }
+
+    .ingresos_bolivares .numero_contador,
+    .ingresos_dolares .numero_contador {
+        font-size: 21px;
+    }
+}
+
+/* ==========================================
+   ACCESIBILIDAD
+========================================== */
+
 @media (prefers-reduced-motion: reduce) {
-    .tarjeta_estadistica {
+
+    .tarjeta_estadistica,
+    .tarjeta_tasa_cambio {
         transition: none;
     }
 

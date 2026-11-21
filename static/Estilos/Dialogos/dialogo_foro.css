@@ -1,0 +1,240 @@
+.contenedor_opciones {
+    position: relative;
+    width: 100%;
+    padding: 28px;
+    background-color: #ffffff;
+    border: 1px solid #dce6ec;
+    border-radius: 14px;
+    box-shadow: 0 8px 28px rgba(0, 48, 70, 0.12);
+    box-sizing: border-box;
+    font-family: Arial, sans-serif;
+}
+
+.contenedor_opciones h2 {
+    margin: 0 38px 23px 0;
+    padding-bottom: 15px;
+    color: #00445f;
+    font-size: 23px;
+    border-bottom: 2px solid #e3edf2;
+}
+
+.contenedor_opciones h2,
+.contenedor_opciones .btn_cerrar,
+.contenedor_opciones .opciones_cliente .opcion_cliente,
+.contenedor_opciones .opciones_cliente .opcion_cliente strong,
+.contenedor_opciones .opciones_cliente .opcion_cliente small {
+    font-weight: 400;
+}
+
+/* ==========================================
+   BOTÓN CERRAR
+========================================== */
+
+.contenedor_opciones .btn_cerrar {
+    position: absolute;
+    top: 17px;
+    right: 17px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    color: #647985;
+    background-color: transparent;
+    border: none;
+    border-radius: 8px;
+    font-size: 24px;
+    cursor: pointer;
+    transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.contenedor_opciones .btn_cerrar:hover {
+    color: #c62828;
+    background-color: #fff0f0;
+}
+
+/* ==========================================
+   OPCIONES DE CLIENTES
+========================================== */
+
+.opciones_cliente {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 13px;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+/* ==========================================
+   TARJETAS DE ACCESO
+========================================== */
+
+.opciones_cliente .opcion_cliente {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-width: 0;
+    min-height: 90px;
+    padding: 13px;
+    color: #365361;
+    background-color: #f7fafc;
+    border: 1px solid #d8e3e9;
+    border-radius: 10px;
+    box-sizing: border-box;
+    text-decoration: none;
+    transition: background-color 0.2s ease,
+        border-color 0.2s ease,
+        box-shadow 0.2s ease,
+        transform 0.2s ease;
+}
+
+.opciones_cliente .opcion_cliente:hover {
+    background-color: #edf7fb;
+    border-color: #8ab9cc;
+    box-shadow: 0 3px 10px rgba(0, 68, 95, 0.07);
+    transform: translateY(-2px);
+}
+
+/* ==========================================
+   ICONOS PRINCIPALES
+========================================== */
+
+.opciones_cliente .opcion_cliente>i:first-child {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
+    color: #00779e;
+    background-color: #e8f5fa;
+    border: 1px solid #d5e8f0;
+    border-radius: 10px;
+    font-size: 20px;
+    transition: color 0.2s ease,
+        background-color 0.2s ease,
+        border-color 0.2s ease;
+}
+
+.opciones_cliente .opcion_cliente:hover>i:first-child {
+    color: #ffffff;
+    background-color: #00779e;
+    border-color: #00779e;
+}
+
+/* ==========================================
+   INFORMACIÓN DE LAS OPCIONES
+========================================== */
+
+.opciones_cliente .opcion_cliente>span {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+}
+
+.opciones_cliente .opcion_cliente strong {
+    color: #244454;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.opciones_cliente .opcion_cliente small {
+    color: #647985;
+    font-size: 11px;
+    font-weight: 400;
+    line-height: 1.5;
+}
+
+/* ==========================================
+   ICONOS DE NAVEGACIÓN
+========================================== */
+
+.opciones_cliente .opcion_cliente>i:last-child {
+    flex-shrink: 0;
+    margin-left: auto;
+    color: #00779e;
+    font-size: 12px;
+    transition: transform 0.2s ease;
+}
+
+.opciones_cliente .opcion_cliente:hover>i:last-child {
+    transform: translateX(3px);
+}
+
+/* ==========================================
+   RESPONSIVE
+========================================== */
+
+@media (max-width: 520px) {
+
+    .dialogo_amplio {
+        width: calc(100% - 20px);
+        max-height: calc(100dvh - 20px);
+    }
+
+    .contenedor_opciones {
+        padding: 23px 18px;
+        border-radius: 11px;
+    }
+
+    .contenedor_opciones h2 {
+        margin-bottom: 20px;
+        font-size: 21px;
+    }
+
+    .contenedor_opciones .btn_cerrar {
+        top: 13px;
+        right: 12px;
+    }
+
+    .opciones_cliente {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .opciones_cliente .opcion_cliente {
+        flex-direction: column;
+        align-items: flex-start;
+        justify-content: center;
+        min-height: 135px;
+        gap: 9px;
+        padding: 12px;
+    }
+
+    .opciones_cliente .opcion_cliente>i:first-child {
+        width: 42px;
+        height: 42px;
+        font-size: 18px;
+    }
+
+    .opciones_cliente .opcion_cliente>i:last-child {
+        display: none;
+    }
+
+    .opciones_cliente .opcion_cliente strong {
+        font-size: 12px;
+    }
+
+    .opciones_cliente .opcion_cliente small {
+        font-size: 11px;
+    }
+}
+
+@media (max-width: 350px) {
+
+    .opciones_cliente {
+        grid-template-columns: 1fr;
+    }
+
+    .opciones_cliente .opcion_cliente {
+        flex-direction: row;
+        align-items: center;
+        min-height: 78px;
+    }
+}

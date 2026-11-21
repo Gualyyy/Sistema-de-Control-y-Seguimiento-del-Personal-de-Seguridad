@@ -11,27 +11,35 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
+CLAVE_KEY = os.environ.get(
+    "CLAVE_KEY", ""
+).strip()
+
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-v45i=v@(wook^mj(po^e7xwd8ubaik63&6&%z&qzf&jj2$p$=-'
+SECRET_KEY = CLAVE_KEY
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
 ALLOWED_HOSTS = [
-
+    '10.178.146.30', 'localhost', '127.0.0.1'
 ]
 
 # Application definition
 INSTALLED_APPS = [
+    'daphne',
+    'channels',
+
     'jazzmin',
+
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -61,7 +69,7 @@ JAZZMIN_SETTINGS = {
         "inicio_sesion.nacimiento": "fas fa-birthday-cake",
         "inicio_sesion.residencia": "fas fa-home",
 
-        "inicio_sesion.directiva_nacional": "fas fa-user-tie",
+        "inicio_sesion.propietarios": "fas fa-user-tie",
         "inicio_sesion.encargados_administrativos": "fas fa-user-cog",
         "inicio_sesion.supervisores_encargados": "fas fa-user-shield",
         "inicio_sesion.personal_limpieza": "fas fa-broom",
@@ -71,6 +79,24 @@ JAZZMIN_SETTINGS = {
         "inicio_sesion.credenciales": "fas fa-key",
     },
 }
+
+ASGI_APPLICATION = "vigilancia.asgi.application"
+
+if DEBUG:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels.layers.InMemoryChannelLayer",
+        },
+    }
+else:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {
+                "hosts": [("127.0.0.1", 6379)],
+            },
+        },
+    }
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -116,19 +142,41 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'vigilancia.wsgi.application'
-
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
+ENGINE_SAHC = os.environ.get(
+    "ENGINE_SAHC", ""
+).strip()
+
+NAME_SAHC = os.environ.get(
+    "NAME_SAHC", ""
+).strip()
+
+USER_SAHC = os.environ.get(
+    "USER_SAHC", ""
+).strip()
+
+PASSWORD_SAHC = os.environ.get(
+    "PASSWORD_SAHC", ""
+).strip()
+
+HOST_SAHC = os.environ.get(
+    "HOST_SAHC", ""
+).strip()
+
+PORT_SAHC = os.environ.get(
+    "PORT_SAHC", ""
+).strip()
+
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": "SAHC",
-        "USER": "postgres",
-        "PASSWORD": "31438140",
-        "HOST": "localhost",
-        "PORT": "5432",
+        "ENGINE": ENGINE_SAHC,
+        "NAME": NAME_SAHC,
+        "USER": USER_SAHC,
+        "PASSWORD": PASSWORD_SAHC,
+        "HOST": HOST_SAHC,
+        "PORT": PORT_SAHC,
     }
 }
 
@@ -183,3 +231,42 @@ STORAGES = {
         "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
     },
 }
+
+# Configuración del servidor de correo
+
+EMAIL_SAHC = os.environ.get(
+    "EMAIL_SAHC", ""
+).strip()
+
+EMAIL_HOST_SAHC = os.environ.get(
+    "EMAIL_HOST_SAHC", ""
+).strip()
+
+EMAIL_PORT_SAHC = os.environ.get(
+    "EMAIL_PORT_SAHC", ""
+).strip()
+
+EMAIL_USER_TLS_SAHC = os.environ.get(
+    "EMAIL_USER_TLS_SAHC", ""
+).strip()
+
+EMAIL_USER_SSL_SAHC = os.environ.get(
+    "EMAIL_USER_SSL_SAHC", ""
+).strip()
+
+EMAIL_HOST_USER_SAHC = os.environ.get(
+    "EMAIL_HOST_USER_SAHC", ""
+).strip()
+
+EMAIL_HOST_PASSWORD_SAHC = os.environ.get(
+    "EMAIL_HOST_PASSWORD_SAHC", ""
+).strip()
+
+EMAIL_BACKEND = EMAIL_SAHC
+EMAIL_HOST = EMAIL_HOST_SAHC
+EMAIL_PORT = EMAIL_PORT_SAHC
+EMAIL_USE_TLS = EMAIL_USER_TLS_SAHC
+EMAIL_USE_SSL = EMAIL_USER_SSL_SAHC 
+EMAIL_HOST_USER = EMAIL_HOST_USER_SAHC 
+EMAIL_HOST_PASSWORD = EMAIL_HOST_PASSWORD_SAHC
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER

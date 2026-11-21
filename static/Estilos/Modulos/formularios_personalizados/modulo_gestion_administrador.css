@@ -1,0 +1,336 @@
+.modulo_visualizar_empleado {
+    width: 100%;
+    min-width: 0;
+    margin: 20px 0;
+    padding: 20px;
+    box-sizing: border-box;
+    border: 2px solid #00779e;
+    border-radius: 12px;
+    background: #ffffff;
+    box-shadow: 0 4px 12px rgba(0, 68, 95, 0.08);
+}
+
+.formulario_visualizar_empleado {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    width: 100%;
+    min-width: 0;
+}
+
+.modulo_visualizar_empleado .contenedores_fila {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 24px;
+    width: 100%;
+    min-width: 0;
+}
+
+.modulo_visualizar_empleado .contenedores_fila:first-child {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+    padding: 20px;
+    border: 2px solid #00779e;
+    border-radius: 12px;
+    box-sizing: border-box;
+}
+
+.modulo_visualizar_empleado .contenedor_foto_perfil {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+}
+
+.modulo_visualizar_empleado .contenedor_foto_perfil img {
+    display: block;
+    width: 135px;
+    height: 135px;
+    object-fit: cover;
+    border: 3px solid #dce5eb;
+    border-radius: 50%;
+    background: #f4f7f9;
+}
+
+.modulo_visualizar_empleado .contenedor_btn_acciones {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 12px;
+    width: 100%;
+    min-width: 0;
+}
+
+.modulo_visualizar_empleado .btn_accion {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    flex: 1 1 0;
+    gap: 8px;
+    min-width: 0;
+    min-height: 42px;
+    padding: 10px 12px;
+    background-color: #00445f;
+    border: 1px solid #00445f;
+    border-radius: 7px;
+    color: #ffffff;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+    cursor: pointer;
+    box-sizing: border-box;
+    transition:
+        background-color 0.2s ease,
+        border-color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.modulo_visualizar_empleado .btn_accion i {
+    flex-shrink: 0;
+    color: #ffffff;
+    font-size: 14px;
+}
+
+.modulo_visualizar_empleado .btn_accion span {
+    white-space: nowrap;
+}
+
+.modulo_visualizar_empleado .btn_accion:hover {
+    background-color: #00779e;
+    border-color: #00779e;
+    box-shadow: 0 3px 8px rgba(0, 68, 95, 0.18);
+}
+
+.modulo_visualizar_empleado .btn_bloquear,
+.modulo_visualizar_empleado .btn_retirar_cargo,
+.modulo_visualizar_empleado .btn_reporte_pdf {
+    background-color: #00445f;
+    border-color: #00445f;
+    color: #ffffff;
+}
+
+.modulo_visualizar_empleado .btn_bloquear:hover,
+.modulo_visualizar_empleado .btn_retirar_cargo:hover,
+.modulo_visualizar_empleado .btn_reporte_pdf:hover {
+    background-color: #00779e;
+    border-color: #00779e;
+}
+
+.modulo_visualizar_empleado .btn_accion:disabled {
+    background-color: #e2e7eb;
+    border-color: #cbd4db;
+    color: #89959e;
+    box-shadow: none;
+    cursor: not-allowed;
+    opacity: 1;
+}
+
+.modulo_visualizar_empleado .btn_accion:disabled i {
+    color: #89959e;
+}
+
+.modulo_visualizar_empleado .btn_accion:disabled:hover {
+    background-color: #e2e7eb;
+    border-color: #cbd4db;
+    color: #89959e;
+    box-shadow: none;
+    transform: none;
+}
+
+.modulo_visualizar_empleado .btn_accion:disabled:hover i {
+    color: #89959e;
+}
+
+.modulo_visualizar_empleado .contenedor_basico,
+.modulo_visualizar_empleado .contenedor_contacto,
+.modulo_visualizar_empleado .contenedor_residencia,
+.modulo_visualizar_empleado .contenedor_nacimiento {
+    width: 100%;
+    min-width: 0;
+    padding: 20px;
+    border: 2px solid #00779e;
+    border-radius: 12px;
+    background: #ffffff;
+    box-sizing: border-box;
+}
+
+.modulo_visualizar_empleado .contenedor_basico h3,
+.modulo_visualizar_empleado .contenedor_contacto h3,
+.modulo_visualizar_empleado .contenedor_residencia h3,
+.modulo_visualizar_empleado .contenedor_nacimiento h3 {
+    margin: 0 0 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #dce5eb;
+    color: #102f4e;
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1.4;
+}
+
+.modulo_visualizar_empleado .campo_formulario {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+}
+
+.modulo_visualizar_empleado .campo_formulario+.campo_formulario {
+    margin-top: 17px;
+}
+
+.modulo_visualizar_empleado .campo_formulario label {
+    color: #102f4e;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.4;
+}
+
+.modulo_visualizar_empleado .campo_formulario input,
+.modulo_visualizar_empleado .campo_formulario textarea {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    min-height: 40px;
+    padding: 10px 12px;
+    border: 1px solid #cbd7e0;
+    border-radius: 7px;
+    outline: none;
+    background: #f8fafc;
+    color: #34495e;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.5;
+    box-sizing: border-box;
+}
+
+.modulo_visualizar_empleado .campo_formulario input[readonly] {
+    background: #f8fafc;
+    cursor: default;
+}
+
+.modulo_visualizar_empleado .campo_formulario textarea {
+    min-height: 100px;
+    resize: vertical;
+}
+
+.modulo_visualizar_empleado .campo_formulario input:disabled,
+.modulo_visualizar_empleado .campo_formulario input[readonly],
+.modulo_visualizar_empleado .campo_formulario textarea:disabled,
+.modulo_visualizar_empleado .campo_formulario textarea[readonly] {
+    background: #eaf0f4;
+    border-color: #cbd7e0;
+    color: #526a7b;
+    font-weight: 700;
+    opacity: 1;
+    box-shadow: none;
+    cursor: default;
+}
+
+.modulo_visualizar_empleado .campo_formulario input:disabled::placeholder,
+.modulo_visualizar_empleado .campo_formulario textarea:disabled::placeholder {
+    color: #526a7b;
+    font-weight: 700;
+    opacity: 1;
+}
+
+.modulo_visualizar_empleado .campo_formulario input:not([readonly]):not(:disabled):focus,
+.modulo_visualizar_empleado .campo_formulario textarea:not([readonly]):not(:disabled):focus {
+    border-color: #00779e;
+    background: #ffffff;
+    box-shadow: 0 0 0 3px rgba(0, 119, 158, 0.12);
+}
+
+@media (max-width: 850px) {
+    .modulo_visualizar_empleado {
+        padding: 16px;
+    }
+
+    .modulo_visualizar_empleado .contenedores_fila {
+        gap: 18px;
+    }
+
+    .modulo_visualizar_empleado .contenedor_basico,
+    .modulo_visualizar_empleado .contenedor_contacto,
+    .modulo_visualizar_empleado .contenedor_residencia,
+    .modulo_visualizar_empleado .contenedor_nacimiento {
+        padding: 16px;
+    }
+
+    .modulo_visualizar_empleado .contenedor_btn_acciones {
+        gap: 10px;
+    }
+
+    .modulo_visualizar_empleado .btn_accion {
+        padding: 10px 12px;
+    }
+}
+
+@media (max-width: 650px) {
+    .modulo_visualizar_empleado {
+        margin: 14px 0;
+        padding: 12px;
+    }
+
+    .formulario_visualizar_empleado {
+        gap: 18px;
+    }
+
+    .modulo_visualizar_empleado .contenedores_fila {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 18px;
+    }
+
+    .modulo_visualizar_empleado .contenedores_fila:first-child {
+        padding: 16px;
+    }
+
+    .modulo_visualizar_empleado .contenedor_basico,
+    .modulo_visualizar_empleado .contenedor_contacto,
+    .modulo_visualizar_empleado .contenedor_residencia,
+    .modulo_visualizar_empleado .contenedor_nacimiento {
+        padding: 16px;
+    }
+
+    .modulo_visualizar_empleado .contenedor_foto_perfil img {
+        width: 115px;
+        height: 115px;
+    }
+
+    .modulo_visualizar_empleado .contenedor_btn_acciones {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .modulo_visualizar_empleado .btn_accion {
+        width: 100%;
+    }
+
+    .modulo_visualizar_empleado .contenedor_basico h3,
+    .modulo_visualizar_empleado .contenedor_contacto h3,
+    .modulo_visualizar_empleado .contenedor_residencia h3,
+    .modulo_visualizar_empleado .contenedor_nacimiento h3 {
+        font-size: 16px;
+    }
+}
+
+@media (max-width: 380px) {
+    .modulo_visualizar_empleado {
+        padding: 8px;
+    }
+
+    .modulo_visualizar_empleado .contenedor_basico,
+    .modulo_visualizar_empleado .contenedor_contacto,
+    .modulo_visualizar_empleado .contenedor_residencia,
+    .modulo_visualizar_empleado .contenedor_nacimiento {
+        padding: 12px;
+    }
+}

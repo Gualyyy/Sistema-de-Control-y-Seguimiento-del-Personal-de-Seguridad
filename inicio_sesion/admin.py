@@ -2,7 +2,7 @@ from django.contrib import admin, messages
 from django import forms
 from django.contrib.auth.hashers import make_password
 from django.core.exceptions import ValidationError
-from .models import usuarios, contacto, credenciales, directiva_nacional, encargados_administrativos, supervisores_encargados, personal_limpieza, despachadores, vigilantes
+from .models import usuarios, contacto, credenciales, propietarios, encargados_administrativos, supervisores_encargados, personal_limpieza, despachadores, vigilantes
 
 class UsuariosForm(forms.ModelForm):
 
@@ -44,10 +44,7 @@ class UsuariosForm(forms.ModelForm):
                     ("", "Genero"),
                     ("Masculino", "Masculino"),
                     ("Femenino", "Femenino"),
-                ],
-                attrs={
-                    "required": True,
-                }
+                ]
             ),
 
             "estado_civil": forms.Select(
@@ -57,10 +54,7 @@ class UsuariosForm(forms.ModelForm):
                     ("Casado", "Casado"),
                     ("Divorciado", "Divorciado"),
                     ("Viudo", "Viudo"),
-                ],
-                attrs={
-                    "required": True,
-                }
+                ]
             ),
 
             "cedula_identidad": forms.TextInput(
@@ -128,6 +122,11 @@ class UsuariosAdmin(admin.ModelAdmin):
 
         if nacionalidad and cedula:
             obj.cedula_identidad = f"{nacionalidad}-{cedula}"
+
+        obj.tipo_usuario = "NATURAL"
+        obj.nombre_razon_social = f"{obj.nombres} {obj.apellidos}".strip()
+        obj.genero = form.cleaned_data.get("genero") or "N/A"
+        obj.estado_civil = form.cleaned_data.get("estado_civil") or "N/A"
 
         super().save_model(request, obj, form, change)
 
@@ -383,7 +382,7 @@ class ContactoAdmin(admin.ModelAdmin):
 
 
 # Register your models here.
-admin.site.register(directiva_nacional)
+admin.site.register(propietarios)
 admin.site.register(encargados_administrativos)
 admin.site.register(supervisores_encargados)
 admin.site.register(personal_limpieza)

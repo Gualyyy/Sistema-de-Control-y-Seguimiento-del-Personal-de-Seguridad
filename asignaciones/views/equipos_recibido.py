@@ -53,7 +53,8 @@ def categoria_equipo_recibido(request):
     categorias = (
         categoria_equipo.objects
         .filter(
-            equipos__entregas_supervisores__supervisor_encargado=supervisor
+            equipos__entregas_supervisores__supervisor_encargado=supervisor,
+            equipos__entregas_supervisores__estado="ASIGNADO"
         )
         .distinct()
         .order_by("nombre")
@@ -73,16 +74,13 @@ def categoria_equipo_recibido(request):
             "title": "Sin categorías",
             "icon": "info",
             "descripcion": (
-                "No hay categorías de equipos entregados a su usuario."
+                "No hay categorías de equipos asignados a su usuario."
             ),
             "categorias": []
         })
 
     return JsonResponse({
         "estado": "exito",
-        "title": "Categorías encontradas",
-        "icon": "success",
-        "descripcion": "Las categorías se cargaron correctamente.",
         "categorias": datos
     })
 
@@ -94,6 +92,7 @@ def visualizar_equipos_supervisor(request):
         )
 
     cedula_supervisor = request.session.get("cedula_identidad")
+    categoria = request.POST.get("categoria", "").strip()
 
     if not cedula_supervisor:
         return JsonResponse({
@@ -118,15 +117,33 @@ def visualizar_equipos_supervisor(request):
 
     entregas = (
         entrega_equipos.objects
-        .filter(supervisor_encargado=supervisor)
+        .filter(
+            supervisor_encargado=supervisor,
+            estado="ASIGNADO"
+        )
         .select_related(
             "supervisor_encargado__id_turno",
             "supervisor_encargado__id_usuario",
             "id_equipo",
             "id_equipo__id_categoria"
         )
-        .order_by("-fecha_entrega")
     )
+
+    # Aplicar el filtro únicamente si se seleccionó una categoría.
+    if categoria:
+        if not categoria.isdigit():
+            return JsonResponse({
+                "estado": "fallo",
+                "title": "Categoría inválida",
+                "icon": "warning",
+                "descripcion": "La categoría seleccionada no es válida."
+            })
+
+        entregas = entregas.filter(
+            id_equipo__id_categoria_id=int(categoria)
+        )
+
+    entregas = entregas.order_by("-fecha_entrega")
 
     datos = [
         {
@@ -155,15 +172,12 @@ def visualizar_equipos_supervisor(request):
             "estado": "vacio",
             "title": "Sin equipos entregados",
             "icon": "info",
-            "descripcion": "No hay equipos entregados a su usuario.",
+            "descripcion": "No hay equipos entregados que coincidan con el filtro seleccionado.",
             "equipos": []
         })
 
     return JsonResponse({
         "estado": "exito",
-        "title": "Equipos recibidos",
-        "icon": "success",
-        "descripcion": "Los equipos recibidos se consultaron correctamente.",
         "equipos": datos
     })
 

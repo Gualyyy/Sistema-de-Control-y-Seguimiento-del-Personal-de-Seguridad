@@ -5,7 +5,7 @@
 {% load static %}
 
 <section class="contenedor_formulario">
-    <div class="contenedor_campos">
+    <div class="contenedor_campos_intermedio">
         <h2>Actualizar Datos Empleado</h2>
 
         <div class="modulo_buqueda">
@@ -18,7 +18,6 @@
                     <label for="cedula_identidad">Cedula de Identidad:</label>
                     <div class="grupo_doble">
                         <select name="nacionalidad" id="nacionalidad" class="campo_select">
-                            <option value="">N</option>
                             <option value="V">V</option>
                             <option value="E">E</option>
                         </select>
@@ -32,10 +31,10 @@
             </form>
         </div>
 
-        <div class="modulo_actualizacion">
+        <div class="modulo_registro">
             <h3>Actualizar Datos</h3>
 
-            <form method="post" id="formulario_actualizar" class="formulario_base">
+            <form method="post" id="formulario_actualizar" class="formulario_registro">
                 {% csrf_token %}
 
                 <article class="paso activo">
@@ -46,44 +45,44 @@
                         <div class="campo_formulario">
                             <label for="actualizar_nombre_usuario">Nombres:</label>
                             <input type="text" name="nombre_usuario" id="actualizar_nombre_usuario" minlength="3"
-                                maxlength="20" placeholder="Nombres (3-20 caracteres)" autocomplete="off">
+                                maxlength="20" placeholder="Nombres (3-20 caracteres)" autocomplete="off" required>
                         </div>
 
                         <div class="campo_formulario">
                             <label for="actualizar_apellido_usuario">Apellidos:</label>
                             <input type="text" name="apellido_usuario" id="actualizar_apellido_usuario" minlength="3"
-                                maxlength="20" placeholder="Apellidos (3-20 caracteres)" autocomplete="off">
+                                maxlength="20" placeholder="Apellidos (3-20 caracteres)" autocomplete="off" required>
                         </div>
 
                         <div class="campo_formulario">
                             <label for="actualizar_cedula_identidad_usuario">Cedula de Identidad:</label>
                             <div class="grupo_doble">
                                 <select name="nacionalidad_usuario" id="actualizar_nacionalidad_usuario"
-                                    class="select_prefijo">
+                                    class="select_prefijo" required>
                                     <option value="V">V</option>
                                     <option value="E">E</option>
                                 </select>
                                 <input type="text" name="cedula_usuario" id="actualizar_cedula_identidad_usuario"
                                     minlength="3" maxlength="20" placeholder="Número de identidad (7-8 V y 10 a 11 E) "
-                                    autocomplete="off">
+                                    autocomplete="off" required>
                             </div>
                             <small id="contenedor_mensaje_ci" class="mensaje-feedback"></small>
                         </div>
 
                         <div class="campo_formulario">
                             <label for="actualizar_genero_usuario">Genero:</label>
-                            <select name="genero_usuario" id="actualizar_genero_usuario">
-                                <option value="Masculino">Masculino</option>
+                            <select name="genero_usuario" id="actualizar_genero_usuario" required>
+                                <option value="Masculino" selected>Masculino</option>
                                 <option value="Femenino">Femenino</option>
                             </select>
                         </div>
 
                         <div class="campo_formulario">
                             <label for="actualizar_estado_civil_usuario">Estado Civil</label>
-                            <select name="estado_civil_usuario" id="actualizar_estado_civil_usuario">
+                            <select name="estado_civil_usuario" id="actualizar_estado_civil_usuario" required>
                                 <option value="Casado">Casado</option>
                                 <option value="Divosiado">Divosiado</option>
-                                <option value="Soltero">Soltero</option>
+                                <option value="Soltero" selected>Soltero</option>
                                 <option value="Viudo">Viudo</option>
                             </select>
                         </div>
@@ -97,9 +96,10 @@
                         <div class="campo_formulario">
                             <label for="num_telefono_principal">Telefono Princiapl (Principal):</label>
                             <div class="grupo_doble">
-                                <select name="prefijo_principal" id="prefijo_principal" class="select_prefijo"></select>
+                                <select name="prefijo_principal" id="prefijo_principal" class="select_prefijo"
+                                    required></select>
                                 <input type="text" name="numero_principal" id="num_telefono_principal" minlength="7"
-                                    maxlength="7" autocomplete="off">
+                                    maxlength="7" autocomplete="off" required>
                             </div>
                             <small id="contenedor_mensaje_telefono_principal" class="mensaje-feedback"></small>
                         </div>
@@ -120,8 +120,9 @@
 
                             <div class="grupo_doble">
                                 <input type="text" name="email_principal" id="correo_principal" minlength="5"
-                                    maxlength="20" placeholder="Ingrese el usuario" autocomplete="off">
-                                <select name="dominio_principal" id="dominio_principal" class="select_dominio"></select>
+                                    maxlength="20" placeholder="Ingrese el usuario" autocomplete="off" required>
+                                <select name="dominio_principal" id="dominio_principal" class="select_dominio"
+                                    required></select>
                             </div>
                             <small id="contenedor_mensaje_correo_principal" class="mensaje-feedback"></small>
                         </div>
@@ -148,12 +149,14 @@
 
                         <div class="campo_formulario">
                             <label for="pais_nacimiento">País:</label>
-                            <select name="actualizar_pais_nacimiento" id="pais_nacimiento"></select>
+                            <select name="actualizar_pais_nacimiento" id="pais_nacimiento"
+                                class="campo_opcional"></select>
                         </div>
 
                         <div class="campo_formulario">
                             <label for="estado_nacimiento">Estado:</label>
-                            <select name="actualizar_estado_nacimiento" id="estado_nacimiento"></select>
+                            <select name="actualizar_estado_nacimiento" id="estado_nacimiento"
+                                class="campo_opcional"></select>
 
                             <input type="text" name="actualizar_estado_nacimiento_nvzla" id="estado_novzla" hidden
                                 autocomplete="off">
@@ -161,7 +164,8 @@
 
                         <div class="campo_formulario">
                             <label for="municipio_nacimiento">Municipio:</label>
-                            <select name="actualizar_municipio_nacimiento" id="municipio_nacimiento"></select>
+                            <select name="actualizar_municipio_nacimiento" id="municipio_nacimiento"
+                                class="campo_opcional"></select>
 
                             <input type="text" name="actualizar_municipio_nacimiento_nvzla" id="municipio_novzla" hidden
                                 autocomplete="off">
@@ -169,7 +173,8 @@
 
                         <div class="campo_formulario">
                             <label for="parroquia_nacimiento">Parroquia:</label>
-                            <select name="actualizar_parroquia_nacimiento" id="parroquia_nacimiento"></select>
+                            <select name="actualizar_parroquia_nacimiento" id="parroquia_nacimiento"
+                                class="campo_opcional"></select>
 
                             <input type="text" name="actualizar_parroquia_nacimiento_nvzla" id="parroquia_novzla" hidden
                                 autocomplete="off">
@@ -178,7 +183,8 @@
                         <div class="campo_formulario">
                             <label for="direccion_nacimiento">Dirección:</label>
                             <textarea name="actualizar_direccion_nacimiento" id="direccion_nacimiento" maxlength="200"
-                                placeholder="Cuenta con 200 caracteres como maximo para indicar su dirección de nacimiento."></textarea>
+                                placeholder="Cuenta con 200 caracteres como maximo para indicar su dirección de nacimiento."
+                                class="campo_opcional"></textarea>
 
                             <div class="contador_caracteres">
                                 <span id="contador_nacimiento">0</span> / 200 caracteres
@@ -187,7 +193,8 @@
 
                         <div class="campo_formulario">
                             <label for="fecha_nacimiento_usuario">Fecha de Nacimiento:</label>
-                            <input type="date" name="actualizar_fecha_nacimiento" id="fecha_nacimiento_usuario">
+                            <input type="date" name="actualizar_fecha_nacimiento" id="fecha_nacimiento_usuario"
+                                class="campo_opcional">
                         </div>
                     </div>
                 </article>
@@ -198,8 +205,9 @@
 
                         <div class="campo_formulario">
                             <label for="actualizar_condicion_residencia_usuario">Condición de Residencia:</label>
-                            <select name="actualizar_condicion_residencia" id="actualizar_condicion_residencia_usuario">
-                                <option value="Propietario">Propietario</option>
+                            <select name="actualizar_condicion_residencia" id="actualizar_condicion_residencia_usuario"
+                                class="campo_opcional">
+                                <option value="Propietario" selected>Propietario</option>
                                 <option value="Alquilado">Alquilado</option>
                                 <option value="Familiar">Familiar</option>
                                 <option value="Prestado">Prestado</option>
@@ -209,18 +217,21 @@
 
                         <div class="campo_formulario">
                             <label for="municipio_residencia">Municipio:</label>
-                            <select name="actualizar_municipio_residencia" id="municipio_residencia"></select>
+                            <select name="actualizar_municipio_residencia" id="municipio_residencia"
+                                class="campo_opcional"></select>
                         </div>
 
                         <div class="campo_formulario">
                             <label for="parroquia_residencia">Parroquia:</label>
-                            <select name="actualizar_parroquia_residencia" id="parroquia_residencia"></select>
+                            <select name="actualizar_parroquia_residencia" id="parroquia_residencia"
+                                class="campo_opcional"></select>
                         </div>
 
                         <div class="campo_formulario">
                             <label for="direccion_domicilio">Dirección:</label>
                             <textarea name="actualizar_direccion_residencia" id="direccion_domicilio" maxlength="200"
-                                placeholder="Cuenta con 200 caracteres como maximo para indicar su dirección de nacimiento."></textarea>
+                                placeholder="Cuenta con 200 caracteres como maximo para indicar su dirección de nacimiento."
+                                class="campo_opcional"></textarea>
                             <div class="contador_caracteres">
                                 <span id="contador_residencia">0</span> / 200 caracteres
                             </div>
@@ -229,7 +240,10 @@
                 </article>
 
                 <div class="contenedor_boton_submit">
-                    <button type="submit" class="btn_primario" id="btn_actualizar">Actualizar Datos</button>
+                    <button type="submit" class="btn_submit" id="btn_actualizar">
+                        <i class="fa-solid fa-rotate"></i>
+                        Actualizar
+                    </button>
                 </div>
             </form>
 
@@ -238,14 +252,15 @@
                 <button class="btn_primario btn_avanzar" class="btn-siguiente">Avanzar</button>
             </div>
         </div>
+
     </div>
 </section>
 
-<script src="{% static 'Funcionalidades/correo_electronico.js' %}"></script>
-<script src="{% static 'Funcionalidades/telefono.js' %}"></script>
+<script src="{% static 'Funcionalidades/correo_electronico.js' %}?v=20261112-update-optional-email-2"></script>
+<script src="{% static 'Funcionalidades/telefono.js' %}?v=20261112-update-optional-phone-2"></script>
 <script src="{% static 'Funcionalidades/cedula_identidad.js' %}"></script>
 <script src="{% static 'Funcionalidades/fecha_nacimiento.js' %}"></script>
-<script src="{% static 'Funcionalidades/desplazamiento_controles.js' %}"></script>
-<script src="{% static 'Funcionalidades_Asincronas/empleados/administrador/actualizar_datos_empleado.js' %}"></script>
+<script src="{% static 'Funcionalidades/desplazamiento_sin_progreso.js' %}"></script>
+<script src="{% static 'Funcionalidades_Asincronas/empleados/administrador/actualizar_datos_empleado.js' %}?v=20261112-required-update-fields-2"></script>
 
 {% endblock %}

@@ -1,0 +1,748 @@
+#dialogo_pago {
+    width: min(680px, calc(100% - 30px));
+    max-width: 680px;
+    max-height: calc(100% - 30px);
+    margin: auto;
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid #00779e;
+    border-radius: 12px;
+    background: #ffffff;
+    color: #102f4e;
+    box-shadow: 0 12px 40px rgba(0, 68, 95, 0.16);
+}
+
+#dialogo_pago *,
+#dialogo_pago *::before,
+#dialogo_pago *::after {
+    font-weight: normal;
+}
+
+#dialogo_pago .fa-solid,
+#dialogo_pago .fa-solid::before {
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+}
+
+#dialogo_pago::backdrop {
+    background: rgba(11, 35, 66, 0.58);
+    backdrop-filter: blur(3px);
+}
+
+#dialogo_pago .contenedor_datos {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-height: calc(100vh - 30px);
+    min-width: 0;
+    padding: 25px;
+    overflow-y: auto;
+    box-sizing: border-box;
+}
+
+#dialogo_pago .btn_cerrar {
+    position: absolute;
+    top: 15px;
+    right: 17px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: #00445f;
+    font-size: 23px;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+#dialogo_pago .btn_cerrar:hover {
+    background: #fcebea;
+    color: #c0392b;
+}
+
+#dialogo_pago .contenedor_datos>h2 {
+    margin: 0 40px 23px;
+    color: #102f4e;
+    font-size: 23px;
+    text-align: center;
+}
+
+#dialogo_pago .notificaciones_pago {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 16px;
+    padding: 12px 14px;
+    border: 1px solid #b8dce8;
+    border-radius: 8px;
+    background: #edf7fa;
+    color: #00445f;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+#dialogo_pago .notificaciones_pago[hidden] {
+    display: none;
+}
+
+#dialogo_pago .notificaciones_pago i {
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+#dialogo_pago .notificaciones_pago p {
+    margin: 0;
+}
+
+#dialogo_pago .notificaciones_pago.warning {
+    border-color: #f0d48b;
+    background: #fff8e6;
+    color: #785600;
+}
+
+#dialogo_pago .notificaciones_pago.error {
+    border-color: #f0b8b8;
+    background: #fff1f1;
+    color: #9c2525;
+}
+
+#dialogo_pago .notificaciones_pago.success {
+    border-color: #a9d8b7;
+    background: #eef9f1;
+    color: #21643a;
+}
+
+#dialogo_pago .contenedor_principal {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    width: 100%;
+    min-width: 0;
+}
+
+#dialogo_pago .progreso_pago {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 18px;
+}
+
+#dialogo_pago .paso_progreso {
+    padding: 10px 5px;
+    border-bottom: 3px solid #dce5eb;
+    color: #71808d;
+    font-size: 11px;
+    text-align: center;
+}
+
+#dialogo_pago .paso_progreso.activo {
+    border-color: #00779e;
+    color: #00445f;
+}
+
+#dialogo_pago .paso_pago {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+#dialogo_pago .acciones_paso_pago {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+#dialogo_pago .acciones_paso_pago button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    min-height: 42px;
+    padding: 10px 16px;
+    border: 1px solid #00779e;
+    border-radius: 8px;
+    background: #00445f;
+    color: #ffffff;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+
+#dialogo_pago .acciones_paso_pago button:hover {
+    background: #00779e;
+    transform: translateY(-1px);
+}
+
+#dialogo_pago .acciones_paso_pago .btn_anterior_pago {
+    border-color: #cbd7e0;
+    background: #ffffff;
+    color: #00445f;
+}
+
+#dialogo_pago .acciones_paso_pago .btn_anterior_pago:hover {
+    background: #f3f7f9;
+}
+
+#dialogo_pago .acciones_paso_pago button:disabled {
+    opacity: 0.6;
+    cursor: wait;
+    transform: none;
+}
+
+#dialogo_pago .contenedor_descripcion_compra,
+#dialogo_pago .contenedor_metodo_pago,
+#dialogo_pago .contenedor_pagar {
+    width: 100%;
+    min-width: 0;
+    padding: 20px;
+    border: 1px solid #dce5eb;
+    border-radius: 10px;
+    background: #ffffff;
+    box-sizing: border-box;
+}
+
+#dialogo_pago .contenedor_principal h3 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 0 18px;
+    padding-bottom: 13px;
+    border-bottom: 1px solid #dce5eb;
+    color: #00445f;
+    font-size: 17px;
+}
+
+#dialogo_pago .contenedor_principal h3 i {
+    color: #00779e;
+    font-size: 19px;
+}
+
+#dialogo_pago #detalle_productos_pago {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    min-width: 0;
+}
+
+#dialogo_pago .resumen_pago {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    min-width: 0;
+    margin-top: 20px;
+    padding-top: 17px;
+    border-top: 1px solid #dce5eb;
+    box-sizing: border-box;
+}
+
+#dialogo_pago .resumen_pago>div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    width: 100%;
+    min-width: 0;
+    color: #526575;
+    font-size: 14px;
+}
+
+#dialogo_pago .montos_pago {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 3px;
+    min-width: 0;
+}
+
+#dialogo_pago .resumen_pago strong {
+    color: #102f4e;
+    font-size: 14px;
+    text-align: right;
+}
+
+#dialogo_pago .resumen_pago .montos_pago small {
+    color: #526575;
+    font-size: 12px;
+    text-align: right;
+}
+
+#dialogo_pago .resumen_pago .total_pago {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 5px;
+    padding: 15px;
+    border: 1px solid #cbdfe7;
+    border-radius: 8px;
+    background: #f3f7f9;
+    color: #102f4e;
+}
+
+#dialogo_pago .resumen_pago .total_pago span {
+    font-size: 15px;
+}
+
+#dialogo_pago .resumen_pago .total_pago strong {
+    color: #00779e;
+    font-size: 21px;
+}
+
+#dialogo_pago .resumen_pago .total_pago .montos_pago small {
+    color: #00445f;
+}
+
+#dialogo_pago .opciones_metodo_pago {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    width: 100%;
+}
+
+#dialogo_pago .opcion_metodo_pago {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-width: 0;
+    padding: 14px 12px;
+    border: 1px solid #cbd7e0;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #526575;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+#dialogo_pago .opcion_metodo_pago i {
+    color: #00779e;
+    font-size: 18px;
+}
+
+#dialogo_pago .opcion_metodo_pago:hover {
+    border-color: #00779e;
+    background: #f3f7f9;
+}
+
+#dialogo_pago .opcion_metodo_pago.activo {
+    border-color: #00779e;
+    background: #edf6f9;
+    color: #00445f;
+    box-shadow: inset 0 0 0 1px #00779e;
+}
+
+#dialogo_pago #cuentas_destino_pago {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    min-width: 0;
+}
+
+#dialogo_pago .cuenta_pago {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 15px;
+    border: 1px solid #dce5eb;
+    border-radius: 8px;
+    background: #f8fafb;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+#dialogo_pago .cuenta_pago.seleccionada {
+    border-color: #00779e;
+    background: #edf6f9;
+}
+
+#dialogo_pago .cuenta_pago>input {
+    flex-shrink: 0;
+    margin-top: 3px;
+    accent-color: #00779e;
+}
+
+#dialogo_pago .contenido_cuenta_pago {
+    min-width: 0;
+    flex: 1;
+}
+
+#dialogo_pago .cuenta_pago h4 {
+    margin: 0 0 12px;
+    color: #00445f;
+    font-size: 15px;
+}
+
+#dialogo_pago .datos_cuenta_pago {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    margin: 0;
+}
+
+#dialogo_pago .datos_cuenta_pago>div {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+#dialogo_pago .datos_cuenta_pago dt {
+    color: #526575;
+}
+
+#dialogo_pago .datos_cuenta_pago dd {
+    margin: 0;
+    color: #102f4e;
+    text-align: right;
+    overflow-wrap: anywhere;
+}
+
+#dialogo_pago .estado_pago {
+    margin: 0;
+    color: #526575;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+#dialogo_pago .estado_pago.error {
+    color: #b42318;
+}
+
+#dialogo_pago .datos_transferencia_cliente {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-top: 18px;
+}
+
+#dialogo_pago .campo_referencia_pago {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    min-width: 0;
+}
+
+#dialogo_pago .campo_referencia_pago label {
+    color: #102f4e;
+    font-size: 14px;
+}
+
+#dialogo_pago .campo_referencia_pago input,
+#dialogo_pago .campo_referencia_pago select {
+    width: 100%;
+    min-height: 43px;
+    padding: 10px 12px;
+    border: 1px solid #cbd7e0;
+    border-radius: 7px;
+    background: #ffffff;
+    color: #102f4e;
+    font-size: 14px;
+}
+
+#dialogo_pago .telefono_origen_pago {
+    display: grid;
+    grid-template-columns: minmax(105px, auto) minmax(0, 1fr);
+    gap: 8px;
+    width: 100%;
+}
+
+#dialogo_pago .telefono_origen_pago select {
+    min-width: 0;
+    min-height: 43px;
+    padding: 9px;
+    border: 1px solid #cbd7e0;
+    border-radius: 7px;
+    background: #ffffff;
+    color: #102f4e;
+    font-size: 14px;
+}
+
+#dialogo_pago .campo_referencia_pago input:focus,
+#dialogo_pago .campo_referencia_pago select:focus {
+    border-color: #00779e;
+    outline: 3px solid rgba(0, 119, 158, 0.15);
+}
+
+#dialogo_pago .campo_referencia_pago small {
+    color: #526575;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+#dialogo_pago .mensaje_confirmacion_pago {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    width: 100%;
+    min-width: 0;
+    padding: 15px;
+    border: 1px solid #cbdfe7;
+    border-radius: 8px;
+    background: #f3f7f9;
+    box-sizing: border-box;
+}
+
+#dialogo_pago .mensaje_confirmacion_pago>i {
+    flex-shrink: 0;
+    margin-top: 2px;
+    color: #00779e;
+    font-size: 19px;
+}
+
+#dialogo_pago .mensaje_confirmacion_pago p {
+    margin: 0;
+    color: #526575;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+#dialogo_pago [hidden] {
+    display: none !important;
+}
+
+#dialogo_pago .btn_desplazar_pago {
+    position: sticky;
+    bottom: 12px;
+    align-self: flex-end;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    flex-shrink: 0;
+    margin: 12px 0 0;
+    border: 1px solid #00779e;
+    border-radius: 50%;
+    background: #00445f;
+    color: #ffffff;
+    font-size: 17px;
+    box-shadow: 0 3px 10px rgba(0, 68, 95, 0.20);
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.2s ease;
+    z-index: 5;
+}
+
+#dialogo_pago .btn_desplazar_pago:hover {
+    background: #00779e;
+    transform: translateY(-2px);
+}
+
+#dialogo_pago .btn_desplazar_pago:focus-visible {
+    outline: 3px solid rgba(0, 119, 158, 0.3);
+    outline-offset: 3px;
+}
+
+@media (max-width: 600px) {
+    #dialogo_pago {
+        width: calc(100% - 20px);
+        max-height: calc(100% - 20px);
+    }
+
+    #dialogo_pago .contenedor_datos {
+        max-height: calc(100vh - 20px);
+        padding: 20px 15px;
+    }
+
+    #dialogo_pago .contenedor_datos>h2 {
+        margin-bottom: 20px;
+        font-size: 20px;
+    }
+
+    #dialogo_pago .contenedor_descripcion_compra,
+    #dialogo_pago .contenedor_metodo_pago,
+    #dialogo_pago .contenedor_pagar {
+        padding: 15px;
+    }
+
+    #dialogo_pago .contenedor_principal h3 {
+        font-size: 16px;
+    }
+
+    #dialogo_pago .opciones_metodo_pago {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    #dialogo_pago .opcion_metodo_pago {
+        justify-content: flex-start;
+    }
+
+    #dialogo_pago .resumen_pago .total_pago {
+        padding: 13px 10px;
+    }
+
+    #dialogo_pago .resumen_pago .total_pago span {
+        font-size: 14px;
+    }
+
+    #dialogo_pago .resumen_pago .total_pago strong {
+        font-size: 19px;
+    }
+}
+
+@media (max-width: 360px) {
+    #dialogo_pago .contenedor_datos {
+        padding: 18px 12px;
+    }
+
+    #dialogo_pago .contenedor_descripcion_compra,
+    #dialogo_pago .contenedor_metodo_pago,
+    #dialogo_pago .contenedor_pagar {
+        padding: 12px;
+    }
+
+    #dialogo_pago .resumen_pago>div {
+        font-size: 13px;
+    }
+
+    #dialogo_pago .resumen_pago strong {
+        font-size: 13px;
+    }
+}
+
+/* MOTIVO DE RECHARZAR LA VENTA */
+
+.contenedor_rechazar_compra {
+    width: 100%;
+    max-width: 650px;
+    margin: 0 auto;
+    padding: 24px;
+    background-color: #ffffff;
+    border: 1px solid #dce6ec;
+    border-radius: 12px;
+    box-shadow: 0 4px 18px rgba(0, 68, 95, 0.07);
+}
+
+.formulario_rechazar_compra {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    width: 100%;
+}
+
+.formulario_rechazar_compra .campo_formulario {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+}
+
+.formulario_rechazar_compra .campo_formulario>label {
+    color: #102f4e;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.opciones_motivos_rechazo {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    width: 100%;
+}
+
+.opciones_motivos_rechazo label {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    width: 100%;
+    padding: 12px 14px;
+    color: #34495e;
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.5;
+    background-color: #f7f9fb;
+    border: 1px solid #e1e8ed;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.opciones_motivos_rechazo label:hover {
+    background-color: #edf5f8;
+    border-color: #00779e;
+}
+
+.opciones_motivos_rechazo input[type="radio"] {
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    accent-color: #00779e;
+    cursor: pointer;
+}
+
+.opciones_motivos_rechazo label:has(input[type="radio"]:checked) {
+    background-color: #edf6f9;
+    border-color: #00779e;
+    color: #102f4e;
+}
+
+.contenedor_boton_submit {
+    display: flex;
+    justify-content: flex-end;
+    width: 100%;
+    margin-top: 2px;
+}
+
+.contenedor_boton_submit .btn_submit {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    min-width: 145px;
+    padding: 11px 22px;
+    color: #ffffff;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    background-color: #00779e;
+    border: 1px solid #00779e;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.contenedor_boton_submit .btn_submit:hover {
+    background-color: #005f80;
+    border-color: #005f80;
+}
+
+.contenedor_boton_submit .btn_submit:active {
+    background-color: #004b66;
+}
+
+.contenedor_boton_submit .btn_submit:focus-visible {
+    outline: 3px solid rgba(0, 119, 158, 0.20);
+    outline-offset: 3px;
+}
+
+.contenedor_boton_submit .btn_submit i {
+    font-size: 14px;
+}
+
+@media (max-width: 600px) {
+    .contenedor_rechazar_compra {
+        padding: 16px;
+    }
+
+    .opciones_motivos_rechazo label {
+        padding: 11px;
+        font-size: 12px;
+    }
+
+    .formulario_rechazar_compra .campo_formulario>label {
+        font-size: 13px;
+    }
+
+    .contenedor_boton_submit .btn_submit {
+        width: 100%;
+    }
+}

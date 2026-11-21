@@ -1,0 +1,129 @@
+{% extends 'Email/Base.html' %}
+
+{% block content %}
+
+<section style="
+    margin: 0;
+    padding: 20px 0;
+    width: 100%;
+    box-sizing: border-box;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    color: #1e293b;
+    line-height: 1.5;
+">
+    <div style="
+        width: 100%;
+        max-width: 620px;
+        margin: 0 auto;
+        padding: 32px;
+        box-sizing: border-box;
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-top: 5px solid #0284c7;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    ">
+
+        <!-- CABECERA -->
+        <div style="text-align: center; margin-bottom: 24px;">
+            <span style="
+                display: inline-block;
+                padding: 6px 16px;
+                background-color: #e0f2fe;
+                color: #0369a1;
+                font-size: 12px;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                border-radius: 9999px;
+                margin-bottom: 12px;
+            ">
+                🔐 Seguridad de la Cuenta
+            </span>
+            <h2 style="
+                margin: 0;
+                color: #0f172a;
+                font-size: 24px;
+                font-weight: 800;
+            ">
+                Verificación de Credenciales
+            </h2>
+        </div>
+
+        <p style="
+            margin: 0 0 24px;
+            color: #475569;
+            font-size: 15px;
+            line-height: 1.6;
+        ">
+            Estimado(a), hemos recibido una solicitud para recuperar sus credenciales. Le hemos enviado el siguiente
+            código de verificación para comprobar su identidad.
+        </p>
+
+        <!-- CAJA DEL CÓDIGO DE VERIFICACIÓN (OTP) -->
+        <div style="
+            margin: 0 auto 24px auto;
+            padding: 24px 16px;
+            max-width: 320px;
+            box-sizing: border-box;
+            background-color: #f8fafc;
+            border: 2px dashed #cbd5e1;
+            border-radius: 10px;
+            text-align: center;
+        ">
+            <p style="
+                margin: 0 0 8px;
+                color: #64748b;
+                font-size: 12px;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+            ">
+                Su código de verificación
+            </p>
+            <span style="
+                display: inline-block;
+                color: #0f172a;
+                font-family: 'Courier New', Courier, monospace;
+                font-size: 32px;
+                font-weight: 800;
+                letter-spacing: 8px;
+                line-height: 1.2;
+            ">
+                {{ codigo_verificacion }}
+            </span>
+        </div>
+
+        <!-- ALERTA DE SEGURIDAD -->
+        <div style="
+            padding: 14px 16px;
+            background-color: #fffbeb;
+            border-left: 4px solid #f59e0b;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        ">
+            <p style="
+                margin: 0;
+                color: #92400e;
+                font-size: 13px;
+                line-height: 1.5;
+            ">
+                <strong>Aviso importante:</strong> Este código es personal e intransferible. No lo comparta con otras
+                personas bajo ninguna circunstancia.
+            </p>
+        </div>
+
+        <p style="
+            margin: 0;
+            color: #94a3b8;
+            font-size: 13px;
+            line-height: 1.6;
+            text-align: center;
+        ">
+            Si usted no realizó esta solicitud, puede ignorar este mensaje de manera segura.
+        </p>
+
+    </div>
+</section>
+
+{% endblock %}

@@ -1,3 +1,4 @@
-from .clientes import *
+from .compras import *
 from .productos import *
-from .ventas import *
+from .ganancias import *
+from .cuentas_bancarias import *

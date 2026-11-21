@@ -1,0 +1,304 @@
+/* CONTENEDOR DE BÚSQUEDA */
+
+.modulo_buqueda {
+    width: 100%;
+    max-width: 550px;
+    margin: 20px auto;
+    padding: 12px 24px;
+    background: #ffffff;
+    border: 2px solid #00779e;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 68, 95, 0.08);
+    box-sizing: border-box;
+    transition: max-width 0.3s ease;
+}
+
+.modulo_buqueda h3 {
+    color: #00445f;
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin: 0 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid #00779e;
+    text-align: center;
+}
+
+/* DISTRIBUCIÓN DE CAMPOS */
+
+.modulo_buqueda .campos_fila {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+    align-items: start;
+    width: 100%;
+}
+
+.modulo_buqueda .campos_fila>.campos_reducido,
+.modulo_buqueda .campos_fila>.campo_formulario {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    gap: 4px;
+}
+
+.modulo_buqueda .campo_formulario {
+    width: 100%;
+    min-width: 0;
+}
+
+.modulo_buqueda .campos_reducido {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    max-width: 320px;
+    min-width: 0;
+    margin: 0;
+    gap: 4px;
+}
+
+/* ETIQUETAS */
+
+.modulo_buqueda label {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    height: 20px;
+    min-height: 20px;
+    margin: 0;
+    color: #001d2d;
+    font-size: 0.88rem;
+    font-weight: 600;
+    line-height: 20px;
+    text-align: left;
+}
+
+/* CONTROLES DE FORMULARIO */
+
+.modulo_buqueda .grupo_doble {
+    display: flex;
+    align-items: stretch;
+    width: 100%;
+    height: 40px;
+    min-height: 40px;
+    gap: 6px;
+    margin: 0;
+}
+
+.modulo_buqueda .grupo_doble .campo_select,
+.modulo_buqueda .grupo_doble input,
+.modulo_buqueda .campo_formulario select,
+.modulo_buqueda .campos_reducido input {
+    border: 1px solid #b8cbd4;
+    border-radius: 8px;
+    background: #ffffff;
+    box-sizing: border-box;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.modulo_buqueda .grupo_doble .campo_select {
+    flex-shrink: 0;
+    width: 52px;
+    height: 40px;
+    padding: 0 2px 0 6px;
+    color: #00445f;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.modulo_buqueda .grupo_doble input,
+.modulo_buqueda .campos_reducido input {
+    flex: 1;
+    min-width: 0;
+    width: 100%;
+    height: 40px;
+    padding: 0 12px;
+    color: #001d2d;
+    font-size: 0.95rem;
+}
+
+.modulo_buqueda .campo_formulario select {
+    display: block;
+    width: 100%;
+    height: 40px;
+    min-height: 40px;
+    margin: 0;
+    padding: 0 12px;
+    color: #00445f;
+    font-size: 0.95rem;
+    cursor: pointer;
+}
+
+/* ENFOQUE DE LOS CONTROLES */
+
+.modulo_buqueda .grupo_doble .campo_select:focus,
+.modulo_buqueda .grupo_doble input:focus,
+.modulo_buqueda .campos_reducido input:focus,
+.modulo_buqueda .campo_formulario select:focus {
+    outline: none;
+    border-color: #00779e;
+    box-shadow: 0 0 0 3px rgba(0, 119, 158, 0.12);
+}
+
+/* FORMULARIO DE BÚSQUEDA */
+
+.modulo_buqueda #formulario_busqueda {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+.modulo_buqueda #formulario_busqueda .campos_reducido {
+    margin: 0;
+}
+
+.modulo_buqueda #formulario_busqueda .contenedor_boton_submit {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+/* BOTONES */
+
+.modulo_buqueda .contenedor_boton_submit {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+}
+
+.modulo_buqueda .btn_registro,
+.modulo_buqueda .btn_primario {
+    min-width: 140px;
+    padding: 10px 24px;
+    background-color: #00445f;
+    color: #ffffff;
+    border: 1px solid #00445f;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.1s ease;
+}
+
+.modulo_buqueda .btn_registro:hover,
+.modulo_buqueda .btn_primario:hover {
+    background-color: #00779e;
+    border-color: #00779e;
+}
+
+.modulo_buqueda .btn_registro:active,
+.modulo_buqueda .btn_primario:active {
+    transform: scale(0.98);
+}
+
+/* ALINEACIÓN DE CAMPOS EN CUADRÍCULA */
+
+.modulo_buqueda .campos_cuadricula {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 18px;
+    row-gap: 14px;
+    align-items: start;
+}
+
+.modulo_buqueda .campos_cuadricula>.campos_reducido,
+.modulo_buqueda .campos_cuadricula>.campo_formulario {
+    display: flex;
+    flex-direction: column;
+    align-self: start;
+    min-width: 0;
+    width: 100%;
+    margin: 0;
+    gap: 4px;
+}
+
+.modulo_buqueda .campos_cuadricula>.campos_reducido>label,
+.modulo_buqueda .campos_cuadricula>.campo_formulario>label {
+    display: flex;
+    align-items: center;
+    height: 20px;
+    min-height: 20px;
+    margin: 0;
+    line-height: 20px;
+}
+
+.modulo_buqueda .campos_cuadricula .grupo_doble,
+.modulo_buqueda .campos_cuadricula>.campo_formulario>select {
+    height: 40px;
+    min-height: 40px;
+    margin: 0;
+}
+
+.modulo_buqueda .campos_cuadricula .grupo_doble .campo_select,
+.modulo_buqueda .campos_cuadricula .grupo_doble input,
+.modulo_buqueda .campos_cuadricula>.campo_formulario>select {
+    height: 40px;
+    box-sizing: border-box;
+}
+
+.modulo_buqueda .campos_cuadricula>.campo_formulario:last-child {
+    grid-column: 1;
+}
+
+
+/* CENTRAR CUANDO SOLO EXISTE UN CAMPO */
+
+.modulo_buqueda .campos_fila:has(> :only-child) {
+    display: flex;
+    justify-content: center;
+}
+
+.modulo_buqueda .campos_fila:has(> :only-child)>* {
+    width: 100%;
+    max-width: 320px;
+}
+
+.modulo_buqueda .campos_cuadricula:has(> :only-child) {
+    display: flex;
+    justify-content: center;
+}
+
+.modulo_buqueda .campos_cuadricula:has(> :only-child)>* {
+    width: 100%;
+    max-width: 320px;
+}
+
+/* RESPONSIVE */
+
+@media (max-width: 650px) {
+
+    .modulo_buqueda {
+        max-width: 100%;
+        padding: 12px 16px;
+    }
+
+    .modulo_buqueda .campos_fila {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 14px;
+    }
+
+    .modulo_buqueda .campos_cuadricula {
+        grid-template-columns: minmax(0, 1fr);
+        row-gap: 14px;
+    }
+
+    .modulo_buqueda .campos_cuadricula>.campo_formulario:last-child {
+        grid-column: auto;
+    }
+
+    .modulo_buqueda .campos_reducido {
+        width: 100%;
+        max-width: 100%;
+    }
+}

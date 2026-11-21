@@ -12,13 +12,14 @@ urlpatterns = [
     path('datos_equipo_seleccionado/', asignacion_view.datos_equipo_seleccionado, name='datos_equipo_seleccionado'),
     path('devolucion_equipos_asignado/', asignacion_view.devolucion_equipos_asignado, name='devolucion_equipos_asignado'),
 
+    path('movimiento_equipos/', asignacion_view.movimiento_equipos, name='movimiento_equipos'),
+
     path('buscar_equipo_devolver/', asignacion_view.buscar_equipo_devolver, name='buscar_equipo_devolver'),
 
     path('visualizar_asignaciones_admin/', asignacion_view.visualizar_asignaciones_admin, name='visualizar_asignaciones_admin'),
     path('asignaciones_equipos_admin/', asignacion_view.asignaciones_equipos_admin, name='asignaciones_equipos_admin'),
     path('datos_asignacion_admin/', asignacion_view.datos_asignacion_admin, name='datos_asignacion_admin'),
     
-    path('lista_asignaciones_pdf_admin/', asignacion_view.lista_asignaciones_pdf_admin, name='lista_asignaciones_pdf_admin'),
     path('detalle_asignacion_pdf_admin/', asignacion_view.detalle_asignacion_pdf_admin, name='detalle_asignacion_pdf_admin'),
 
     path('lista_asignaciones_pdf/', asignacion_view.lista_asignaciones_pdf, name='lista_asignaciones_pdf'),
@@ -34,13 +35,17 @@ urlpatterns = [
     path('supervisores_entregado_equipos/', asignacion_view.supervisores_entregado_equipos, name='supervisores_entregado_equipos'),
     path('categorias_equipos_entregados/', asignacion_view.categorias_equipos_entregados, name='categorias_equipos_entregados'),
     path('correccion_entrega_equipos/', asignacion_view.correccion_entrega_equipos, name='correccion_entrega_equipos'),
+    path('tipo_correccion/', asignacion_view.tipo_correccion, name='tipo_correccion'),
     
     path('visualizar_entrega_equipos/', asignacion_view.visualizar_entrega_equipos, name='visualizar_entrega_equipos'),
+    
+    path('historial_entregas_equipos/', asignacion_view.historial_entregas_equipos, name='historial_entregas_equipos'),
+    path('detalle_historial_entrega/', asignacion_view.detalle_historial_entrega, name='detalle_historial_entrega'),
 
-    path('lista_entrega_equipos_pdf/', asignacion_view.lista_entrega_equipos_pdf, name='lista_entrega_equipos_pdf'),
     path('datos_entrega_equipo_pdf/', asignacion_view.datos_entrega_equipo_pdf, name='datos_entrega_equipo_pdf'),
 
     # Registrar Equipos
+    path('supervisores_registrados/', asignacion_view.supervisores_registrados, name='supervisores_registrados'),
     path('categoria_registrados/', asignacion_view.categoria_registrados, name='categoria_registrados'),
     path('registros_equipos/', asignacion_view.registros_equipos, name='registros_equipos'),
 
@@ -51,11 +56,14 @@ urlpatterns = [
     # Visualizar Equipos
     path('equipos_registrados/', asignacion_view.equipos_registrados, name='equipos_registrados'),
     path('visualizacion_equipos/', asignacion_view.visualizacion_equipos, name='visualizacion_equipos'),
+    
+    path('historial_inventario_equipos/', asignacion_view.historial_inventario_equipos, name='historial_inventario_equipos'),
 
-    path('lista_equipos_pdf/', asignacion_view.lista_equipos_pdf, name='lista_equipos_pdf'),
     path('datos_equipos_pdf/', asignacion_view.datos_equipos_pdf, name='datos_equipos_pdf'),
 
     # Entrega Equipos
+    path('gestionar_equipos/', asignacion_view.gestionar_equipos, name='gestionar_equipos'),
+    
     path('categoria_equipo_recibido/', asignacion_view.categoria_equipo_recibido, name='categoria_equipo_recibido'),
     
     path('visualizar_equipos_supervisor/', asignacion_view.visualizar_equipos_supervisor, name='visualizar_equipos_supervisor'),
@@ -64,5 +72,4 @@ urlpatterns = [
     
     path('lista_equipos_recibido_pdf/', asignacion_view.lista_equipos_recibido_pdf, name='lista_equipos_recibido_pdf'),
     path('datos_equipo_recibido_pdf/', asignacion_view.datos_equipo_recibido_pdf, name='datos_equipo_recibido_pdf'),
-    
 ]

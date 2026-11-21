@@ -1,0 +1,305 @@
+{% extends 'Estructura/base.html' %}
+
+{% load static %}
+
+{% block content %}
+
+<section class="contenedor_formulario">
+    <div class="contenedor_campos_extra_amplio">
+        <h2>Reportes PDF</h2>
+
+        <div class="modulo_reportes">
+
+            {% if request.session.perfil == "Encargado Administrativo" %}
+            <article class="contenedor_reporte">
+                <div class="encabezado_reporte">
+                    <h3>Bitácora de actividad</h3>
+                    <p>Consulta las acciones registradas en el sistema.</p>
+                </div>
+                <form data-reporte-form data-endpoint="{% url 'lista_bitacora_pdf' %}" data-pair-fields="nacionalidad,cedula">
+                    {% csrf_token %}
+                    <div class="campo_formulario">
+                        <label for="bitacora_nacionalidad">Nacionalidad</label>
+                        <select id="bitacora_nacionalidad" name="nacionalidad">
+                            <option value="">Todas</option>
+                            <option value="V">Venezolana (V)</option>
+                            <option value="E">Extranjera (E)</option>
+                            <option value="J">Jurídica (J)</option>
+                            <option value="G">Gubernamental (G)</option>
+                        </select>
+                    </div>
+                    <div class="campo_formulario">
+                        <label for="bitacora_cedula">Cédula</label>
+                        <input id="bitacora_cedula" name="cedula" type="text"
+                               autocomplete="off" placeholder="Número de identificación">
+                    </div>
+                    <button class="btn_descargar_reporte" type="submit">
+                        <i class="fa-solid fa-download"></i> Descargar reporte
+                    </button>
+                </form>
+            </article>
+
+            <article class="contenedor_reporte">
+                <div class="encabezado_reporte">
+                    <h3>Inicios de sesión</h3>
+                    <p>Genera un reporte de los inicios de sesión registrados.</p>
+                </div>
+                <form data-reporte-form data-endpoint="{% url 'lista_inicios_sesiones_pdf' %}">
+                    {% csrf_token %}
+                    <div class="campo_formulario">
+                        <label for="reporte_fecha_inicio">Fecha</label>
+                        <input id="reporte_fecha_inicio" name="fechas" type="date">
+                    </div>
+                    <button class="btn_descargar_reporte" type="submit">
+                        <i class="fa-solid fa-download"></i> Descargar reporte
+                    </button>
+                </form>
+            </article>
+
+            <article class="contenedor_reporte">
+                <div class="encabezado_reporte">
+                    <h3>Intentos de inicio de sesión</h3>
+                    <p>Consulta intentos de acceso, exitosos o fallidos.</p>
+                </div>
+                <form data-reporte-form data-endpoint="{% url 'lista_intentos_sesion_pdf' %}">
+                    {% csrf_token %}
+                    <div class="campo_formulario">
+                        <label for="reporte_fecha_intentos">Fecha</label>
+                        <input id="reporte_fecha_intentos" name="fecha" type="date">
+                    </div>
+                    <button class="btn_descargar_reporte" type="submit">
+                        <i class="fa-solid fa-download"></i> Descargar reporte
+                    </button>
+                </form>
+            </article>
+            {% endif %}
+
+            <article class="contenedor_reporte">
+                <div class="encabezado_reporte">
+                    <h3>Gastos</h3>
+                    <p>Consulta los gastos registrados por categoría.</p>
+                </div>
+                <form data-reporte-form data-endpoint="{% url 'lista_gastos_pdf' %}">
+                    {% csrf_token %}
+                    <div class="campo_formulario">
+                        <label for="reporte_categoria_gasto">Categoría</label>
+                        <select id="reporte_categoria_gasto" name="categoria"
+                                required data-options-url="{% url 'categorias_gastos' %}"
+                                data-option-value="id_categoria_gasto"
+                                data-option-label="nombre" data-active-only="true"
+                                data-placeholder="Selecciona una categoría">
+                        </select>
+                    </div>
+                    <button class="btn_descargar_reporte" type="submit">
+                        <i class="fa-solid fa-download"></i> Descargar reporte
+                    </button>
+                </form>
+            </article>
+
+            {% if request.session.perfil == "Propietario" %}
+            <article class="contenedor_reporte">
+                <div class="encabezado_reporte">
+                    <h3>Encargado administrativo</h3>
+                    <p>Genera el reporte de los datos del encargado vigente.</p>
+                </div>
+                <form data-reporte-form data-endpoint="{% url 'datos_encargado_administrativo_pdf' %}">
+                    {% csrf_token %}
+                    <button class="btn_descargar_reporte" type="submit">
+                        <i class="fa-solid fa-download"></i> Descargar reporte
+                    </button>
+                </form>
+            </article>
+            {% endif %}
+
+            <article class="contenedor_reporte">
+                <div class="encabezado_reporte">
+                    <h3>Clientes</h3>
+                    <p>Genera un reporte de clientes por tipo.</p>
+                </div>
+                <form data-reporte-form data-endpoint="{% url 'lista_clientes_pdf' %}">
+                    {% csrf_token %}
+                    <div class="campo_formulario">
+                        <label for="reporte_tipo_cliente">Tipo de cliente</label>
+                        <select id="reporte_tipo_cliente" name="tipo_cliente" required>
+                            <option value="">Selecciona un tipo</option>
+                            <option value="TODOS">Todos</option>
+                            <option value="NATURAL">Persona natural</option>
+                            <option value="EMPRESA">Empresa</option>
+                        </select>
+                    </div>
+                    <button class="btn_descargar_reporte" type="submit">
+                        <i class="fa-solid fa-download"></i> Descargar reporte
+                    </button>
+                </form>
+            </article>
+
+            <article class="contenedor_reporte">
+                <div class="encabezado_reporte">
+                    <h3>Empleados</h3>
+                    <p>Consulta empleados activos, filtrados por perfil laboral.</p>
+                </div>
+                <form data-reporte-form data-endpoint="{% url 'lista_empleados_pdf' %}"
+                      data-confirmable="true">
+                    {% csrf_token %}
+                    <div class="campo_formulario">
+                        <label for="reporte_perfil_empleado">Perfil laboral</label>
+                        <select id="reporte_perfil_empleado" name="perfil">
+                            <option value="">Todos los perfiles</option>
+                            <option value="Propietario">Propietario</option>
+                            <option value="Encargado Administrativo">Encargado administrativo</option>
+                            <option value="Atención al Cliente">Atención al cliente</option>
+                            <option value="Supervisor Encargado">Supervisor encargado</option>
+                            <option value="Personal de Limpieza">Personal de limpieza</option>
+                            <option value="Despachador">Despachador</option>
+                            <option value="Vigilante">Vigilante</option>
+                        </select>
+                    </div>
+                    <button class="btn_descargar_reporte" type="submit">
+                        <i class="fa-solid fa-download"></i> Descargar reporte
+                    </button>
+                </form>
+            </article>
+
+            <article class="contenedor_reporte">
+                <div class="encabezado_reporte">
+                    <h3>Datos de empleado</h3>
+                    <p>Genera el reporte individual de un empleado.</p>
+                </div>
+                <form data-reporte-form data-endpoint="{% url 'datos_empleados_pdf' %}">
+                    {% csrf_token %}
+                    <div class="campo_formulario">
+                        <label for="reporte_cedula_empleado">Cédula de identidad</label>
+                        <input id="reporte_cedula_empleado" name="cedula_identidad"
+                               type="text" required autocomplete="off"
+                               placeholder="Identificación registrada">
+                    </div>
+                    <button class="btn_descargar_reporte" type="submit">
+                        <i class="fa-solid fa-download"></i> Descargar reporte
+                    </button>
+                </form>
+            </article>
+
+            <article class="contenedor_reporte">
+                <div class="encabezado_reporte">
+                    <h3>Incidencias</h3>
+                    <p>Consulta las incidencias del turno del supervisor.</p>
+                </div>
+                <form data-reporte-form data-endpoint="{% url 'lista_incidencias_pdf' %}">
+                    {% csrf_token %}
+                    <div class="campo_formulario">
+                        <label for="reporte_fecha_incidencia">Fecha</label>
+                        <input id="reporte_fecha_incidencia" name="fecha_incidencia"
+                               type="date">
+                    </div>
+                    <div class="campo_formulario">
+                        <label for="reporte_tipo_incidencia">Tipo de incidencia</label>
+                        <select id="reporte_tipo_incidencia" name="tipo_incidencia"
+                                data-options-url="{% url 'tipos_incidencias' %}"
+                                data-option-value="id_tipo" data-option-label="nombre"
+                                data-placeholder="Todos los tipos">
+                        </select>
+                    </div>
+                    <button class="btn_descargar_reporte" type="submit">
+                        <i class="fa-solid fa-download"></i> Descargar reporte
+                    </button>
+                </form>
+            </article>
+
+            <article class="contenedor_reporte">
+                <div class="encabezado_reporte">
+                    <h3>Equipos</h3>
+                    <p>Genera el inventario de equipos, con filtro opcional.</p>
+                </div>
+                <form data-reporte-form data-endpoint="{% url 'lista_equipos_pdf' %}">
+                    {% csrf_token %}
+                    <div class="campo_formulario">
+                        <label for="reporte_categoria_equipo">Categoría de equipo</label>
+                        <select id="reporte_categoria_equipo" name="categoria"
+                                data-options-url="{% url 'categoria_registrados' %}"
+                                data-option-value="id_categoria" data-option-label="nombre"
+                                data-placeholder="Todas las categorías">
+                        </select>
+                    </div>
+                    <button class="btn_descargar_reporte" type="submit">
+                        <i class="fa-solid fa-download"></i> Descargar reporte
+                    </button>
+                </form>
+            </article>
+
+            <article class="contenedor_reporte">
+                <div class="encabezado_reporte">
+                    <h3>Entrega de equipos</h3>
+                    <p>Consulta las entregas registradas por categoría y supervisor.</p>
+                </div>
+                <form data-reporte-form data-endpoint="{% url 'lista_entrega_equipos_pdf' %}">
+                    {% csrf_token %}
+                    <div class="campo_formulario">
+                        <label for="reporte_categoria_entrega">Categoría de equipo</label>
+                        <select id="reporte_categoria_entrega" name="categoria"
+                                data-options-url="{% url 'categoria_registrados' %}"
+                                data-option-value="id_categoria" data-option-label="nombre"
+                                data-placeholder="Todas las categorías">
+                        </select>
+                    </div>
+                    <div class="campo_formulario">
+                        <label for="reporte_supervisor_entrega">Supervisor</label>
+                        <select id="reporte_supervisor_entrega" name="supervisor"
+                                data-options-url="{% url 'supervisores_registrados' %}"
+                                data-options-key="supervisores"
+                                data-option-value="id_supervisor"
+                                data-option-label="nombre_completo"
+                                data-placeholder="Todos los supervisores">
+                        </select>
+                    </div>
+                    <button class="btn_descargar_reporte" type="submit">
+                        <i class="fa-solid fa-download"></i> Descargar reporte
+                    </button>
+                </form>
+            </article>
+
+            <article class="contenedor_reporte">
+                <div class="encabezado_reporte">
+                    <h3>Asignaciones de equipos</h3>
+                    <p>Consulta las asignaciones por identidad y categoría.</p>
+                </div>
+                <form data-reporte-form data-endpoint="{% url 'lista_asignaciones_pdf_admin' %}">
+                    {% csrf_token %}
+                    <div class="campo_formulario">
+                        <label for="reporte_nacionalidad_asignaciones">Nacionalidad</label>
+                        <select id="reporte_nacionalidad_asignaciones" name="nacionalidad">
+                            <option value="">Todas</option>
+                            <option value="V">Venezolana (V)</option>
+                            <option value="E">Extranjera (E)</option>
+                            <option value="J">Jurídica (J)</option>
+                            <option value="G">Gubernamental (G)</option>
+                        </select>
+                    </div>
+                    <div class="campo_formulario">
+                        <label for="reporte_cedula_asignaciones">Cédula</label>
+                        <input id="reporte_cedula_asignaciones"
+                               name="cedula_identidad" type="text"
+                               autocomplete="off"
+                               placeholder="Número de identificación">
+                    </div>
+                    <div class="campo_formulario">
+                        <label for="reporte_categoria_asignaciones">Categoría de equipo</label>
+                        <select id="reporte_categoria_asignaciones"
+                                name="categorias_registradas"
+                                data-options-url="{% url 'categoria_registrados' %}"
+                                data-option-value="id_categoria" data-option-label="nombre"
+                                data-placeholder="Todas las categorías">
+                        </select>
+                    </div>
+                    <button class="btn_descargar_reporte" type="submit">
+                        <i class="fa-solid fa-download"></i> Descargar reporte
+                    </button>
+                </form>
+            </article>
+        </div>
+    </div>
+</section>
+
+<script src="{% static 'Funcionalidades/cedula_identidad.js' %}?v=20261112-reports-all-1"></script>
+<script src="{% static 'Funcionalidades_Asincronas/reportes/gestionar_reportes.js' %}?v=20261113-reports-equipment-1"></script>
+
+{% endblock %}

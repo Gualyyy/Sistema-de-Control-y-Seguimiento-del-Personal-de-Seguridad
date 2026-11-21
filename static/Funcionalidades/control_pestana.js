@@ -1,20 +1,137 @@
 (() => {
-    const clavePestana = "tab_id";
+    const generarIdentificador = () => {
+        if (window.crypto && typeof window.crypto.randomUUID === "function") {
+            return window.crypto.randomUUID();
+        }
+
+        return `tab-${Date.now()}-${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`;
+    };
+
+    window.vigilanciaGenerarIdentificador = generarIdentificador;
+
     const urlInicial = new URL(window.location.href);
     const tabIdServidor = document.body.dataset.tabId;
-    let tabId = sessionStorage.getItem(clavePestana)
-        || urlInicial.searchParams.get("tab_id")
+    const claveIdentificadorPestania = "vigilancia-tab-id";
+    const claveUrlRecuperacion = "vigilancia-recovery-url";
+    const recuperacionActiva =
+        document.body.dataset.recoveryActive === "true";
+    const rutasRecuperacion = new Set([
+        "/enviar_codigo/",
+        "/reenviar_codigo/",
+        "/vigencia_codigo/",
+        "/correos_usuario/",
+        "/verificar_codigo/",
+        "/enviar_usuario/",
+        "/menu_recuperar_credenciales/",
+        "/cambiar_contrasenia/",
+        "/recuperar_nombre_usuario/"
+    ]);
+    const esRutaRecuperacion = rutasRecuperacion.has(urlInicial.pathname);
+    const esPaginaNoEncontrada =
+        document.body.classList.contains("body-404");
+    let rutaRecuperacionGuardada = null;
+    const identificadorInicial = urlInicial.searchParams.get("tab_id")
         || tabIdServidor
-        || crypto.randomUUID();
+        || generarIdentificador();
+    let identificadorGuardado = null;
+    let sessionStorageDisponible = true;
 
-    sessionStorage.setItem(clavePestana, tabId);
-    document.body.dataset.tabId = tabId;
+    try {
+        identificadorGuardado = sessionStorage.getItem(
+            claveIdentificadorPestania
+        );
+        rutaRecuperacionGuardada = sessionStorage.getItem(
+            claveUrlRecuperacion
+        );
+    } catch {
+        sessionStorageDisponible = false;
+    }
+
+    let identificador_pestania = identificadorInicial;
+
+    if (
+        sessionStorageDisponible &&
+        identificadorGuardado &&
+        identificadorGuardado !== identificadorInicial &&
+        (
+            esRutaRecuperacion ||
+            (
+                esPaginaNoEncontrada &&
+                rutasRecuperacion.has(rutaRecuperacionGuardada)
+            )
+        )
+    ) {
+        const urlRestaurada = new URL(urlInicial.href);
+
+        if (esPaginaNoEncontrada) {
+            urlRestaurada.pathname = rutaRecuperacionGuardada;
+        }
+
+        urlRestaurada.searchParams.set(
+            "tab_id",
+            identificadorGuardado
+        );
+        window.location.replace(urlRestaurada.href);
+        return;
+    }
+
+    if (
+        recuperacionActiva &&
+        sessionStorageDisponible &&
+        (
+            !identificadorGuardado ||
+            identificadorGuardado !== identificadorInicial
+        )
+    ) {
+        try {
+            const nuevoIdentificador = generarIdentificador();
+            sessionStorage.setItem(
+                claveIdentificadorPestania,
+                nuevoIdentificador
+            );
+            identificador_pestania = nuevoIdentificador;
+
+            const urlInicioRecuperacion = new URL(
+                "/buscar_usuario/",
+                window.location.origin
+            );
+            urlInicioRecuperacion.searchParams.set(
+                "tab_id",
+                identificador_pestania
+            );
+            window.location.replace(urlInicioRecuperacion.href);
+            return;
+        } catch {
+            sessionStorageDisponible = false;
+        }
+    }
+
+    if (sessionStorageDisponible) {
+        try {
+            sessionStorage.setItem(
+                claveIdentificadorPestania,
+                identificador_pestania
+            );
+            if (recuperacionActiva && esRutaRecuperacion) {
+                sessionStorage.setItem(
+                    claveUrlRecuperacion,
+                    urlInicial.pathname
+                );
+            } else if (!recuperacionActiva && !esPaginaNoEncontrada) {
+                sessionStorage.removeItem(claveUrlRecuperacion);
+            }
+        } catch {
+            sessionStorageDisponible = false;
+        }
+    }
+
+    document.body.dataset.tabId = identificador_pestania;
 
     const urlConIdPestana = (valor) => {
         const url = new URL(valor, window.location.href);
 
         if (url.origin === window.location.origin) {
-            url.searchParams.set("tab_id", tabId);
+            url.searchParams.set("tab_id", identificador_pestania);
         }
 
         return url.href;
@@ -37,6 +154,24 @@
         }
     }
 
+    if (document.body.dataset.recoveryStep === "verificacion") {
+        const estadoBloqueoRecuperacion = {
+            bloqueoRecuperacion: true
+        };
+        window.history.pushState(
+            estadoBloqueoRecuperacion,
+            "",
+            window.location.href
+        );
+        window.addEventListener("popstate", () => {
+            window.history.pushState(
+                estadoBloqueoRecuperacion,
+                "",
+                window.location.href
+            );
+        });
+    }
+
     const agregarIdAlEnlace = (enlace) => {
         if (!enlace.href || enlace.origin !== window.location.origin) {
             return;
@@ -47,7 +182,7 @@
             return;
         }
 
-        url.searchParams.set("tab_id", tabId);
+        url.searchParams.set("tab_id", identificador_pestania);
         enlace.href = url.href;
     };
 
@@ -72,7 +207,7 @@
             campo.name = "tab_id";
             formulario.append(campo);
         }
-        campo.value = tabId;
+        campo.value = identificador_pestania;
     };
 
     document.querySelectorAll("form").forEach(agregarIdAlFormulario);
@@ -94,12 +229,12 @@
         const headers = new Headers(
             opciones.headers || (recurso instanceof Request ? recurso.headers : undefined)
         );
-        headers.set("X-Tab-ID", tabId);
+        headers.set("X-Tab-ID", identificador_pestania);
 
         return fetchOriginal(recurso, { ...opciones, headers });
     };
 
-    const instanciaPestana = crypto.randomUUID();
+    const instanciaPestana = generarIdentificador();
     const canalPestanas = "BroadcastChannel" in window
         ? new BroadcastChannel("vigilancia-pestanas")
         : null;
@@ -107,7 +242,7 @@
 
     if (canalPestanas) {
         canalPestanas.addEventListener("message", (evento) => {
-            if (evento.data?.tab_id !== tabId) {
+            if (evento.data?.tab_id !== identificador_pestania) {
                 return;
             }
 
@@ -115,7 +250,7 @@
                 instanciasConMismoId.add(evento.data.instancia);
                 canalPestanas.postMessage({
                     tipo: "respuesta",
-                    tab_id: tabId,
+                    tab_id: identificador_pestania,
                     instancia: instanciaPestana
                 });
             } else if (evento.data.tipo === "respuesta") {
@@ -125,7 +260,7 @@
 
         canalPestanas.postMessage({
             tipo: "consulta",
-            tab_id: tabId,
+            tab_id: identificador_pestania,
             instancia: instanciaPestana
         });
 
@@ -139,9 +274,32 @@
                 return;
             }
 
-            tabId = crypto.randomUUID();
-            sessionStorage.setItem(clavePestana, tabId);
-            urlInicial.searchParams.set("tab_id", tabId);
+            identificador_pestania = generarIdentificador();
+            if (sessionStorageDisponible) {
+                try {
+                    sessionStorage.setItem(
+                        claveIdentificadorPestania,
+                        identificador_pestania
+                    );
+                } catch {
+                    sessionStorageDisponible = false;
+                }
+            }
+
+            if (recuperacionActiva) {
+                const urlInicioRecuperacion = new URL(
+                    "/buscar_usuario/",
+                    window.location.origin
+                );
+                urlInicioRecuperacion.searchParams.set(
+                    "tab_id",
+                    identificador_pestania
+                );
+                window.location.replace(urlInicioRecuperacion.href);
+                return;
+            }
+
+            urlInicial.searchParams.set("tab_id", identificador_pestania);
             window.location.replace(urlInicial.href);
         }, 150);
     }

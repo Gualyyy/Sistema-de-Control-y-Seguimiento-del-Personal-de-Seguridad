@@ -30,11 +30,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
     async function supervisores_registrados() {
         try {
-            const respuesta = await fetch("/supervisores_registrados/");
+            const respuesta = await fetch("/asignaciones/supervisores_registrados/");
             const resultado = await respuesta.json();
             console.log(resultado);
 
             select_supervisores_encargados.innerHTML = "<option value=''>Selecciona un Supervisor</option>"
+
+            if (resultado.estado == "fallo") {
+                await Swal.fire({
+                    title: resultado.title,
+                    text: resultado.descripcion,
+                    icon: resultado.icon
+                });
+                return;
+            }
 
             resultado.supervisores.forEach(supervisor => {
                 const option_supervisor = document.createElement("option");

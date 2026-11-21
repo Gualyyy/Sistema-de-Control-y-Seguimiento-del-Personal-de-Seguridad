@@ -5,8 +5,8 @@
 {% load static %}
 
 <section class="contenedor_formulario">
-    <div class="contenedor_campos_amplio">
-        <h2>Bitacora de Acción</h2>
+    <div class="contenedor_campos_intermedio">
+        <h2>Bitácora de acciones</h2>
 
         <div class="modulo_buqueda">
             <h3>Búsqueda</h3>
@@ -14,35 +14,66 @@
             <form method="post" class="formulario_base">
                 {% csrf_token %}
 
-                <div class="campo_reducido">
-                    <label for="cedula_identidad">Cedula de Identidad:</label>
-                    <div class="grupo_doble">
-                        <select name="nacionalidad" id="nacionalidad" class="campo_select">
-                            <option value="">N</option>
-                            <option value="V">V</option>
-                            <option value="E">E</option>
-                        </select>
-                        <input type="text" name="cedula" id="cedula_identidad" autocomplete="off" required>
+                <div class="campos_fila">
+                    <div class="campo_formulario">
+                        <label for="cedula_identidad">Cedula de Identidad:</label>
+                        <div class="grupo_doble">
+                            <select name="nacionalidad" id="nacionalidad" class="campo_select">
+                                <option value="V" selected>V</option>
+                                <option value="E">E</option>
+                            </select>
+                            <input type="text" name="cedula" id="cedula_identidad" autocomplete="off" required>
+                        </div>
                     </div>
                 </div>
             </form>
         </div>
 
         <div class="modulo_visualizar">
-            <div class="encabezado_registrados">
-                <button type="button" class="btn_pdf" id="bitacora_pdf">
-                    <i class="fa-regular fa-file-pdf"></i>
-                    Reporte
-                </button>
-            </div>
+            <section class="estadisticas_bitacora" aria-labelledby="titulo_estadisticas_bitacora">
+                <h3 id="titulo_estadisticas_bitacora">Estadísticas de la bitácora</h3>
+
+                <div class="resumen_bitacora" aria-live="polite">
+                    <article class="tarjeta_bitacora">
+                        <span>Acciones registradas</span>
+                        <strong id="total_acciones_bitacora">0</strong>
+                    </article>
+                    <article class="tarjeta_bitacora">
+                        <span>Usuarios con actividad</span>
+                        <strong id="total_usuarios_bitacora">0</strong>
+                    </article>
+                    <article class="tarjeta_bitacora">
+                        <span>Módulos utilizados</span>
+                        <strong id="total_modulos_bitacora">0</strong>
+                    </article>
+                </div>
+
+                <div class="grafica_bitacora">
+                    <h4>Acciones registradas por fecha</h4>
+                    <div class="contenedor_grafica_bitacora" id="contenedor_grafica_bitacora">
+                        <canvas
+                            id="grafica_bitacora"
+                            role="img"
+                            aria-label="Gráfica de acciones registradas por fecha"
+                        ></canvas>
+                    </div>
+                    <p id="mensaje_grafica_bitacora" class="mensaje_grafica_bitacora" hidden>
+                        No hay datos para mostrar.
+                    </p>
+                </div>
+            </section>
+
+            <p id="estado_bitacora" class="estado_bitacora" role="alert" hidden></p>
 
             <div class="contenedor_tabla">
                 <table>
                     <thead>
                         <tr>
                             <th>ID</th>
-                            <th>NOMBRES y APELLIDOS</th>
-                            <th>C.I</th>
+                            <th>Usuario</th>
+                            <th>C.I.</th>
+                            <th>Cargo del usuario</th>
+                            <th>Módulo</th>
                             <th>FECHA</th>
                             <th>ACCIÓN</th>
                         </tr>
@@ -52,8 +83,8 @@
             </div>
 
             <div class="botones_navegacion">
-                <button class="btn_secundario btn_retroceder" type="button">Retroceder</button>
-                <button class="btn_primario btn_avanzar" type="button">Avanzar</button>
+                <button class="btn_secundario btn_ret" type="button">Retroceder</button>
+                <button class="btn_primario btn_av" type="button">Avanzar</button>
             </div>
         </div>
 
@@ -61,6 +92,6 @@
 </section>
 
 <script src="{% static 'Funcionalidades/cedula_identidad.js' %}"></script>
-<script src="{% static 'Funcionalidades_Asincronas/seguridad/bitacora.js' %}"></script>
+<script src="{% static 'Funcionalidades_Asincronas/seguridad/bitacora.js' %}?v=20261112-bitacora-stats-1"></script>
 
 {% endblock %}

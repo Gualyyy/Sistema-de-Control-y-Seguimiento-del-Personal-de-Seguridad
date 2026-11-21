@@ -1,0 +1,768 @@
+.modulo_equipo {
+    width: 100%;
+    padding: 20px 24px;
+    background: #ffffff;
+    border-radius: 12px;
+    border: 2px solid #00779e;
+    box-shadow: 0 4px 12px rgba(0, 68, 95, 0.08);
+    box-sizing: border-box;
+}
+
+.formulario_equipo {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 16px;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+.campo_formulario {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+}
+
+.campo_formulario label {
+    margin: 0;
+    color: #102f4e;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.campo_formulario input,
+.campo_formulario select,
+.campo_formulario textarea {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 10px;
+    border: 1px solid #cbd8e2;
+    border-radius: 7px;
+    background-color: #ffffff;
+    color: #102f4e;
+    font-family: inherit;
+    font-size: 14px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.campo_formulario input,
+.campo_formulario select {
+    height: 38px;
+}
+
+.formulario_equipo .campo_formulario:has(textarea) {
+    grid-column: 1 / -1;
+}
+
+.campo_formulario textarea {
+    min-height: 100px;
+    resize: vertical;
+    line-height: 1.5;
+}
+
+/* PLACEHOLDER */
+
+.campo_formulario input::placeholder,
+.campo_formulario textarea::placeholder {
+    color: #8495a3;
+    opacity: 1;
+    font-size: 13px;
+}
+
+/* ENFOQUE DE LOS CAMPOS */
+
+.campo_formulario input:focus,
+.campo_formulario select:focus,
+.campo_formulario textarea:focus {
+    outline: none;
+    border-color: #00779e;
+    box-shadow: 0 0 0 2px rgba(0, 119, 158, 0.12);
+}
+
+/* CAMPOS DESHABILITADOS */
+
+.campo_formulario input:disabled,
+.campo_formulario select:disabled,
+.campo_formulario textarea:disabled {
+    background-color: #edf1f4;
+    color: #8495a3;
+    border-color: #d5dfe6;
+    cursor: not-allowed;
+    opacity: 1;
+    box-shadow: none;
+}
+
+/* PLACEHOLDER DE CAMPOS DESHABILITADOS */
+
+.campo_formulario input:disabled::placeholder,
+.campo_formulario textarea:disabled::placeholder {
+    color: #a4b0ba;
+}
+
+/* CONTADOR DE CARACTERES */
+
+.contador_caracteres {
+    display: flex;
+    justify-content: flex-end;
+    gap: 4px;
+    margin: 1px 0 0;
+    color: #526a7b;
+    font-size: 12px;
+}
+
+/* RESPONSIVE */
+
+@media (max-width: 650px) {
+
+    .modulo_equipo {
+        padding: 12px;
+    }
+
+    .formulario_equipo {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    .formulario_equipo .campo_formulario:has(#observacion_equipo) {
+        grid-column: 1;
+    }
+
+    .contenedor_boton_submit {
+        grid-column: 1;
+    }
+}
+
+@media (max-width: 380px) {
+
+    .modulo_equipo {
+        padding: 10px;
+    }
+
+    .campo_formulario label {
+        font-size: 13px;
+    }
+
+    .campo_formulario input,
+    .campo_formulario select,
+    .campo_formulario textarea {
+        font-size: 13px;
+    }
+
+    .campo_formulario input::placeholder,
+    .campo_formulario textarea::placeholder {
+        font-size: 12px;
+    }
+}
+
+/* Equipos */
+
+
+/* CONTENEDOR PRINCIPAL */
+
+.modulo_equipo {
+    width: 100%;
+    padding: 20px 24px;
+    background: #ffffff;
+    border: 2px solid #00779e;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 68, 95, 0.08);
+    box-sizing: border-box;
+}
+
+/* DISTRIBUCIÓN PRINCIPAL */
+
+.gestion_equipos {
+    display: grid;
+    grid-template-columns: minmax(340px, 0.95fr) minmax(0, 1.25fr);
+    align-items: stretch;
+    gap: 20px;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+/* PANELES PRINCIPALES */
+
+.actualizar,
+.visualizar_equipos {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 470px;
+    height: 100%;
+    background-color: #ffffff;
+    border: 1px solid #dce6ec;
+    border-radius: 10px;
+    box-shadow: 0 3px 10px rgba(0, 68, 95, 0.07);
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+/* ENCABEZADOS */
+
+.actualizar h3,
+.visualizar_equipos h3 {
+    display: flex;
+    align-items: center;
+    min-height: 49px;
+    margin: 0;
+    padding: 12px 18px;
+    background-color: #102f4e;
+    border-bottom: 3px solid #00779e;
+    color: #ffffff;
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 1.4;
+    box-sizing: border-box;
+}
+
+/* FORMULARIO DE ACTUALIZACIÓN */
+
+.actualizar .formulario_equipo {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    gap: 15px;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.modulo_equipo > .formulario_equipo .contenedor_boton_submit {
+    grid-column: 1 / -1;
+}
+
+/* CAMPOS DEL FORMULARIO */
+
+.campo_formulario {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+.campo_formulario label {
+    margin: 0;
+    color: #102f4e;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.4;
+}
+
+/* INPUTS, SELECTS Y TEXTAREAS */
+
+.campo_formulario input,
+.campo_formulario select,
+.campo_formulario textarea {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    padding: 9px 12px;
+    border: 1px solid #cbd8e2;
+    border-radius: 8px;
+    background-color: #ffffff;
+    color: #102f4e;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 400;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    box-sizing: border-box;
+}
+
+.campo_formulario input,
+.campo_formulario select {
+    height: 42px;
+}
+
+.campo_formulario textarea {
+    min-height: 105px;
+    resize: vertical;
+    line-height: 1.5;
+}
+
+/* PLACEHOLDER */
+
+.campo_formulario input::placeholder,
+.campo_formulario textarea::placeholder {
+    color: #8495a3;
+    opacity: 1;
+    font-size: 12px;
+}
+
+/* ENFOQUE */
+
+.campo_formulario input:focus,
+.campo_formulario select:focus,
+.campo_formulario textarea:focus {
+    outline: none;
+    border-color: #00779e;
+    box-shadow: 0 0 0 3px rgba(0, 119, 158, 0.10);
+}
+
+/* CAMPOS DESHABILITADOS */
+
+.campo_formulario input:disabled,
+.campo_formulario select:disabled,
+.campo_formulario textarea:disabled {
+    background-color: #edf2f5;
+    color: #8495a3;
+    border-color: #d5dfe6;
+    cursor: not-allowed;
+    opacity: 1;
+    box-shadow: none;
+}
+
+.campo_formulario input:disabled::placeholder,
+.campo_formulario textarea:disabled::placeholder {
+    color: #a4b0ba;
+}
+
+/* MENSAJES DE VALIDACIÓN */
+
+.mensaje-feedback {
+    display: block;
+    width: 100%;
+    color: #c0392b;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+/* CONTADOR DE CARACTERES */
+
+.contador_caracteres {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 4px;
+    margin: 2px 0 0;
+    color: #526a7b;
+    font-size: 12px;
+}
+
+/* BOTÓN DE ACTUALIZACIÓN */
+
+.contenedor_boton_submit {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    margin-top: auto;
+    padding-top: 8px;
+    box-sizing: border-box;
+}
+
+.contenedor_boton_submit button {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    gap: 9px;
+    width: auto;
+    min-width: 175px;
+    min-height: 42px;
+    padding: 10px 20px;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.contenedor_boton_submit button:hover {
+    transform: translateY(-1px);
+}
+
+.contenedor_boton_submit button:active {
+    transform: translateY(0);
+}
+
+.contenedor_boton_submit button i {
+    font-size: 14px;
+}
+
+/* FILTROS DE BÚSQUEDA */
+
+.filtro_busqueda_equipos {
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding: 18px 18px 12px;
+    box-sizing: border-box;
+}
+
+.filtro_busqueda_equipos .formulario_base {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+.filtro_busqueda_equipos .campos_fila {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: end;
+    gap: 12px;
+    width: 100%;
+}
+
+.filtro_busqueda_equipos .campo_formulario {
+    min-width: 0;
+}
+
+/* CONTENEDOR DE TABLA */
+
+.contenedor_tabla.detalle {
+    display: block;
+    width: calc(100% - 36px);
+    min-width: 0;
+    margin: 0 18px;
+    overflow-x: auto;
+    border: 1px solid #dce6ec;
+    border-radius: 8px;
+    background-color: #ffffff;
+    box-sizing: border-box;
+}
+
+/* TABLA */
+
+.contenedor_tabla.detalle table {
+    width: 100%;
+    min-width: 650px;
+    table-layout: fixed;
+    border-collapse: collapse;
+    border-spacing: 0;
+    text-align: left;
+    font-size: 13px;
+}
+
+/* ENCABEZADO DE TABLA */
+
+.contenedor_tabla.detalle thead {
+    background-color: #102f4e;
+    color: #ffffff;
+}
+
+.contenedor_tabla.detalle th {
+    padding: 12px 10px;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.contenedor_tabla.detalle th:nth-child(1) {
+    width: 8%;
+}
+
+.contenedor_tabla.detalle th:nth-child(2) {
+    width: 34%;
+}
+
+.contenedor_tabla.detalle th:nth-child(3) {
+    width: 23%;
+}
+
+.contenedor_tabla.detalle th:nth-child(4) {
+    width: 35%;
+}
+
+/* CELDAS */
+
+.contenedor_tabla.detalle td {
+    padding: 11px 10px;
+    color: #334e60;
+    font-size: 12px;
+    border-bottom: 1px solid #e7edf1;
+    white-space: nowrap;
+}
+
+.contenedor_tabla.detalle tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.contenedor_tabla.detalle tbody tr.fila_equipo:nth-child(even) {
+    background-color: #f7fafc;
+}
+
+.contenedor_tabla.detalle tbody td.texto_sin_registros {
+    padding: 24px 12px;
+    color: #62798a;
+    font-weight: 500;
+    text-align: center;
+}
+
+/* FILAS SELECCIONABLES */
+
+.contenedor_tabla.detalle tbody tr.fila_equipo {
+    cursor: pointer;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* EFECTO HOVER */
+
+.contenedor_tabla.detalle tbody tr.fila_equipo:hover {
+    background-color: #edf6fa;
+}
+
+/* FILA SELECCIONADA */
+
+.contenedor_tabla.detalle tbody tr.fila_equipo.seleccionada {
+    background-color: #dceef5;
+    box-shadow: inset 3px 0 0 #00779e;
+}
+
+.contenedor_tabla.detalle tbody tr.fila_equipo.seleccionada td {
+    color: #102f4e;
+    font-weight: 500;
+}
+
+/* ENFOQUE DE FILAS */
+
+.contenedor_tabla.detalle tbody tr.fila_equipo:focus-visible {
+    outline: 2px solid #00779e;
+    outline-offset: -2px;
+}
+
+/* PAGINACIÓN */
+
+.visualizar_equipos .botones_navegacion {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    width: calc(100% - 36px);
+    margin: auto 18px 18px;
+    padding-top: 15px;
+    box-sizing: border-box;
+}
+
+.visualizar_equipos .botones_navegacion button {
+    min-width: 130px;
+    min-height: 44px;
+}
+
+/* ACCIONES DE LA TABLA */
+
+.contenedor_tabla.detalle td.acciones_equipo {
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+.contenedor_tabla.detalle .btn_accion {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    min-width: 82px;
+    min-height: 34px;
+    padding: 7px 10px;
+    border: 1px solid #00445f;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.contenedor_tabla.detalle .btn_actualizar_equipo {
+    background-color: #00445f;
+    color: #ffffff;
+}
+
+.contenedor_tabla.detalle .btn_actualizar_equipo:hover {
+    background-color: #00779e;
+    border-color: #00779e;
+    box-shadow: 0 2px 6px rgba(0, 68, 95, 0.16);
+}
+
+.contenedor_tabla.detalle .btn_detalle_equipo {
+    margin-left: 6px;
+    background-color: #ffffff;
+    color: #00445f;
+}
+
+.contenedor_tabla.detalle .btn_detalle_equipo:hover {
+    background-color: #eaf4f7;
+    box-shadow: 0 2px 6px rgba(0, 68, 95, 0.10);
+}
+
+.contenedor_tabla.detalle .btn_accion:focus-visible {
+    outline: 3px solid rgba(0, 119, 158, 0.3);
+    outline-offset: 2px;
+}
+
+/* RESPONSIVE - PANTALLAS MEDIANAS */
+
+@media (max-width: 1100px) {
+
+    .modulo_equipo {
+        padding: 16px;
+    }
+
+    .gestion_equipos {
+        grid-template-columns: minmax(300px, 0.95fr) minmax(0, 1.15fr);
+        gap: 14px;
+    }
+
+    .actualizar,
+    .visualizar_equipos {
+        min-height: 450px;
+    }
+
+    .actualizar .formulario_equipo {
+        padding: 16px;
+        gap: 13px;
+    }
+
+    .filtro_busqueda_equipos {
+        padding: 15px 12px 12px;
+    }
+
+    .filtro_busqueda_equipos .campos_fila {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    .contenedor_tabla.detalle {
+        width: calc(100% - 24px);
+        margin: 0 12px;
+    }
+
+    .visualizar_equipos .botones_navegacion {
+        width: calc(100% - 24px);
+        margin-right: 12px;
+        margin-left: 12px;
+    }
+}
+
+/* RESPONSIVE - TABLETAS */
+
+@media (max-width: 800px) {
+
+    .gestion_equipos {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 16px;
+    }
+
+    .actualizar,
+    .visualizar_equipos {
+        height: auto;
+        min-height: 0;
+    }
+
+    .actualizar .formulario_equipo {
+        padding: 18px;
+    }
+
+    .filtro_busqueda_equipos .campos_fila {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+/* RESPONSIVE - MÓVILES */
+
+@media (max-width: 550px) {
+
+    .modulo_equipo {
+        padding: 10px;
+    }
+
+    .actualizar h3,
+    .visualizar_equipos h3 {
+        min-height: 45px;
+        padding: 11px 14px;
+        font-size: 15px;
+    }
+
+    .actualizar .formulario_equipo {
+        padding: 14px;
+        gap: 13px;
+    }
+
+    .filtro_busqueda_equipos .campos_fila {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 12px;
+    }
+
+    .filtro_busqueda_equipos {
+        padding: 14px 12px 12px;
+    }
+
+    .contenedor_tabla.detalle {
+        width: calc(100% - 24px);
+        margin: 0 12px;
+    }
+
+    .visualizar_equipos .botones_navegacion {
+        width: calc(100% - 24px);
+        margin: 18px 12px 14px;
+        gap: 8px;
+    }
+
+    .visualizar_equipos .botones_navegacion button {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .contenedor_boton_submit button {
+        min-width: 165px;
+    }
+}
+
+/* RESPONSIVE - TELÉFONOS PEQUEÑOS */
+
+@media (max-width: 380px) {
+
+    .modulo_equipo {
+        padding: 8px;
+    }
+
+    .actualizar,
+    .visualizar_equipos {
+        border-radius: 8px;
+    }
+
+    .actualizar .formulario_equipo {
+        padding: 12px;
+    }
+
+    .campo_formulario label {
+        font-size: 13px;
+    }
+
+    .campo_formulario input,
+    .campo_formulario select,
+    .campo_formulario textarea {
+        font-size: 12px;
+    }
+
+    .campo_formulario input::placeholder,
+    .campo_formulario textarea::placeholder {
+        font-size: 11px;
+    }
+
+    .contenedor_boton_submit button {
+        min-width: 155px;
+        padding: 9px 14px;
+        font-size: 12px;
+    }
+
+    .visualizar_equipos .botones_navegacion {
+        gap: 6px;
+    }
+
+    .visualizar_equipos .botones_navegacion button {
+        padding: 8px 5px;
+        font-size: 12px;
+    }
+}

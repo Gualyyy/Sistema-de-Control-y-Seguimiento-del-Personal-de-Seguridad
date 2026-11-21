@@ -32,12 +32,11 @@ document.addEventListener("DOMContentLoaded", function () {
         "Andrés Eloy Blanco": ["El Cantón", "Santa Cruz de Guacas", "Puerto Vivas", "Dominga Ortiz de Páez"]
     };
 
-    /********************MUNICIPIO REDENCIA***********************/
+    /******************** MUNICIPIO RESIDENCIA ***********************/
 
     function cargarMunicipios() {
 
-        municipioSelect.innerHTML =
-            '<option value="" disabled selected hidden>Elija el Municipio</option>';
+        municipioSelect.innerHTML = "";
 
         municipios.forEach(municipio => {
 
@@ -49,32 +48,30 @@ document.addEventListener("DOMContentLoaded", function () {
             municipioSelect.appendChild(option);
         });
 
-        // Municipio obligatorio
         municipioSelect.disabled = false;
         municipioSelect.required = true;
 
-        // Parroquia todavía no disponible
-        parroquiaSelect.disabled = true;
-        parroquiaSelect.required = false;
+        municipioSelect.value = "Barinas";
 
-        // Dirección siempre disponible y obligatoria
+        parroquiaSelect.disabled = false;
+        parroquiaSelect.required = true;
+
         direccionTextarea.disabled = false;
         direccionTextarea.required = true;
     }
 
     cargarMunicipios();
 
-    /********************PARROQUIA REDENCIA***********************/
+
+    /******************** PARROQUIA RESIDENCIA ***********************/
 
     function actualizarParroquias() {
 
         const municipio = municipioSelect.value;
 
-        parroquiaSelect.innerHTML =
-            '<option value="" disabled selected hidden>Elija la Parroquia</option>';
+        parroquiaSelect.innerHTML = "";
 
-        // Mientras no haya municipio
-        if (!municipio) {
+        if (!municipio || !(municipio in parroquiasPorMunicipio)) {
 
             parroquiaSelect.disabled = true;
             parroquiaSelect.required = false;
@@ -82,30 +79,25 @@ document.addEventListener("DOMContentLoaded", function () {
             return;
         }
 
-        // Si existe el municipio
-        if (municipio in parroquiasPorMunicipio) {
+        parroquiasPorMunicipio[municipio].forEach(parroquia => {
 
-            parroquiasPorMunicipio[municipio].forEach(parroquia => {
+            const option = document.createElement("option");
 
-                const option = document.createElement("option");
+            option.value = parroquia;
+            option.textContent = parroquia;
 
-                option.value = parroquia;
-                option.textContent = parroquia;
+            parroquiaSelect.appendChild(option);
+        });
 
-                parroquiaSelect.appendChild(option);
-            });
+        parroquiaSelect.disabled = false;
+        parroquiaSelect.required = true;
 
-            // Parroquia ahora sí es obligatoria
-            parroquiaSelect.disabled = false;
-            parroquiaSelect.required = true;
+        parroquiaSelect.value =
+            municipio === "Barinas" &&
+                parroquiasPorMunicipio[municipio].includes("El Carmen")
+                ? "El Carmen"
+                : parroquiaSelect.options[0].value;
 
-        } else {
-
-            parroquiaSelect.disabled = true;
-            parroquiaSelect.required = false;
-        }
-
-        // Dirección obligatoria
         direccionTextarea.disabled = false;
         direccionTextarea.required = true;
     }

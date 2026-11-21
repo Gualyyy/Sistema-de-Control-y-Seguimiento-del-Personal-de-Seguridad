@@ -5,7 +5,7 @@ from django.db.models import Sum, Count, Exists, OuterRef, Q
 from django.conf import settings
 
 from inicio_sesion.models import usuarios, bitacora, supervisores_encargados, personal_limpieza, despachadores, vigilantes
-from asignaciones.models import asignacion_equipo, movimiento_equipo, equipos, entrega_equipos
+from asignaciones.models import asignacion_equipo, movimiento_equipo, equipos, entrega_equipos, categoria_equipo
 
 import os
 from django.utils import timezone
@@ -517,6 +517,8 @@ def asignar_equipo_usuario(request):
 
             bitacora.objects.create(
                 id_usuario=supervisor.id_usuario,
+                nombre_modulo="Asignación de equipos",
+                cargo_usuario=request.session.get("perfil", "No especificado"),
                 accion=(
                     f"Asignó {cantidad} unidad(es) de "
                     f"{info_equipo.nombre} a "
@@ -544,14 +546,6 @@ def asignar_equipo_usuario(request):
 # BUSCAR TODOS LOS DATOS LA ASIGNACIÓN DEL EQUIPO
 
 def buscar_datos_asignacion_equipo(request):
-    if request.method != "POST":
-        return JsonResponse({
-            "estado": "fallo",
-            "title": "Método no permitido",
-            "descripcion": "La solicitud debe realizarse mediante POST.",
-            "icon": "warning"
-        }, status=405)
-
     id_asignacion = request.POST.get("id_asignacion", "").strip()
     cedula_supervisor = request.session.get("cedula_identidad")
 
@@ -1634,6 +1628,141 @@ def datos_asignacion_admin(request):
                 "descripcion": "La asignación solicitada no existe."
             })
 
+# MOVIMIENTO DE EQUIPOS
+
+def movimiento_equipos(request):
+    if request.method != "POST":
+        return render(request, "Asignacion_Equipo/Supervisor_Encargado/movimiento_equipos.html")
+
+    cedula_supervisor = request.session.get("cedula_identidad")
+
+    if not cedula_supervisor:
+        return JsonResponse({
+            "estado": "fallo",
+            "title": "Sesión inválida",
+            "icon": "warning",
+            "descripcion": "No se pudo identificar al supervisor."
+        })
+
+    id_categoria = request.POST.get("categoria", "").strip()
+
+    try:
+        supervisor = supervisores_encargados.objects.select_related(
+            "id_usuario",
+            "id_turno"
+        ).get(
+            id_usuario__cedula_identidad=cedula_supervisor,
+            vigencia=True
+        )
+
+        movimientos = movimiento_equipo.objects.filter(
+            id_asignacion__id_entrega__supervisor_encargado__id_turno=supervisor.id_turno
+        )
+
+        categoria_nombre = "Todas las categorías"
+
+        if id_categoria:
+
+            if not id_categoria.isdigit():
+                return JsonResponse({
+                    "estado": "fallo",
+                    "title": "Categoría inválida",
+                    "icon": "warning",
+                    "descripcion": "La categoría seleccionada no es válida."
+                })
+
+            categoria = categoria_equipo.objects.filter(
+                id_categoria=int(id_categoria)
+            ).first()
+
+            if not categoria:
+                return JsonResponse({
+                    "estado": "fallo",
+                    "title": "Categoría no encontrada",
+                    "icon": "warning",
+                    "descripcion": "La categoría seleccionada no existe."
+                })
+
+            movimientos = movimientos.filter(
+                id_asignacion__id_entrega__id_equipo__id_categoria=categoria
+            )
+
+            categoria_nombre = categoria.nombre
+
+        movimientos = movimientos.select_related(
+            "id_asignacion",
+            "id_asignacion__id_usuario",
+            "id_asignacion__id_entrega",
+            "id_asignacion__id_entrega__id_equipo",
+            "id_asignacion__id_entrega__id_equipo__id_categoria",
+            "usuario_registro"
+        ).order_by("-fecha")
+
+        datos_movimientos = []
+
+        for movimiento in movimientos:
+
+            asignacion = movimiento.id_asignacion
+            equipo = asignacion.id_entrega.id_equipo
+            usuario = asignacion.id_usuario
+
+            datos_movimientos.append({
+                "id_movimiento": movimiento.id_movimiento,
+                "id_asignacion": asignacion.id_asignacion,
+
+                "equipo": equipo.nombre,
+                "codigo": equipo.codigo,
+                "categoria": equipo.id_categoria.nombre,
+
+                "nombres": usuario.nombres,
+                "apellidos": usuario.apellidos,
+                "cedula": usuario.cedula_identidad,
+
+                "tipo": movimiento.tipo,
+                "tipo_display": movimiento.get_tipo_display(),
+
+                "cantidad": movimiento.cantidad,
+
+                "estado": movimiento.estado,
+                "estado_display": movimiento.get_estado_display(),
+
+                "motivo_incidencia": movimiento.motivo_incidencia,
+                "motivo_display": movimiento.get_motivo_incidencia_display(),
+
+                "observacion": movimiento.observacion,
+
+                "usuario_registro": (
+                    f"{movimiento.usuario_registro.nombres} "
+                    f"{movimiento.usuario_registro.apellidos}"
+                ),
+
+                "fecha": movimiento.fecha.strftime("%d/%m/%Y"),
+                "hora": movimiento.fecha.strftime("%I:%M %p")
+            })
+
+        return JsonResponse({
+            "estado": "exito",
+            "turno": supervisor.id_turno.nombre,
+            "categoria": categoria_nombre,
+            "movimientos": datos_movimientos
+        })
+
+    except supervisores_encargados.DoesNotExist:
+        return JsonResponse({
+            "estado": "fallo",
+            "title": "Supervisor no válido",
+            "icon": "warning",
+            "descripcion": "No se encontró un supervisor vigente asociado a esta sesión."
+        })
+
+    except Exception:
+        return JsonResponse({
+            "estado": "fallo",
+            "title": "Error al consultar movimientos",
+            "icon": "error",
+            "descripcion": "No fue posible obtener el historial de movimientos. Intente nuevamente."
+        })
+
 # REPORTES PDF
 
 # LISTAR LOS EQUIPOS ASIGNADOS DEL EMPLEADO PARA GENERAR PDF
@@ -2160,380 +2289,6 @@ def encabezado_datos_pdf(canvas, documento, ruta_logo):
     canvas.restoreState()
 
 # LISTA DE ASIGNACIONES PARA EL ADMINISTRADOR
-
-def lista_asignaciones_pdf_admin(request):
-    if request.method != "POST":
-        return JsonResponse({
-            "estado": "fallo",
-            "title": "Método no permitido",
-            "descripcion": (
-                "Esta operación requiere una solicitud POST."
-            ),
-            "icon": "warning"
-        }, status=405)
-
-    nacionalidad = request.POST.get("nacionalidad", "").strip()
-    cedula = request.POST.get("cedula_identidad", "").strip()
-    categoria = request.POST.get("categorias_registradas", "").strip()
-
-    asignaciones = (
-        asignacion_equipo.objects
-        .select_related(
-            "id_usuario",
-            "id_entrega",
-            "id_entrega__id_equipo",
-            "id_entrega__id_equipo__id_categoria",
-            "id_entrega__supervisor_encargado",
-            "id_entrega__supervisor_encargado__id_usuario"
-        )
-        .exclude(estado="FINALIZADO")
-        .order_by("-fecha_entrega")
-    )
-
-    if nacionalidad:
-        asignaciones = asignaciones.filter(
-            id_usuario__nacionalidad__iexact=nacionalidad
-        )
-
-    if cedula:
-        asignaciones = asignaciones.filter(
-            id_usuario__cedula_identidad__icontains=cedula
-        )
-
-    if categoria:
-        if not categoria.isdigit():
-            return JsonResponse({
-                "estado": "fallo",
-                "title": "Categoría inválida",
-                "descripcion": (
-                    "La categoría de equipo seleccionada "
-                    "no es válida."
-                ),
-                "icon": "warning"
-            })
-
-        asignaciones = asignaciones.filter(
-            id_entrega__id_equipo__id_categoria_id=int(categoria)
-        )
-
-    if not asignaciones.exists():
-        return JsonResponse({
-            "estado": "vacio",
-            "title": "Sin asignaciones",
-            "descripcion": (
-                "No existen asignaciones de equipos "
-                "que coincidan con los filtros seleccionados."
-            ),
-            "icon": "warning"
-        })
-
-    datos = []
-
-    for asignacion in asignaciones:
-        usuario = asignacion.id_usuario
-        entrega = asignacion.id_entrega
-        equipo = entrega.id_equipo
-
-        supervisor = entrega.supervisor_encargado
-
-        nombre_supervisor = (
-            f"{supervisor.id_usuario.nombres} "
-            f"{supervisor.id_usuario.apellidos}"
-            if supervisor and supervisor.id_usuario
-            else "No disponible"
-        )
-
-        fecha_entrega = (
-            timezone.localtime(
-                asignacion.fecha_entrega
-            ).strftime("%d/%m/%Y %H:%M")
-            if asignacion.fecha_entrega
-            else "No registrada"
-        )
-
-        cantidad_asignada = asignacion.cantidad_asignada
-        cantidad_devuelta = asignacion.cantidad_devuelta
-
-        datos.append({
-            "id": asignacion.id_asignacion,
-            "empleado": (
-                f"{usuario.nombres} {usuario.apellidos}"
-            ),
-            "cedula": (
-                f"{getattr(usuario, 'nacionalidad', '')}"
-                f"{usuario.cedula_identidad}"
-            ),
-            "supervisor": nombre_supervisor,
-            "equipo": equipo.nombre,
-            "categoria": (
-                equipo.id_categoria.nombre
-                if equipo.id_categoria
-                else "Sin categoría"
-            ),
-            "asignada": cantidad_asignada,
-            "devuelta": cantidad_devuelta,
-            "posesion": (
-                cantidad_asignada - cantidad_devuelta
-            ),
-            "estado": asignacion.get_estado_display(),
-            "fecha_entrega": fecha_entrega
-        })
-
-    response = HttpResponse(
-        content_type="application/pdf"
-    )
-
-    response["Content-Disposition"] = (
-        'inline; filename="reporte_general_asignaciones.pdf"'
-    )
-
-    estilo_titulo = ParagraphStyle(
-        "estilo_titulo",
-        fontName="Times-Bold",
-        fontSize=13,
-        leading=15,
-        alignment=1,
-        textColor=colors.white
-    )
-
-    estilo_encabezado = ParagraphStyle(
-        "estilo_encabezado",
-        fontName="Times-Bold",
-        fontSize=7,
-        leading=8,
-        alignment=1,
-        textColor=colors.white,
-        wordWrap="CJK"
-    )
-
-    estilo_celda = ParagraphStyle(
-        "estilo_celda",
-        fontName="Times-Roman",
-        fontSize=7,
-        leading=8,
-        alignment=1,
-        textColor=colors.black,
-        wordWrap="CJK"
-    )
-
-    documento = SimpleDocTemplate(
-        response,
-        pagesize=landscape(letter),
-        rightMargin=25,
-        leftMargin=25,
-        topMargin=120,
-        bottomMargin=30
-    )
-
-    ruta_logo = os.path.join(
-        settings.BASE_DIR,
-        "static",
-        "Imagenes",
-        "logo_hielo_caipe.png"
-    )
-
-    datos_tabla = [
-        [
-            Paragraph(
-                "REPORTE GENERAL DE ASIGNACIONES DE EQUIPOS",
-                estilo_titulo
-            ),
-            "", "", "", "", "", "", "", "", "", ""
-        ],
-        [
-            Paragraph("ID", estilo_encabezado),
-            Paragraph("EMPLEADO", estilo_encabezado),
-            Paragraph("CÉDULA", estilo_encabezado),
-            Paragraph("SUPERVISOR", estilo_encabezado),
-            Paragraph("EQUIPO", estilo_encabezado),
-            Paragraph("CATEGORÍA", estilo_encabezado),
-            Paragraph("ASIGNADA", estilo_encabezado),
-            Paragraph("DEVUELTA", estilo_encabezado),
-            Paragraph("EN POSESIÓN", estilo_encabezado),
-            Paragraph("ESTADO", estilo_encabezado),
-            Paragraph("FECHA DE ENTREGA", estilo_encabezado),
-        ]
-    ]
-
-    for dato in datos:
-        datos_tabla.append([
-            Paragraph(
-                escape(str(dato["id"])),
-                estilo_celda
-            ),
-            Paragraph(
-                escape(dato["empleado"]),
-                estilo_celda
-            ),
-            Paragraph(
-                escape(dato["cedula"]),
-                estilo_celda
-            ),
-            Paragraph(
-                escape(dato["supervisor"]),
-                estilo_celda
-            ),
-            Paragraph(
-                escape(dato["equipo"]),
-                estilo_celda
-            ),
-            Paragraph(
-                escape(dato["categoria"]),
-                estilo_celda
-            ),
-            Paragraph(
-                str(dato["asignada"]),
-                estilo_celda
-            ),
-            Paragraph(
-                str(dato["devuelta"]),
-                estilo_celda
-            ),
-            Paragraph(
-                str(dato["posesion"]),
-                estilo_celda
-            ),
-            Paragraph(
-                escape(dato["estado"]),
-                estilo_celda
-            ),
-            Paragraph(
-                escape(dato["fecha_entrega"]),
-                estilo_celda
-            )
-        ])
-
-    tabla = Table(
-        datos_tabla,
-        colWidths=[
-            25, 100, 60, 90, 85, 65,
-            38, 38, 48, 65, 80
-        ],
-        repeatRows=2,
-        hAlign="CENTER"
-    )
-
-    tabla.setStyle(TableStyle([
-        ("SPAN", (0, 0), (-1, 0)),
-
-        ("BACKGROUND", (0, 0), (-1, 0),
-         colors.HexColor("#00445F")),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("ALIGN", (0, 0), (-1, 0), "CENTER"),
-        ("VALIGN", (0, 0), (-1, 0), "MIDDLE"),
-
-        ("BACKGROUND", (0, 1), (-1, 1),
-         colors.HexColor("#00445F")),
-        ("TEXTCOLOR", (0, 1), (-1, 1), colors.white),
-        ("ALIGN", (0, 1), (-1, 1), "CENTER"),
-        ("VALIGN", (0, 1), (-1, 1), "MIDDLE"),
-
-        ("FONTNAME", (0, 2), (-1, -1), "Times-Roman"),
-        ("FONTSIZE", (0, 2), (-1, -1), 7),
-        ("TEXTCOLOR", (0, 2), (-1, -1), colors.black),
-        ("ALIGN", (0, 2), (-1, -1), "CENTER"),
-        ("VALIGN", (0, 2), (-1, -1), "MIDDLE"),
-
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-
-        ("TOPPADDING", (0, 0), (-1, -1), 6),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-        ("LEFTPADDING", (0, 0), (-1, -1), 3),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 3),
-    ]))
-
-    elementos = [tabla]
-
-    documento.build(
-        elementos,
-        onFirstPage=lambda canvas, documento:
-            encabezado_lista_admin_pdf(
-                canvas,
-                documento,
-                ruta_logo
-            ),
-        onLaterPages=lambda canvas, documento:
-            encabezado_lista_admin_pdf(
-                canvas,
-                documento,
-                ruta_logo
-            )
-    )
-
-    return response
-
-def encabezado_lista_admin_pdf(canvas, documento, ruta_logo):
-    canvas.saveState()
-
-    # LOGO
-    ancho_pagina, alto_pagina = documento.pagesize
-    x_logo = 80
-    y_logo = alto_pagina - 160
-
-    ancho_logo = 180
-    alto_logo = 180
-
-    canvas.drawImage(
-        ruta_logo,
-        x_logo,
-        y_logo,
-        width=ancho_logo,
-        height=alto_logo,
-        preserveAspectRatio=True,
-        mask="auto"
-    )
-
-    # TITULO EMPRESA
-    x_titulo = 270
-    y_titulo = alto_pagina - 80
-
-    canvas.setFont("Times-Bold", 18)
-    canvas.setFillColor(colors.HexColor("#00445F"))
-
-    canvas.drawString(
-        x_titulo,
-        y_titulo,
-        "EMPRESA HIELO CAIPE C.A"
-    )
-
-    # FECHA EN ESPAÑOL
-    meses = [
-        "Enero",
-        "Febrero",
-        "Marzo",
-        "Abril",
-        "Mayo",
-        "Junio",
-        "Julio",
-        "Agosto",
-        "Septiembre",
-        "Octubre",
-        "Noviembre",
-        "Diciembre"
-    ]
-
-    fecha = timezone.now()
-
-    fecha_actual = (
-        f"{fecha.day} de "
-        f"{meses[fecha.month - 1]} de "
-        f"{fecha.year}"
-    )
-
-    # FECHA
-    x_fecha = 300
-    y_fecha = alto_pagina - 120
-
-    canvas.setFont("Times-Bold", 11)
-    canvas.setFillColor(colors.HexColor("#072F3F"))
-
-    canvas.drawString(
-        x_fecha,
-        y_fecha,
-        f"Fecha Generado {fecha_actual}"
-    )
-
-    canvas.restoreState()
 
 def detalle_asignacion_pdf_admin(request):
     if request.method != "POST":

@@ -1,34 +1,67 @@
+function configurarPasos(raizBusqueda = document) {
 
-function configurarPasos() {
-
-    const contenedores = document.querySelectorAll(
-        ".modulo_datos, .modulo_dialogo_detallado"
+    const botones = raizBusqueda.querySelectorAll(
+        ".btn_avanzar, .btn_retroceder"
     );
 
-    if (!contenedores.length) {
-        return;
-    }
+    const contenedores = new Set();
+    let navegacionResultado = null;
+
+    botones.forEach(function (boton) {
+
+        let elemento = boton.parentElement;
+
+        while (elemento && elemento !== document.body) {
+
+            const tienePasos = elemento.querySelector(".paso");
+            const tieneAvanzar = elemento.querySelector(".btn_avanzar");
+            const tieneRetroceder = elemento.querySelector(".btn_retroceder");
+
+            if (
+                tienePasos &&
+                (tieneAvanzar || tieneRetroceder)
+            ) {
+                contenedores.add(elemento);
+                break;
+            }
+
+            elemento = elemento.parentElement;
+        }
+    });
 
     contenedores.forEach(function (contenedor) {
 
         if (contenedor.dataset.pasosConfigurados === "true") {
+
+            if (!navegacionResultado && contenedor._navegacion) {
+                navegacionResultado = contenedor._navegacion;
+            }
+
             return;
         }
 
-        contenedor.dataset.pasosConfigurados = "true";
-
-        const pasos = contenedor.querySelectorAll(".paso");
+        const pasos = Array.from(
+            contenedor.querySelectorAll(".paso")
+        );
 
         if (!pasos.length) {
             return;
         }
 
-        const contexto = contenedor.closest("dialog") || contenedor;
+        contenedor.dataset.pasosConfigurados = "true";
 
-        const btnSiguiente = contexto.querySelector(".btn_avanzar");
-        const btnAtras = contexto.querySelector(".btn_retroceder");
+        const btnSiguiente = contenedor.querySelector(".btn_avanzar");
+        const btnAtras = contenedor.querySelector(".btn_retroceder");
 
-        let pasoActual = 0;
+        const dialogo = contenedor.closest("dialog");
+
+        let pasoActual = pasos.findIndex(function (paso) {
+            return paso.classList.contains("activo");
+        });
+
+        if (pasoActual < 0) {
+            pasoActual = 0;
+        }
 
         function actualizarPaso() {
 
@@ -43,7 +76,6 @@ function configurarPasos() {
                     "activo",
                     indice === pasoActual
                 );
-
             });
 
             if (btnAtras) {
@@ -75,8 +107,10 @@ function configurarPasos() {
 
             if (campoCedula) {
 
-                if (typeof cedulaValida !== "undefined" && !cedulaValida) {
-
+                if (
+                    typeof cedulaValida !== "undefined" &&
+                    !cedulaValida
+                ) {
                     campoCedula.setCustomValidity(
                         "Debe ingresar una cédula válida y disponible."
                     );
@@ -90,10 +124,14 @@ function configurarPasos() {
             }
 
             const campos = paso.querySelectorAll(
-                "input, select, textarea"
+                "input:not([type='hidden']), select, textarea"
             );
 
             for (const campo of campos) {
+
+                if (campo.disabled) {
+                    continue;
+                }
 
                 if (!campo.checkValidity()) {
 
@@ -113,11 +151,21 @@ function configurarPasos() {
             actualizarPaso();
         }
 
+        const navegacion = {
+            reiniciar: reiniciarPasos
+        };
+
+        contenedor._navegacion = navegacion;
+
+        if (!navegacionResultado) {
+            navegacionResultado = navegacion;
+        }
+
         if (btnSiguiente) {
 
-            btnSiguiente.addEventListener("click", function (e) {
+            btnSiguiente.addEventListener("click", function (evento) {
 
-                e.preventDefault();
+                evento.preventDefault();
 
                 if (!validarPasoActual()) {
                     return;
@@ -129,15 +177,14 @@ function configurarPasos() {
 
                     actualizarPaso();
                 }
-
             });
         }
 
         if (btnAtras) {
 
-            btnAtras.addEventListener("click", function (e) {
+            btnAtras.addEventListener("click", function (evento) {
 
-                e.preventDefault();
+                evento.preventDefault();
 
                 if (pasoActual > 0) {
 
@@ -145,19 +192,19 @@ function configurarPasos() {
 
                     actualizarPaso();
                 }
-
             });
         }
-
-        const dialogo = contenedor.closest("dialog");
 
         if (dialogo) {
             dialogo.addEventListener("close", reiniciarPasos);
         }
 
         actualizarPaso();
-
     });
+
+    return navegacionResultado || {
+        reiniciar: function () { }
+    };
 }
 
 configurarPasos();

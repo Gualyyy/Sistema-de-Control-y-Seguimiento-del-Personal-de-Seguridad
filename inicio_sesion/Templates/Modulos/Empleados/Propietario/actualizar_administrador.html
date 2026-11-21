@@ -1,0 +1,232 @@
+{% extends 'Estructura/base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="contenedor_formulario">
+    <div class="contenedor_campos_intermedio">
+        <h2>Actualizar Registro</h2>
+
+        <div class="modulo_registro_tabla">
+
+            <div class="existe_administrador"></div>
+
+            <form method="post" id="formulario_actualizar" class="formulario_registro_tabla">
+                {% csrf_token %}
+
+                <!-- PASO 1 -->
+                <div class="seccion_registro">
+                    <h3>Datos Básicos</h3>
+                    <input type="hidden" name="id_usuario" id="id_usuario">
+
+                    <div class="campo_formulario">
+                        <label for="nombres_usuario">Nombres:</label>
+                        <input type="text" name="nombres" id="nombres_usuario" minlength="3" maxlength="50"
+                            placeholder="Ingresa sus nombres (3 - 50 caracteres)" autocomplete="off" required>
+                    </div>
+
+                    <div class="campo_formulario">
+                        <label for="apellidos_usuario">Apellidos:</label>
+                        <input type="text" name="apellidos" id="apellidos_usuario" minlength="3" maxlength="50"
+                            placeholder="Ingresa sus apellidos (3 - 50 caracteres)" autocomplete="off" required>
+                    </div>
+
+                    <div class="campo_formulario">
+                        <label for="cedula_identidad">Cédula de Identidad:</label>
+                        <div class="grupo_doble">
+                            <select name="nacionalidad" id="nacionalidad" class="select_prefijo" required>
+                                <option value="V">V</option>
+                                <option value="E">E</option>
+                            </select>
+                            <input type="text" name="cedula_identidad" id="cedula_identidad" autocomplete="off"
+                                required>
+                        </div>
+                        <small id="contenedor_mensaje_ci" class="mensaje-feedback"></small>
+                    </div>
+
+                    <div class="campo_formulario">
+                        <label for="genero_usuario">Género (Opcional):</label>
+                        <select name="genero" id="genero_usuario" class="campo_opcional">
+                            <option value="Masculino" selected>Masculino</option>
+                            <option value="Femenino">Femenino</option>
+                        </select>
+                    </div>
+
+                    <div class="campo_formulario">
+                        <label for="estado_civil_usuario">Estado Civil (Opcional):</label>
+                        <select name="estado_civil" id="estado_civil_usuario" class="campo_opcional">
+                            <option value="Casado/a">Casado/a</option>
+                            <option value="Divorciado/a">Divorciado/a</option>
+                            <option value="Soltero/a" selected>Soltero/a</option>
+                            <option value="Viudo/a">Viudo/a</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- PASO 2 -->
+                <div class="seccion_registro">
+                    <h3>Contacto</h3>
+
+                    <div class="campo_formulario">
+                        <label for="num_telefono_principal">Telefono Principal:</label>
+                        <div class="grupo_doble">
+                            <select name="prefijo_principal" id="prefijo_principal" class="select_prefijo"
+                                required></select>
+                            <input type="text" name="numero_principal" id="num_telefono_principal" minlength="7"
+                                maxlength="7" autocomplete="off" required>
+                        </div>
+                        <small id="contenedor_mensaje_telefono_principal" class="mensaje-feedback"></small>
+                    </div>
+
+                    <div class="campo_formulario">
+                        <label for="num_telefono_secundario">Teléfono Secundario (Opcional):</label>
+                        <div class="grupo_doble">
+                            <select name="prefijo_secundaria" id="prefijo_secundario"
+                                class="campo_opcional select_prefijo"></select>
+
+                            <input type="text" name="numero_secundaria" id="num_telefono_secundario" minlength="7"
+                                maxlength="7" autocomplete="off" placeholder="7 dígitos" class="campo_opcional">
+                        </div>
+                        <small id="contenedor_mensaje_telefono_secundario" class="mensaje-feedback"></small>
+                    </div>
+
+                    <div class="campo_formulario">
+                        <label for="correo_principal">Correo Electronico Principal:</label>
+
+                        <div class="grupo_doble">
+                            <input type="text" name="correo_principal" id="correo_principal" minlength="5"
+                                maxlength="20" placeholder="Correo Electronico Principal (5-20 caracteres máximo)"
+                                autocomplete="off" required>
+
+                            <select name="dominio_principal" id="dominio_principal" class="select_dominio"></select>
+                        </div>
+                        <small id="contenedor_mensaje_correo_principal" class="mensaje-feedback"></small>
+                    </div>
+
+                    <div class="campo_formulario">
+                        <label for="correo_secundario">Correo Electronico Secundaria (Opcional):</label>
+
+                        <div class="grupo_doble">
+                            <input type="text" name="correo_secundaria" id="correo_secundario" minlength="5"
+                                maxlength="20" placeholder="Correo Electronico Secundario (5-20 caracteres máximo)"
+                                autocomplete="off" class="campo_opcional">
+
+                            <select name="dominio_secundaria" id="dominio_secundaria"
+                                class="campo_opcional select_dominio"></select>
+                        </div>
+
+                        <small id="contenedor_mensaje_correo_secundario" class="mensaje-feedback"></small>
+                    </div>
+                </div>
+
+                <div class="seccion_registro">
+                    <h3>Nacimiento</h3>
+
+                    <div class="campo_formulario">
+                        <label for="pais_nacimiento">País:</label>
+                        <select name="actualizar_pais_nacimiento" id="pais_nacimiento" class="campo_opcional"></select>
+                    </div>
+
+                    <div class="campo_formulario">
+                        <label for="estado_nacimiento">Estado:</label>
+                        <select name="actualizar_estado_nacimiento" id="estado_nacimiento"
+                            class="campo_opcional"></select>
+
+                        <input type="text" name="actualizar_estado_nacimiento_nvzla" id="estado_novzla" hidden
+                            autocomplete="off">
+                    </div>
+
+                    <div class="campo_formulario">
+                        <label for="municipio_nacimiento">Municipio:</label>
+                        <select name="actualizar_municipio_nacimiento" id="municipio_nacimiento"
+                            class="campo_opcional"></select>
+
+                        <input type="text" name="actualizar_municipio_nacimiento_nvzla" id="municipio_novzla" hidden
+                            autocomplete="off">
+                    </div>
+
+                    <div class="campo_formulario">
+                        <label for="parroquia_nacimiento">Parroquia:</label>
+                        <select name="actualizar_parroquia_nacimiento" id="parroquia_nacimiento"
+                            class="campo_opcional"></select>
+
+                        <input type="text" name="actualizar_parroquia_nacimiento_nvzla" id="parroquia_novzla" hidden
+                            autocomplete="off">
+                    </div>
+
+                    <div class="campo_formulario">
+                        <label for="fecha_nacimiento_usuario">Fecha de Nacimiento:</label>
+                        <input type="date" name="actualizar_fecha_nacimiento" id="fecha_nacimiento_usuario"
+                            class="campo_opcional">
+                    </div>
+
+                    <div class="campo_formulario">
+                        <label for="direccion_nacimiento">Dirección:</label>
+                        <textarea name="actualizar_direccion_nacimiento" id="direccion_nacimiento" maxlength="200"
+                            placeholder="Cuenta con 200 caracteres como maximo para indicar su dirección de nacimiento."
+                            class="campo_opcional"></textarea>
+
+                        <div class="contador_caracteres">
+                            <span id="contador_nacimiento">0</span> / 200 caracteres
+                        </div>
+                    </div>
+                </div>
+
+                <div class="seccion_registro">
+                    <h3>Residencia</h3>
+
+                    <div class="campo_formulario">
+                        <label for="actualizar_condicion_residencia_usuario">Condición de Residencia:</label>
+                        <select name="actualizar_condicion_residencia" id="actualizar_condicion_residencia_usuario"
+                            class="campo_opcional">
+                            <option value="Propietario" selected>Propietario</option>
+                            <option value="Alquilado">Alquilado</option>
+                            <option value="Familiar">Familiar</option>
+                            <option value="Prestado">Prestado</option>
+                            <option value="Compartido">Compartido</option>
+                        </select>
+                    </div>
+
+                    <div class="campo_formulario">
+                        <label for="municipio_residencia">Municipio:</label>
+                        <select name="actualizar_municipio_residencia" id="municipio_residencia"
+                            class="campo_opcional"></select>
+                    </div>
+
+                    <div class="campo_formulario">
+                        <label for="parroquia_residencia">Parroquia:</label>
+                        <select name="actualizar_parroquia_residencia" id="parroquia_residencia"
+                            class="campo_opcional"></select>
+                    </div>
+
+                    <div class="campo_formulario">
+                        <label for="direccion_domicilio">Dirección:</label>
+                        <textarea name="actualizar_direccion_residencia" id="direccion_domicilio" maxlength="200"
+                            placeholder="Cuenta con 200 caracteres como maximo para indicar su dirección de nacimiento."
+                            class="campo_opcional"></textarea>
+                        <div class="contador_caracteres">
+                            <span id="contador_residencia">0</span> / 200 caracteres
+                        </div>
+                    </div>
+                </div>
+
+                <div class="contenedor_boton_submit">
+                    <button type="submit" class="btn_submit" id="btn_actualizar">
+                        <i class="fa-regular fa-floppy-disk"></i>
+                        Actualizar
+                    </button>
+                </div>
+            </form>
+        </div>
+
+    </div>
+</section>
+
+<script src="{% static 'Funcionalidades/cedula_identidad.js' %}"></script>
+<script src="{% static 'Funcionalidades/correo_electronico.js' %}"></script>
+<script src="{% static 'Funcionalidades/telefono.js' %}"></script>
+<script src="{% static 'Funcionalidades/fecha_nacimiento.js' %}"></script>
+<script src="{% static 'Funcionalidades_Asincronas/empleados/propietario/actualizar_administrador.js' %}"></script>
+
+{% endblock %}

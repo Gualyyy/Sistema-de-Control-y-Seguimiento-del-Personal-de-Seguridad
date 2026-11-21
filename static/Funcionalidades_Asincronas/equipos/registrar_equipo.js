@@ -44,7 +44,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const resultado = await respuesta.json();
             console.log(resultado);
 
-            select_categoria_equipo.innerHTML = "<option selected>Seleccione la categoria</option>";
+            select_categoria_equipo.innerHTML = "";
 
             resultado.forEach(categoria => {
                 const option_categoria = document.createElement("option");

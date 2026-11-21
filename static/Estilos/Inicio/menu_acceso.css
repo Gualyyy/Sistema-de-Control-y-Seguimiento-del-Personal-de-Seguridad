@@ -1,0 +1,313 @@
+/* CONTENEDOR PRINCIPAL */
+.pagina_menu_acceso {
+    width: 100%;
+    min-height: 100%;
+    box-sizing: border-box;
+    padding: 24px;
+    background: #f3f7f9;
+}
+
+/* CONTENEDOR PRINCIPAL */
+.pagina_menu_acceso {
+    width: 100%;
+    min-height: 100%;
+    box-sizing: border-box;
+    padding: 24px;
+    background: #f3f7f9;
+}
+
+/* CONTENEDOR DEL MENÚ */
+.conetenedor_menu_acceso {
+    position: relative;
+    width: 100%;
+    max-width: 1050px;
+    box-sizing: border-box;
+    margin: 0 auto;
+    padding: 65px 28px 28px;
+    background: #ffffff;
+    border: 2px solid #00779e;
+    border-radius: 12px;
+    box-shadow: 0 4px 14px rgba(0, 68, 95, 0.08);
+}
+
+/* CONTENEDOR DEL BOTÓN REGRESAR */
+.conetenedor_menu_acceso .contenedor_retroceso {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    width: max-content;
+    min-height: 42px;
+    padding: 0;
+    background: #00445f;
+    border-radius: 10px 0 12px 0;
+    overflow: hidden;
+}
+
+/* ENLACE REGRESAR */
+.conetenedor_menu_acceso .contenedor_retroceso a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    width: auto;
+    max-width: none;
+    min-height: 42px;
+    box-sizing: border-box;
+    padding: 0 18px;
+    background: #00445f;
+    border: none;
+    border-radius: 0;
+    color: #fffbf4;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background 0.25s ease;
+}
+
+/* HOVER */
+.conetenedor_menu_acceso .contenedor_retroceso a:hover {
+    background: #00779e;
+    color: #ffffff;
+}
+
+/* ICONO */
+.conetenedor_menu_acceso .contenedor_retroceso a i {
+    font-size: 14px;
+}
+
+/* ENCABEZADO */
+.encabezado_menu_acceso {
+    margin-bottom: 30px;
+    text-align: center;
+}
+
+/* CONTENEDOR DEL MENÚ */
+.conetenedor_menu_acceso {
+    width: 100%;
+    max-width: 1050px;
+    box-sizing: border-box;
+    margin: 0 auto;
+    padding: 28px;
+    background: #ffffff;
+    border: 2px solid #00779e;
+    border-radius: 12px;
+    box-shadow: 0 4px 14px rgba(0, 68, 95, 0.08);
+}
+
+/* ENCABEZADO */
+.encabezado_menu_acceso {
+    margin-bottom: 30px;
+    text-align: center;
+}
+
+.encabezado_menu_acceso h2 {
+    margin: 0 0 10px;
+    color: #00445f;
+    font-size: 26px;
+    font-weight: 700;
+}
+
+.encabezado_menu_acceso p {
+    margin: 0;
+    color: #607581;
+    font-size: 15px;
+    line-height: 1.6;
+}
+
+/* OPCIONES DEL MENÚ */
+.opciones_acceso {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px;
+    align-items: stretch;
+}
+
+/* TARJETAS */
+.contenedor_registrar_credenciales,
+.contenedor_registrar_cliente {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 24px;
+    background: #ffffff;
+    border: 2px solid #dce5eb;
+    border-radius: 12px;
+    text-align: center;
+    transition:
+        border-color 0.25s ease,
+        box-shadow 0.25s ease,
+        transform 0.25s ease;
+}
+
+.contenedor_registrar_credenciales:hover,
+.contenedor_registrar_cliente:hover {
+    border-color: #00779e;
+    box-shadow: 0 5px 16px rgba(0, 68, 95, 0.10);
+    transform: translateY(-3px);
+}
+
+/* IMÁGENES */
+.imagen_acceso {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 175px;
+    margin-bottom: 18px;
+}
+
+.imagen_acceso img {
+    display: block;
+    width: 100%;
+    max-width: 190px;
+    height: 100%;
+    object-fit: contain;
+}
+
+/* TÍTULOS DE LAS TARJETAS */
+.contenedor_registrar_credenciales h3,
+.contenedor_registrar_cliente h3 {
+    margin: 0 0 12px;
+    color: #00445f;
+    font-size: 20px;
+    font-weight: 700;
+}
+
+/* DESCRIPCIONES */
+.contenedor_registrar_credenciales p,
+.contenedor_registrar_cliente p {
+    flex: 1;
+    margin: 0 0 24px;
+    color: #607581;
+    font-size: 14px;
+    line-height: 1.7;
+}
+
+/* BOTONES DE ACCESO */
+.boton_acceso {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    max-width: 260px;
+    min-height: 46px;
+    box-sizing: border-box;
+    padding: 11px 16px;
+    background: #00445f;
+    border: 2px solid #00445f;
+    border-radius: 7px;
+    color: #fffbf4;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition:
+        background 0.25s ease,
+        border-color 0.25s ease,
+        box-shadow 0.25s ease,
+        transform 0.25s ease;
+}
+
+.boton_acceso:hover {
+    background: #00779e;
+    border-color: #00779e;
+    color: #ffffff;
+    box-shadow: 0 3px 9px rgba(0, 68, 95, 0.15);
+}
+
+.boton_acceso:active {
+    transform: scale(0.98);
+}
+
+.boton_acceso:focus-visible {
+    outline: 3px solid rgba(0, 119, 158, 0.35);
+    outline-offset: 3px;
+}
+
+/* FLECHA DEL BOTÓN */
+.boton_acceso .flecha_boton {
+    margin-left: auto;
+    transition: transform 0.25s ease;
+}
+
+.boton_acceso:hover .flecha_boton {
+    transform: translateX(4px);
+}
+
+/* TABLET Y MÓVILES */
+@media (max-width: 768px) {
+    .pagina_menu_acceso {
+        padding: 18px;
+    }
+
+    .conetenedor_menu_acceso {
+        padding: 65px 22px 22px;
+    }
+
+
+    .opciones_acceso {
+        gap: 16px;
+    }
+
+    .contenedor_registrar_credenciales,
+    .contenedor_registrar_cliente {
+        padding: 18px;
+    }
+
+    .imagen_acceso {
+        height: 145px;
+    }
+
+    .encabezado_menu_acceso h2 {
+        font-size: 23px;
+    }
+
+    .contenedor_registrar_credenciales h3,
+    .contenedor_registrar_cliente h3 {
+        font-size: 18px;
+    }
+}
+
+/* MÓVILES ESTRECHOS */
+@media (max-width: 540px) {
+    .pagina_menu_acceso {
+        padding: 14px;
+    }
+
+    .conetenedor_menu_acceso {
+        padding: 65px 15px 20px;
+    }
+
+    .conetenedor_menu_acceso .contenedor_retroceso {
+        min-height: 38px;
+        padding: 0 15px;
+    }
+
+    .conetenedor_menu_acceso .contenedor_retroceso a {
+        font-size: 13px;
+    }
+
+    .opciones_acceso {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 18px;
+    }
+
+    .imagen_acceso {
+        height: 155px;
+    }
+
+    .contenedor_registrar_credenciales,
+    .contenedor_registrar_cliente {
+        padding: 22px 18px;
+    }
+
+    .boton_acceso {
+        max-width: 100%;
+    }
+}

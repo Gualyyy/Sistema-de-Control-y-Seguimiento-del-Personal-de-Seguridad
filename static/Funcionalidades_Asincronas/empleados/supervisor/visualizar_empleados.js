@@ -1,4 +1,4 @@
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
 
     const dialogo_empleado = document.getElementById("dialogo_empleado");
     const btn_cerrar = document.getElementById("btn_cerrar");
@@ -33,13 +33,17 @@ document.addEventListener("DOMContentLoaded", () => {
     const parroquia_residencia = document.getElementById("parroquia_residencia");
     const direccion_domicilio = document.getElementById("direccion_domicilio");
 
-    const lista_empleados_pdf = document.getElementById("lista_empleados_pdf");
-    const datos_empleado_pdf = document.getElementById("datos_empleado_pdf");
+    const btn_ret = document.querySelector(".botones_navegacion .btn_ret");
+    const btn_av = document.querySelector(".botones_navegacion .btn_av");
+
+    let empleados_registrados = [];
+    let pagina_actual = 0;
+
+    const filas_por_pagina = 10;
 
     let nacionalidad = "", cedula = "", cedulaUsuario = "", perfil = "";
 
-    configurarPasos(".contenedor_datos_contenido");
-    configurarCedula(input_cedula_identidad, select_nacionalidad);
+    configurarCedula(input_cedula_identidad, select_nacionalidad)
 
     function perfiles_registrados() {
         const perfiles = [
@@ -48,7 +52,7 @@ document.addEventListener("DOMContentLoaded", () => {
             "Vigilante"
         ];
 
-        select_perfiles_registrados.innerHTML = "<option value='' selected>Selecciona un Perfil</option>";
+        select_perfiles_registrados.innerHTML = "<option value='' selected>Todos los Perfiles</option>";
 
         perfiles.forEach(perfil => {
             const option = document.createElement("option");
@@ -59,27 +63,30 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     perfiles_registrados();
 
-    select_perfiles_registrados.addEventListener("change", async () => {
-        perfil = select_perfiles_registrados.value;
-
+    document.addEventListener("DOMContentLoaded", async () => {
         await usuarios_registrados();
     });
 
     select_nacionalidad.addEventListener("change", async () => {
-        nacionalidad = select_nacionalidad.value;
-
         await usuarios_registrados();
     });
 
     input_cedula_identidad.addEventListener("input", async () => {
-        cedula = input_cedula_identidad.value;
+        await usuarios_registrados();
+    });
 
+    select_perfiles_registrados.addEventListener("input", async () => {
         await usuarios_registrados();
     });
 
     async function usuarios_registrados() {
         try {
             const formulario = new FormData();
+
+            nacionalidad = select_nacionalidad.value;
+            cedula = input_cedula_identidad.value.trim();
+            perfil = select_perfiles_registrados.value;
+
             formulario.append("nacionalidad", nacionalidad);
             formulario.append("cedula", cedula);
             formulario.append("perfil", perfil);
@@ -93,7 +100,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 },
                 body: formulario
             });
+
             const resultado = await respuesta.json();
+
             console.log(resultado);
 
             if (resultado.estado === "fallo") {
@@ -102,27 +111,99 @@ document.addEventListener("DOMContentLoaded", () => {
                     text: resultado.descripcion,
                     icon: resultado.icon
                 });
+
                 return;
             }
 
-            contenedor_empleados.innerHTML = "";
+            empleados_registrados = resultado.empleados || [];
+            pagina_actual = 0;
 
-            resultado.empleados.forEach((usuario, index) => {
-                contenedor_empleados.innerHTML += `
-                <tr data-cedula="${usuario.cedula}">
-                    <td>${index + 1}</td>
-                    <td>${usuario.nombres}</td>
-                    <td>${usuario.apellidos}</td>
-                    <td>${usuario.cedula}</td>
-                    <td>${usuario.perfil}</td>
-                    <td>${usuario.turno}</td>
-                </tr>
-            `;
-            });
+            mostrar_empleados();
+
         } catch (error) {
             console.error(error);
         }
     }
+
+    /* MOSTRAR EMPLEADOS POR PÁGINA */
+
+    function mostrar_empleados() {
+        contenedor_empleados.innerHTML = "";
+
+        const inicio = pagina_actual * filas_por_pagina;
+        const fin = inicio + filas_por_pagina;
+
+        const empleados_pagina = empleados_registrados.slice(inicio, fin);
+
+        if (empleados_pagina.length === 0) {
+            contenedor_empleados.innerHTML = `
+            <tr>
+                <td colspan="6" class="texto_sin_registros">
+                    No se encuentra empleado registrado.
+                </td>
+            </tr>
+        `;
+        } else {
+            empleados_pagina.forEach((usuario, index) => {
+                const fila = document.createElement("tr");
+                fila.dataset.cedula = usuario.cedula;
+
+                const valores = [
+                    inicio + index + 1,
+                    usuario.nombres,
+                    usuario.apellidos,
+                    usuario.cedula,
+                    usuario.perfil
+                ];
+
+                valores.forEach(valor => {
+                    const celda = document.createElement("td");
+                    celda.textContent = valor ?? "";
+                    fila.appendChild(celda);
+                });
+
+                contenedor_empleados.appendChild(fila);
+            });
+        }
+
+        actualizar_botones();
+    }
+
+    /* ACTUALIZAR ESTADO DE LOS BOTONES */
+    function actualizar_botones() {
+        const total_paginas = Math.ceil(
+            empleados_registrados.length / filas_por_pagina
+        );
+
+        btn_ret.disabled = pagina_actual === 0;
+
+        btn_av.disabled = pagina_actual >= total_paginas - 1;
+    }
+
+    /* RETROCEDER */
+    btn_ret.addEventListener("click", function (e) {
+        e.preventDefault();
+
+        if (pagina_actual > 0) {
+            pagina_actual--;
+            mostrar_empleados();
+        }
+    });
+
+    /* AVANZAR */
+    btn_av.addEventListener("click", function (e) {
+        e.preventDefault();
+
+        const total_paginas = Math.ceil(
+            empleados_registrados.length / filas_por_pagina
+        );
+
+        if (pagina_actual < total_paginas - 1) {
+            pagina_actual++;
+            mostrar_empleados();
+        }
+    });
+
     usuarios_registrados();
 
     contenedor_empleados.addEventListener("click", async (e) => {
@@ -192,73 +273,4 @@ document.addEventListener("DOMContentLoaded", () => {
         dialogo_empleado.close();
     });
 
-    lista_empleados_pdf.addEventListener("click", async () => {
-        try {
-            const formulario = new FormData();
-            formulario.append("csrfmiddlewaretoken", document.querySelector('[name="csrfmiddlewaretoken"]').value);
-            formulario.append("tab_id", document.body.dataset.tabId);
-            formulario.append("perfil", select_perfiles_registrados.value);
-
-            const respuesta = await fetch("/lista_empleado_supervisor_pdf/", {
-                method: "POST",
-                body: formulario
-            });
-            const tipoContenido = respuesta.headers.get("content-type");
-            if (tipoContenido.includes("application/json")) {
-                const resultado = await respuesta.json();
-                Swal.fire({
-                    title: resultado.title,
-                    text: resultado.descripcion,
-                    icon: resultado.icon
-                });
-                return;
-            }
-
-            const archivo = await respuesta.blob();
-            const url = URL.createObjectURL(archivo);
-            window.open(url, "_blank");
-
-            setTimeout(() => URL.revokeObjectURL(url), 60000);
-
-        } catch (error) {
-            console.error(error);
-        }
-    });
-
-    datos_empleado_pdf.addEventListener("click", async () => {
-        const idUsuario = document.querySelector("#id_empleado").value;
-
-        const formulario = new FormData();
-        formulario.append("csrfmiddlewaretoken", document.querySelector('[name="csrfmiddlewaretoken"]').value);
-        formulario.append("tab_id", document.body.dataset.tabId);
-        formulario.append("id_usuario", idUsuario);
-
-        try {
-            const respuesta = await fetch("/datos_empleados_pdf/", {
-                method: "POST",
-                body: formulario
-            });
-
-            const tipoContenido = respuesta.headers.get("content-type") || "";
-            if (tipoContenido.includes("application/json")) {
-                const resultado = await respuesta.json();
-
-                Swal.fire({
-                    title: resultado.title,
-                    text: resultado.descripcion,
-                    icon: resultado.icon
-                });
-                return;
-            }
-
-            const archivo = await respuesta.blob();
-            const url = URL.createObjectURL(archivo);
-            window.open(url, "_blank");
-
-            setTimeout(() => URL.revokeObjectURL(url), 60000);
-
-        } catch (error) {
-            console.error(error);
-        }
-    });
 });

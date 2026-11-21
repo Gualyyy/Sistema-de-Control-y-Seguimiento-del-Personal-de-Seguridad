@@ -1,0 +1,729 @@
+// @ts-check
+import Fill from '../modules/Fill'
+import Graphics from '../modules/Graphics'
+import Markers from '../modules/Markers'
+import DataLabels from '../modules/DataLabels'
+import Filters from '../modules/Filters'
+import Utils from '../utils/Utils'
+import Helpers from './common/circle/Helpers'
+import CoreUtils from '../modules/CoreUtils'
+import Series from '../modules/Series'
+import { prevRecords } from './common/PreviousPaths'
+
+/**
+ * ApexCharts Radar Class for Spider/Radar Charts.
+ * @module Radar
+ **/
+
+// Radius of the invisible hover target kept for a marker the user has hidden
+// (`markers.size: 0`). Matches the radar default marker size, see the note at
+// its use site in drawSeriesMarkers.
+const RADAR_HIT_AREA_SIZE = 5
+
+/**
+ * A radar path scaled `k` times about the web's centre (its group's origin).
+ * Radar paths are absolute M/L/Z polygons, so every number in them is a
+ * coordinate and scales alike; a path with an arc is left alone (its flags
+ * would scale too).
+ *
+ * @param {string | null} d
+ * @param {number} k
+ * @returns {string | null}
+ */
+function scalePath(d, k) {
+  if (!d || k === 1 || !Number.isFinite(k) || /[aA]/.test(d)) return d
+  return d.replace(/-?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?/gi, (n) =>
+    String(parseFloat(n) * k),
+  )
+}
+
+class Radar {
+  /**
+   * @param {import('../types/internal').ChartStateW} w
+   * @param {import('../types/internal').ChartContext} ctx
+   */
+  constructor(w, ctx) {
+    this.ctx = ctx
+    this.w = w
+
+    this.chartType = this.w.config.chart.type
+
+    this.initialAnim = this.w.config.chart.animations.enabled
+    this.dynamicAnim =
+      this.initialAnim &&
+      this.w.config.chart.animations.dynamicAnimation.enabled
+
+    this.animDur = 0
+
+    this.graphics = new Graphics(this.w)
+
+    this.lineColorArr =
+      w.globals.stroke.colors !== undefined
+        ? w.globals.stroke.colors
+        : w.globals.colors
+
+    this.defaultSize =
+      w.globals.svgHeight < w.globals.svgWidth
+        ? w.layout.gridHeight
+        : w.layout.gridWidth
+
+    this.isLog = w.config.yaxis[0].logarithmic
+    this.logBase = w.config.yaxis[0].logBase
+
+    this.coreUtils = new CoreUtils(this.w)
+    this.maxValue = this.isLog
+      ? this.coreUtils.getLogVal(this.logBase, w.globals.maxY, 0)
+      : w.globals.maxY
+    this.minValue = this.isLog
+      ? this.coreUtils.getLogVal(this.logBase, this.w.globals.minY, 0)
+      : w.globals.minY
+
+    this.polygons = w.config.plotOptions.radar.polygons
+
+    this.strokeWidth = w.config.stroke.show ? w.config.stroke.width : 0
+
+    this.size =
+      this.defaultSize / 2.1 - this.strokeWidth - w.config.chart.dropShadow.blur
+
+    if (w.config.xaxis.labels.show) {
+      this.size = this.size - w.layout.xAxisLabelsWidth / 1.75
+    }
+
+    if (w.config.plotOptions.radar.size !== undefined) {
+      this.size = w.config.plotOptions.radar.size
+    }
+
+    this.dataRadiusOfPercent = /** @type {any} */ ([])
+    this.dataRadius = /** @type {any} */ ([])
+    this.angleArr = /** @type {any} */ ([])
+    this.dataPointsLen = 0
+    this.disAngle = 0
+
+    /** @type {any} */
+    /** @type {any[]} */
+    this.yaxisLabelsTextsPos = []
+  }
+
+  /**
+   * @param {any[]} series
+   */
+  draw(series) {
+    const w = this.w
+    const fill = new Fill(this.w)
+
+    /** @type {any[]} */
+    const allSeries = []
+    const dataLabels = new DataLabels(this.w, this.ctx)
+
+    if (series.length) {
+      this.dataPointsLen = series[w.globals.maxValsInArrayIndex].length
+    }
+    this.disAngle = (Math.PI * 2) / this.dataPointsLen
+
+    const halfW = w.layout.gridWidth / 2
+    const halfH = w.layout.gridHeight / 2
+    const translateX = halfW + w.config.plotOptions.radar.offsetX
+    const translateY = halfH + w.config.plotOptions.radar.offsetY
+
+    const ret = this.graphics.group({
+      class: 'apexcharts-radar-series apexcharts-plot-series',
+      transform: `translate(${translateX || 0}, ${translateY || 0})`,
+    })
+
+    // Where the web lands on screen, for CircleTransition.
+    w.globals.circleGeometry = {
+      node: ret.node,
+      cx: translateX || 0,
+      cy: translateY || 0,
+      r: this.size,
+    }
+
+    // The previous polygons are in the previous render's pixels, around its
+    // radius. When the chrome resized the web, CircleTransition scales this
+    // render back to the old radius on the first frame, so they are restated
+    // at this one's radius first, or that scale would count twice.
+    const prevFrame = w.globals.prevCircleFrame
+    const fromScale =
+      prevFrame && prevFrame.type === 'radar' && prevFrame.rendered.r > 0
+        ? this.size / prevFrame.rendered.r
+        : 1
+
+    /** @type {any[]} */
+    let dataPointsPos = []
+    /** @type {any | null} */
+    let elPointsMain = null
+    /** @type {any | null} */
+    let elDataPointsMain = null
+
+    this.yaxisLabels = this.graphics.group({
+      class: 'apexcharts-yaxis',
+    })
+
+    /**
+     * @param {number[]} s
+     * @param {number} i
+     */
+    series.forEach((s, i) => {
+      const longestSeries = s.length === w.globals.dataPoints
+
+      // el to which series will be drawn
+      const elSeries = this.graphics.group().attr({
+        class: `apexcharts-series`,
+        'data:longestSeries': longestSeries,
+        seriesName: Utils.escapeString(w.seriesData.seriesNames[i]),
+        rel: i + 1,
+        'data:realIndex': i,
+      })
+
+      // A legend-hidden series keeps its shape in the DOM (unpainted at rest
+      // via -collapsed), and stays painted for its exit via -collapsing.
+      Series.addCollapsedClassToSeries(this.w, elSeries, i)
+
+      this.dataRadiusOfPercent[i] = []
+      this.dataRadius[i] = []
+      this.angleArr[i] = []
+
+      // A hidden series arrives with no data and used to draw a single stray
+      // point, so it vanished on the click and popped back fully formed. Its
+      // shape is every value at zero instead, collapsed into the center: the
+      // radar's baseline. Hiding then shrinks the polygon into the center and
+      // showing it grows back out. Only the shape: markers and labels below
+      // still iterate the real (empty) row, so nothing is drawn or hoverable.
+      const collapsed =
+        s.length === 0 &&
+        (w.globals.collapsedSeriesIndices.indexOf(i) > -1 ||
+          w.globals.ancillaryCollapsedSeriesIndices.indexOf(i) > -1)
+      if (collapsed) {
+        for (let j = 0; j < w.globals.dataPoints; j++) {
+          this.dataRadiusOfPercent[i][j] = 0
+          this.dataRadius[i][j] = 0
+          this.angleArr[i][j] = j * this.disAngle
+        }
+      }
+
+      /**
+       * @param {number} dv
+       * @param {number} j
+       */
+      s.forEach((/** @type {any} */ dv, /** @type {any} */ j) => {
+        const range = Math.abs(this.maxValue - this.minValue)
+        // below yaxis.min sits at the centre, not on the opposite spoke
+        dv = Math.max(0, dv - this.minValue)
+
+        if (this.isLog) {
+          dv = this.coreUtils.getLogVal(this.logBase, dv, 0)
+        }
+
+        this.dataRadiusOfPercent[i][j] = dv / range
+
+        this.dataRadius[i][j] = this.dataRadiusOfPercent[i][j] * this.size
+        this.angleArr[i][j] = j * this.disAngle
+      })
+
+      dataPointsPos = this.getDataPointsPos(
+        this.dataRadius[i],
+        this.angleArr[i],
+      )
+      const paths = this.createPaths(dataPointsPos, {
+        x: 0,
+        y: 0,
+      })
+
+      // points
+      elPointsMain = this.graphics.group({
+        class: 'apexcharts-series-markers-wrap apexcharts-element-hidden',
+      })
+
+      // datapoints
+      elDataPointsMain = this.graphics.group({
+        class: `apexcharts-datalabels`,
+        'data:realIndex': i,
+      })
+
+      w.globals.delayedElements.push({
+        el: elPointsMain.node,
+        index: i,
+      })
+
+      const defaultRenderedPathOptions = {
+        i,
+        realIndex: i,
+        animationDelay: i,
+        initialSpeed: w.config.chart.animations.speed,
+        dataChangeSpeed: w.config.chart.animations.dynamicAnimation.speed,
+        className: `apexcharts-radar`,
+        shouldClipToGrid: false,
+        bindEventsOnPaths: false,
+        stroke: w.globals.stroke.colors[i],
+        strokeLinecap: w.config.stroke.lineCap,
+      }
+
+      let pathFrom = null
+
+      if (w.globals.previousPaths.length > 0) {
+        pathFrom = scalePath(this.getPreviousPath(i), fromScale)
+      }
+
+      for (let p = 0; p < paths.linePathsTo.length; p++) {
+        const renderedLinePath = this.graphics.renderPaths({
+          ...defaultRenderedPathOptions,
+          pathFrom: pathFrom === null ? paths.linePathsFrom[p] : pathFrom,
+          pathTo: paths.linePathsTo[p],
+          strokeWidth: Array.isArray(this.strokeWidth)
+            ? this.strokeWidth[i]
+            : this.strokeWidth,
+          fill: 'none',
+          drawShadow: false,
+        })
+
+        elSeries.add(renderedLinePath)
+
+        const pathFill = fill.fillPath({
+          seriesNumber: i,
+        })
+
+        const renderedAreaPath = this.graphics.renderPaths({
+          ...defaultRenderedPathOptions,
+          pathFrom: pathFrom === null ? paths.areaPathsFrom[p] : pathFrom,
+          pathTo: paths.areaPathsTo[p],
+          strokeWidth: 0,
+          fill: pathFill,
+          drawShadow: false,
+          // Radial mask: the area fill blooms outward from the radar's center
+          // (in this group's local coords) instead of the default L→R rect wipe.
+          drawMask: { type: 'radial', cx: 0, cy: 0, r: this.size },
+        })
+
+        if (w.config.chart.dropShadow.enabled) {
+          const filters = new Filters(this.w)
+
+          const shadow = w.config.chart.dropShadow
+          filters.dropShadow(
+            renderedAreaPath,
+            Object.assign({}, shadow, { noUserSpaceOnUse: true }),
+            i,
+          )
+        }
+
+        elSeries.add(renderedAreaPath)
+      }
+
+      // one per series: it indexes markers.discrete on first use
+      const markers = new Markers(this.w, this.ctx)
+      const filters = new Filters(this.w)
+      // One marker group per series, created on first use. Real markers share
+      // a group that delegates the marker events once (as line and scatter
+      // do). The invisible `markers.size: 0` hit areas get their own group
+      // with no delegation: no marker means no marker events, exactly as a
+      // line chart without markers. The tooltip still resolves hover on them
+      // through its own listeners (#1575).
+      /** @type {any | null} */
+      let elPointsWrap = null
+      /** @type {any | null} */
+      let elHitWrap = null
+      /**
+       * @param {any} sj
+       * @param {number} j
+       */
+      s.forEach((/** @type {any} */ sj, /** @type {any} */ j) => {
+        const opts = markers.getMarkerConfig({
+          cssClass: 'apexcharts-marker',
+          seriesIndex: i,
+          dataPointIndex: j,
+        })
+
+        // A radar is hit-tested purely through these marker elements: unlike
+        // line/area it has no plot-area hover with nearest-point resolution, so
+        // there is nothing else to hover. With `markers.size: 0` the marker path
+        // is degenerate, occupies a 0x0 box, and the chart therefore has no
+        // tooltip at all in any mode. Keep an invisible hit area at a usable
+        // radius so hover still resolves. See #1575.
+        //
+        // Painted `transparent` rather than hidden: `visibility`/`display` or a
+        // `none` fill would stop it receiving pointer events, whereas a
+        // transparent fill still hit-tests and paints nothing.
+        //
+        // `default-marker-size` is written from `opts.pSize` below, so it ends
+        // up as the hit radius rather than 0. That is deliberate: Marker.js
+        // treats `default-marker-size === '0'` as "hidden", skipping the
+        // hover-grow in `newPointSize` and resetting the path to `M0,0` in
+        // `resetPointsSize`, which would erase the hit area after the first
+        // hover. A real radius keeps it through the hover cycle, and since every
+        // paint stays transparent the marker is still invisible throughout.
+        // The radius matches the radar default marker size, so the hit area has
+        // exactly the footprint a visible marker would have. That matters:
+        // neighbouring series can sit ~11px apart at the same category, so a
+        // larger area (8 was tried) overlaps the next series' point and steals
+        // its hover, captioning the wrong series. Matching the default keeps
+        // hit-resolution identical to a radar drawn with ordinary markers.
+        const isHitArea = !opts.pSize
+        if (isHitArea) {
+          opts.pSize = RADAR_HIT_AREA_SIZE
+          opts.pointFillColor = 'transparent'
+          opts.pointStrokeColor = 'transparent'
+          opts.pointStrokeWidth = 0
+        }
+
+        const point = this.graphics.drawMarker(
+          dataPointsPos[j].x,
+          dataPointsPos[j].y,
+          opts,
+        )
+
+        point.attr('rel', j)
+        point.attr('j', j)
+        point.attr('index', i)
+        point.node.setAttribute('default-marker-size', opts.pSize)
+
+        if (isHitArea) {
+          if (!elHitWrap) {
+            elHitWrap = this.graphics.group({
+              class: 'apexcharts-series-markers',
+            })
+            elPointsMain.add(elHitWrap)
+          }
+          elHitWrap.add(point)
+        } else {
+          if (!elPointsWrap) {
+            elPointsWrap = this.graphics.group({
+              class: 'apexcharts-series-markers',
+            })
+            markers.setupMarkerDelegation(elPointsWrap)
+            elPointsMain.add(elPointsWrap)
+          }
+          // a selected point keeps its active state across redraws
+          filters.setSelectionFilter(point, i, j)
+          elPointsWrap.add(point)
+        }
+
+        elSeries.add(elPointsMain)
+
+        const dataLabelsConfig = w.config.dataLabels
+
+        if (dataLabelsConfig.enabled) {
+          // `ctx` as on the other charts labelled at a point (DataLabels)
+          const text = dataLabelsConfig.formatter(w.seriesData.series[i][j], {
+            ctx: this.ctx,
+            seriesIndex: i,
+            dataPointIndex: j,
+            w,
+          })
+
+          dataLabels.plotDataLabelsText({
+            x: dataPointsPos[j].x,
+            y: dataPointsPos[j].y,
+            text,
+            textAnchor: 'middle',
+            i,
+            j: i,
+            // `j` above is the series index (kept for the color lookup), so
+            // pass the real data point index for per-point offsets
+            seriesIndex: i,
+            dataPointIndex: j,
+            parent: elDataPointsMain,
+            offsetCorrection: false,
+            dataLabelsConfig: {
+              ...dataLabelsConfig,
+            },
+          })
+        }
+        elSeries.add(elDataPointsMain)
+      })
+
+      allSeries.push(elSeries)
+    })
+
+    this.drawPolygons({
+      parent: ret,
+    })
+
+    if (w.config.xaxis.labels.show) {
+      const xaxisTexts = this.drawXAxisTexts()
+      ret.add(xaxisTexts)
+    }
+
+    allSeries.forEach((elS) => {
+      ret.add(elS)
+    })
+
+    ret.add(this.yaxisLabels)
+
+    return ret
+  }
+
+  /**
+   * @param {Record<string, any>} opts
+   */
+  drawPolygons(opts) {
+    const w = this.w
+    const { parent } = opts
+    const helpers = new Helpers(this.w)
+
+    // A copy: the shared scale stays ascending. Radar updates take the full
+    // render because _canUseFastPath refuses radar, not because of this order
+    // (radar-update-path.spec).
+    const yaxisTexts = w.globals.yAxisScale[0].result.slice().reverse()
+    const layers = yaxisTexts.length
+
+    const radiusSizes = []
+    const layerDis = this.size / (layers - 1)
+    for (let i = 0; i < layers; i++) {
+      radiusSizes[i] = layerDis * i
+    }
+    radiusSizes.reverse()
+
+    /** @type {any[]} */
+    const polygonStrings = []
+    /** @type {any[]} */
+    const lines = []
+
+    radiusSizes.forEach((radiusSize, r) => {
+      const polygon = Utils.getPolygonPos(radiusSize, this.dataPointsLen)
+      let string = ''
+
+      polygon.forEach((p, i) => {
+        if (r === 0) {
+          const line = this.graphics.drawLine(
+            p.x,
+            p.y,
+            0,
+            0,
+            Array.isArray(this.polygons.connectorColors)
+              ? this.polygons.connectorColors[i]
+              : this.polygons.connectorColors,
+          )
+
+          lines.push(line)
+        }
+
+        if (i === 0) {
+          this.yaxisLabelsTextsPos.push({
+            x: p.x,
+            y: p.y,
+          })
+        }
+
+        string += p.x + ',' + p.y + ' '
+      })
+
+      polygonStrings.push(string)
+    })
+
+    polygonStrings.forEach((p, i) => {
+      const strokeColors = this.polygons.strokeColors
+      const strokeWidth = this.polygons.strokeWidth
+      const polygon = this.graphics.drawPolygon(
+        p,
+        Array.isArray(strokeColors) ? strokeColors[i] : strokeColors,
+        Array.isArray(strokeWidth) ? strokeWidth[i] : strokeWidth,
+        w.globals.radarPolygons.fill.colors[i],
+      )
+      parent.add(polygon)
+    })
+
+    lines.forEach((l) => {
+      parent.add(l)
+    })
+
+    if (w.config.yaxis[0].show) {
+      this.yaxisLabelsTextsPos.forEach(
+        (/** @type {any} */ p, /** @type {any} */ i) => {
+          const yText = helpers.drawYAxisTexts(p.x, p.y, i, yaxisTexts[i])
+          this.yaxisLabels.add(yText)
+        },
+      )
+    }
+  }
+
+  drawXAxisTexts() {
+    const w = this.w
+
+    const xaxisLabelsConfig = w.config.xaxis.labels
+    const lc = xaxisLabelsConfig.style.colors
+    const elXAxisWrap = this.graphics.group({
+      class: 'apexcharts-xaxis',
+    })
+
+    const polygonPos = Utils.getPolygonPos(this.size, this.dataPointsLen)
+
+    /**
+     * @param {string} label
+     * @param {number} i
+     */
+    w.labelData.labels.forEach((label, i) => {
+      // A chart switched to a radar from a type with no category axis (a pie)
+      // was never given one: the names are shown as they are.
+      const formatter =
+        typeof w.config.xaxis.labels.formatter === 'function'
+          ? w.config.xaxis.labels.formatter
+          : (/** @type {any} */ v) => v
+      const dataLabels = new DataLabels(this.w, this.ctx)
+
+      if (polygonPos[i]) {
+        const textPos = this.getTextPos(polygonPos[i], this.size)
+
+        const text = formatter(label, {
+          seriesIndex: -1,
+          dataPointIndex: i,
+          w,
+        })
+
+        const dataLabelText = dataLabels.plotDataLabelsText({
+          x: textPos.newX,
+          y: textPos.newY,
+          text,
+          textAnchor: textPos.textAnchor,
+          i,
+          j: i,
+          parent: elXAxisWrap,
+          className: 'apexcharts-xaxis-label',
+          color: (Array.isArray(lc) ? lc[i] : lc) || '#a8a8a8',
+          dataLabelsConfig: {
+            textAnchor: textPos.textAnchor,
+            dropShadow: { enabled: false },
+            ...xaxisLabelsConfig,
+          },
+          offsetCorrection: false,
+        })
+
+        /**
+         * @param {Event} e
+         */
+        dataLabelText.on('click', (/** @type {any} */ e) => {
+          if (typeof w.config.chart.events.xAxisLabelClick === 'function') {
+            const opts = Object.assign({}, w, {
+              labelIndex: i,
+            })
+
+            w.config.chart.events.xAxisLabelClick(e, this.ctx, opts)
+          }
+        })
+      }
+    })
+
+    return elXAxisWrap
+  }
+
+  /**
+   * @param {Array<Record<string, any>>} pos
+   * @param {Record<string, any>} origin
+   */
+  createPaths(pos, origin) {
+    const linePathsTo = []
+    /** @type {any[]} */
+    let linePathsFrom = []
+    const areaPathsTo = []
+    /** @type {any[]} */
+    let areaPathsFrom = []
+
+    if (pos.length) {
+      linePathsFrom = [this.graphics.move(origin.x, origin.y)]
+      areaPathsFrom = [this.graphics.move(origin.x, origin.y)]
+
+      let linePathTo = this.graphics.move(pos[0].x, pos[0].y)
+      let areaPathTo = this.graphics.move(pos[0].x, pos[0].y)
+
+      /**
+       * @param {number} p
+       * @param {number} i
+       */
+      pos.forEach((/** @type {any} */ p, /** @type {any} */ i) => {
+        linePathTo += this.graphics.line(p.x, p.y)
+        areaPathTo += this.graphics.line(p.x, p.y)
+        if (i === pos.length - 1) {
+          linePathTo += 'Z'
+          areaPathTo += 'Z'
+        }
+      })
+
+      linePathsTo.push(linePathTo)
+      areaPathsTo.push(areaPathTo)
+    }
+
+    return {
+      linePathsFrom,
+      linePathsTo,
+      areaPathsFrom,
+      areaPathsTo,
+    }
+  }
+
+  /**
+   * @param {Record<string, any>} pos
+   * @param {number} polygonSize
+   */
+  getTextPos(pos, polygonSize) {
+    const limit = 10
+    let textAnchor = 'middle'
+
+    let newX = pos.x
+    let newY = pos.y
+
+    if (Math.abs(pos.x) >= limit) {
+      if (pos.x > 0) {
+        textAnchor = 'start'
+        newX += 10
+      } else if (pos.x < 0) {
+        textAnchor = 'end'
+        newX -= 10
+      }
+    } else {
+      textAnchor = 'middle'
+    }
+    if (Math.abs(pos.y) >= polygonSize - limit) {
+      if (pos.y < 0) {
+        newY -= 10
+      } else if (pos.y > 0) {
+        newY += 10
+      }
+    }
+
+    return {
+      textAnchor,
+      newX,
+      newY,
+    }
+  }
+
+  /**
+   * @param {number} realIndex
+   */
+  getPreviousPath(realIndex) {
+    let pathFrom = null
+    for (const gpp of prevRecords(this.w, realIndex)) {
+      // A chart that was not a radar a moment ago (a pie switched to one)
+      // left plain values here, not paths: nothing to start from.
+      if (
+        Array.isArray(gpp?.paths) &&
+        gpp.paths.length > 0 &&
+        typeof gpp.paths[0] !== 'undefined'
+      ) {
+        pathFrom = gpp.paths[0].d
+      }
+    }
+    return pathFrom
+  }
+
+  /**
+   * @param {any[]} dataRadiusArr
+   * @param {any[]} angleArr
+   */
+  getDataPointsPos(
+    dataRadiusArr,
+    angleArr,
+    dataPointsLen = this.dataPointsLen,
+  ) {
+    dataRadiusArr = dataRadiusArr || []
+    angleArr = angleArr || []
+    const dataPointsPosArray = []
+    for (let j = 0; j < dataPointsLen; j++) {
+      const curPointPos = {}
+      curPointPos.x = dataRadiusArr[j] * Math.sin(angleArr[j])
+      curPointPos.y = -dataRadiusArr[j] * Math.cos(angleArr[j])
+      dataPointsPosArray.push(curPointPos)
+    }
+    return dataPointsPosArray
+  }
+}
+
+export default Radar

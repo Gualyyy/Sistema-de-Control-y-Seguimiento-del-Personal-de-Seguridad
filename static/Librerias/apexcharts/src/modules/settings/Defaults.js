@@ -1,0 +1,2842 @@
+// @ts-check
+import Utils from '../../utils/Utils'
+import DateTime from '../../utils/DateTime'
+import Formatters from '../Formatters'
+import Options from './Options'
+import CoreUtils from '../CoreUtils'
+import { TYPE_ALIASES, BUILTIN_TYPES, SOLO_TYPES } from './TypeAliases'
+import { nameAsHtml } from '../../utils/nameAsHtml.js'
+
+/**
+ * ApexCharts Default Class for setting default options for all chart types.
+ *
+ * @module Defaults
+ **/
+
+/**
+ * Marks a function a chart type installed as one of its own defaults, so it can
+ * be told from a function the user supplied. Two closures are never `===`, and
+ * a merged config records no provenance, so without the mark there is no way
+ * back from "this config has a formatter" to "whose formatter is it".
+ *
+ * Only functions carry the mark. Every other type default is recognised by
+ * value, by comparing against what the outgoing type would have chosen.
+ */
+const TYPE_OWNED = '_apexOwnedByType'
+
+/** Marks the % label formatter 100% stacking installs (see stacked100). */
+const STACKED_100 = '_apexStacked100'
+
+/**
+ * @template {Function} T
+ * @param {T} fn
+ * @returns {T}
+ */
+const typeOwned = (fn) => {
+  /** @type {any} */ (fn)[TYPE_OWNED] = true
+  return fn
+}
+
+/**
+ * The config leaves that belong to the chart TYPE rather than to the chart, and
+ * so are re-chosen when `updateOptions({ chart: { type } })` changes it.
+ *
+ * Type defaults are applied once, by Config.init on the initial render. The
+ * update path constructs Config directly and skips init, so before this every
+ * leaf a type had chosen for itself outlived that type. Two ways that showed:
+ * a box plot that became a violin kept asking for a five-number summary nobody
+ * computes for a violin and threw on every hover, and a bar that became a box
+ * plot never acquired the five-number formatter at all.
+ *
+ * The line drawn here is between what a chart DOES and how it is PAINTED. A
+ * leaf that decides what is read, what is said, or what is hit-tested belongs
+ * to the type and hands over. A leaf that decides colour, opacity, stroke,
+ * spacing or legend placement stays put, so that changing type re-reads the
+ * data without also restyling the chart out from under a morph in flight, and
+ * so that a palette chosen for a bar survives its becoming a line.
+ *
+ * A leaf only hands over when it still holds exactly what the outgoing type
+ * chose for it. Anything the user set, then or in this same update, is theirs
+ * and is left alone.
+ */
+const TYPE_OWNED_PATHS = [
+  // What the tooltip reads and how it resolves a hover. `custom` is the sharp
+  // one: each built-in reads globals only its own type fills.
+  'tooltip.custom',
+  'tooltip.shared',
+  'tooltip.intersect',
+  'tooltip.followCursor',
+  // Whether values are written on the marks, and how they are phrased. A pie's
+  // percentage formatter handed a treemap a category name.
+  'dataLabels.enabled',
+  'dataLabels.formatter',
+  'plotOptions.bar.dataLabels.position',
+  // A box plot's outlier markers are hit targets; a violin draws none.
+  'markers.size',
+  // The violin layers a raincloud rearranges: which side the density is on,
+  // whether the box lane exists and how its whiskers are computed, and where
+  // the jitter sits. All decide what is drawn, so they hand over when the
+  // type changes (violin <-> raincloud) instead of a raincloud's half-body
+  // surviving into a plain violin.
+  'plotOptions.violin.side',
+  'plotOptions.violin.box.show',
+  'plotOptions.violin.box.whiskers',
+  'plotOptions.violin.points.position',
+  'plotOptions.violin.points.jitter',
+  // What an alias draws its base renderer as: a dumbbell's marked ends, a
+  // waffle's lattice of squares.
+  'plotOptions.bar.isDumbbell',
+  'plotOptions.unit.layout',
+  'plotOptions.unit.shape',
+  // A treemap's tiles are the whole plot, with no grid to read them against.
+  'grid.show',
+  // Hover and select feedback, off by design on the types that draw their own.
+  'states.hover.filter.type',
+  'states.active.filter.type',
+  // How x is read. A histogram's bin midpoints need a numeric axis; a line or
+  // bar given a plain number array has no x values to put on one (#5343).
+  'xaxis.type',
+  // Axis chrome that exists to be pointed at.
+  'xaxis.crosshairs.width',
+  'xaxis.tickPlacement',
+  'xaxis.tooltip.enabled',
+  // Interaction the type either supports or does not: a violin's categories
+  // cannot be range-zoomed, and an index-keyed summary animates as churn.
+  'chart.zoom.enabled',
+  'chart.animations.dynamicAnimation.enabled',
+]
+
+/**
+ * The label formatter a converted category axis gets when the page has none.
+ * @param {any} val
+ */
+const floorLabel = (val) => (Utils.isNumber(val) ? Math.floor(val) : val)
+
+/**
+ * The pie, donut and polarArea label: the share of the whole, as a percentage.
+ * One function for all three, so a pie that becomes a donut hands it over as
+ * the same default. Guarded because a config survives a chart-type change: a
+ * pie that becomes a treemap hands this a category NAME, and a default of ours
+ * must not throw on a value it was never designed for.
+ * @param {any} val
+ */
+const percentLabel = (val) =>
+  typeof val === 'number' ? val.toFixed(1) + '%' : val
+
+/**
+ * The base options with a type's defaults laid over them: what a leaf is when
+ * no mode preset has touched it.
+ * @param {Record<string, any>} config
+ */
+const plainFor = (config) =>
+  Utils.extend(new Options().init(), Defaults.forType(config))
+
+/**
+ * Read a dotted path out of a config-shaped object.
+ * @param {Record<string, any> | undefined} obj
+ * @param {string} path
+ */
+const readPath = (obj, path) => {
+  let cur = /** @type {any} */ (obj)
+  for (const key of path.split('.')) {
+    if (cur == null || typeof cur !== 'object') return undefined
+    cur = cur[key]
+  }
+  return cur
+}
+
+/**
+ * Write a dotted path into a config-shaped object, creating the objects on the
+ * way. A leaf whose new value is `undefined` is deleted rather than set, so the
+ * field reads as absent exactly like it would on a fresh chart of that type.
+ * @param {Record<string, any>} obj
+ * @param {string} path
+ * @param {any} value
+ */
+const writePath = (obj, path, value) => {
+  const keys = path.split('.')
+  const last = keys.pop()
+  let cur = /** @type {any} */ (obj)
+  for (const key of keys) {
+    if (cur[key] == null || typeof cur[key] !== 'object') cur[key] = {}
+    cur = cur[key]
+  }
+  if (value === undefined) delete cur[/** @type {string} */ (last)]
+  else cur[/** @type {string} */ (last)] = value
+}
+
+
+/**
+ * A throwaway config naming one chart type and nothing else, for asking
+ * Defaults.forType what that type wants. Throwaway because two of the type
+ * blocks (funnel and radar) hide the y-axis by writing into the opts they are
+ * handed, and the live config must not take that write.
+ *
+ * @param {string} type a chart type, or a user-facing alias of one
+ * @param {Record<string, any>} config the live config, read for the few
+ *   chart-level flags a type default consults
+ */
+const typeOpts = (type, config) => {
+  const base = /** @type {Record<string, string>} */ (TYPE_ALIASES)[type]
+  return {
+    chart: {
+      type: base || type,
+      requestedType: base ? type : undefined,
+      // Stacking belongs to the chart, not to its type, so both sides see it.
+      stacked: config.chart?.stacked,
+    },
+    plotOptions: {
+      bar: {
+        isFunnel: type === 'funnel' || type === 'pyramid',
+        // Orientation belongs to the chart too: a raincloud lays its layers
+        // out by it, so a horizontal one is asked about horizontally.
+        horizontal: config.plotOptions?.bar?.horizontal,
+      },
+      histogram: config.plotOptions?.histogram,
+    },
+    // The histogram's defaults read the series to decide whether overlaid bins
+    // share a tooltip. Both sides are asked with the series the chart has now.
+    series: config.series,
+    yaxis: [{ title: {}, labels: {}, axisBorder: {}, axisTicks: {} }],
+  }
+}
+
+/**
+ * Is `current` still what the outgoing type chose, rather than something the
+ * user put there?
+ *
+ * Functions can only be compared by provenance: a marked function came from
+ * this module and may be replaced, an unmarked one is the user's and may not.
+ * Everything else compares by value.
+ *
+ * @param {any} current
+ * @param {any} fromDefault
+ */
+const isUntouched = (current, fromDefault) => {
+  if (typeof current === 'function') {
+    if (/** @type {any} */ (current)[TYPE_OWNED]) return true
+    // Unmarked, so it is either the user's or one of the plain formatters
+    // Options rebuilds on every read. Those are never `===` across two reads,
+    // so the only thing left to compare is the source itself.
+    return (
+      typeof fromDefault === 'function' &&
+      String(current) === String(fromDefault)
+    )
+  }
+  if (typeof fromDefault === 'function') return current === undefined
+  if (current === fromDefault) return true
+  try {
+    return JSON.stringify(current) === JSON.stringify(fromDefault)
+  } catch {
+    return false
+  }
+}
+
+/** @param {{isTimeline: any, seriesIndex: any, dataPointIndex: any, y1: any, y2: any, w: any}} opts */
+const getRangeValues = ({
+  isTimeline,
+  seriesIndex,
+  dataPointIndex,
+  y1,
+  y2,
+  w,
+}) => {
+  let start = w.rangeData.seriesRangeStart[seriesIndex][dataPointIndex]
+  let end = w.rangeData.seriesRangeEnd[seriesIndex][dataPointIndex]
+  let ylabel = w.labelData.labels[dataPointIndex]
+  let seriesName = w.config.series[seriesIndex].name
+    ? w.config.series[seriesIndex].name
+    : ''
+  const yLbFormatter = w.formatters.ttKeyFormatter
+  const yLbTitleFormatter = w.config.tooltip.y.title.formatter
+
+  const opts = {
+    w,
+    seriesIndex,
+    dataPointIndex,
+    start,
+    end,
+  }
+
+  seriesName = nameAsHtml(
+    seriesName,
+    typeof yLbTitleFormatter === 'function'
+      ? yLbTitleFormatter(seriesName, opts)
+      : seriesName,
+  )
+  if (w.config.series[seriesIndex].data[dataPointIndex]?.x) {
+    ylabel = w.config.series[seriesIndex].data[dataPointIndex].x
+  }
+
+  if (!isTimeline) {
+    if (w.config.xaxis.type === 'datetime') {
+      const xFormat = new Formatters(w)
+      ylabel = xFormat.xLabelFormat(
+        w.formatters.ttKeyFormatter,
+        ylabel,
+        ylabel,
+        {
+          i: undefined,
+          dateFormatter: new DateTime(w).formatDate,
+          w,
+        },
+      )
+    }
+  }
+
+  if (typeof yLbFormatter === 'function') {
+    ylabel = yLbFormatter(ylabel, opts)
+  }
+  if (Number.isFinite(y1) && Number.isFinite(y2)) {
+    start = y1
+    end = y2
+  }
+
+  let startVal = ''
+  let endVal = ''
+
+  const color = w.globals.colors[seriesIndex]
+  if (w.config.tooltip.x.formatter === undefined) {
+    if (w.config.xaxis.type === 'datetime') {
+      const datetimeObj = new DateTime(w)
+      startVal = datetimeObj.formatDate(
+        datetimeObj.getDate(start),
+        w.config.tooltip.x.format,
+      )
+      endVal = datetimeObj.formatDate(
+        datetimeObj.getDate(end),
+        w.config.tooltip.x.format,
+      )
+    } else {
+      startVal = start
+      endVal = end
+    }
+  } else {
+    startVal = w.config.tooltip.x.formatter(start)
+    endVal = w.config.tooltip.x.formatter(end)
+  }
+
+  return { start, end, startVal, endVal, ylabel, color, seriesName }
+}
+/**
+ * @param {Record<string, any>} opts
+ */
+const buildRangeTooltipHTML = (opts) => {
+  let { color, seriesName, ylabel, start, end, seriesIndex, dataPointIndex } =
+    opts
+
+  const formatter =
+    opts.w.globals.tooltip.tooltipLabels.getFormatters(seriesIndex)
+
+  start = formatter.yLbFormatter(start)
+  end = formatter.yLbFormatter(end)
+  const val = formatter.yLbFormatter(
+    opts.w.seriesData.series[seriesIndex][dataPointIndex],
+  )
+
+  let valueHTML = ''
+  const rangeValues = `<span class="value start-value">
+  ${start}
+  </span> <span class="separator">-</span> <span class="value end-value">
+  ${end}
+  </span>`
+
+  if (opts.w.globals.comboCharts) {
+    if (
+      opts.w.config.series[seriesIndex].type === 'rangeArea' ||
+      opts.w.config.series[seriesIndex].type === 'rangeBar'
+    ) {
+      valueHTML = rangeValues
+    } else {
+      valueHTML = `<span>${val}</span>`
+    }
+  } else {
+    valueHTML = rangeValues
+  }
+  return (
+    '<div class="apexcharts-tooltip-rangebar">' +
+    '<div> <span class="series-name" style="color: ' +
+    color +
+    '">' +
+    (seriesName ? seriesName : '') +
+    '</span></div>' +
+    '<div> <span class="category">' +
+    ylabel +
+    ': </span> ' +
+    valueHTML +
+    ' </div>' +
+    '</div>'
+  )
+}
+
+export default class Defaults {
+  /**
+   * @param {Record<string, any>} opts
+   */
+  constructor(opts) {
+    this.opts = opts
+  }
+
+  /**
+   * The defaults a chart type chooses for itself, which is the same pick
+   * Config.init makes on the initial render. Shared with the update path so
+   * that "what does type X want" has one answer and cannot drift between the
+   * two. Modes layered on top of a type (brush, slope, sparkline) are not
+   * included: they belong to the chart, not to its type, and a type change does
+   * not disturb them.
+   *
+   * @param {Record<string, any>} opts a config, read for the type and for the
+   *   flags that pick a variant of it
+   * @returns {Record<string, any>}
+   */
+  static forType(opts) {
+    const defaults = new Defaults(opts)
+    // Every name here is also a method on this class; see BUILTIN_TYPES.
+    const chartTypes = BUILTIN_TYPES
+    const requestedType = opts.chart.requestedType
+    let chartDefaults
+
+    // Every alias but waffle (and column, a plain bar) has a method of its own.
+    const aliasDefaults =
+      /** @type {any} */ (TYPE_ALIASES)[requestedType] &&
+      /** @type {any} */ (defaults)[requestedType]
+
+    if (aliasDefaults) {
+      chartDefaults = aliasDefaults.call(defaults)
+    } else if (requestedType === 'waffle') {
+      chartDefaults = Utils.extend(defaults.unit(), {
+        plotOptions: { unit: { layout: 'grid', shape: 'square' } },
+      })
+    } else if (chartTypes.indexOf(opts.chart.type) !== -1) {
+      chartDefaults = /** @type {any} */ (defaults)[opts.chart.type]()
+    } else {
+      // Unknown, or a type someone registered: it has no defaults of its own,
+      // so it gets the same baseline Config.init would give it.
+      chartDefaults = defaults.line()
+    }
+
+    if (opts.plotOptions?.bar?.isFunnel) {
+      chartDefaults = defaults.funnel()
+    }
+
+    // Laid over the type's own defaults rather than replacing them with a
+    // plain bar's: a stacked histogram kept neither its touching bins nor its
+    // bin-range tooltip.
+    if (opts.chart.stacked && opts.chart.type === 'bar') {
+      chartDefaults = Utils.extend(chartDefaults, {
+        plotOptions: { bar: { borderRadiusApplication: 'end' } },
+      })
+    }
+
+    return chartDefaults
+  }
+
+  /**
+   * Re-choose the type-owned leaves (see TYPE_OWNED_PATHS) after
+   * `updateOptions({ chart: { type } })` moved the chart from one type to
+   * another, so the chart behaves as the type it now is.
+   *
+   * A leaf is only handed over when it still holds exactly what `fromType`
+   * chose for it. That single test covers every way a value can be the user's
+   * instead of ours: set at construction, set by an earlier update, or set by
+   * this very update. `options` is consulted too, so an explicit ask in the
+   * same call wins even when it happens to equal the outgoing default.
+   *
+   * @param {Record<string, any>} config the merged w.config, mutated in place
+   * @param {string} fromType the type (or requested alias) before this update
+   * @param {Record<string, any>} [options] this update's payload
+   */
+  static handOverTypeDefaults(config, fromType, options) {
+    // Every update can reach a combination construction settles, whether or
+    // not it changes the type.
+    Defaults.reconcile(config, true)
+
+    // 100% stacking is a mode rather than a type, with presets of its own: the
+    // % formatter and the 0 to 100 axis. A stackType change by update used to
+    // leave them half applied. A formatter in the same update wins.
+    const asked = options?.chart
+    if (
+      asked &&
+      ('stacked' in asked || 'stackType' in asked) &&
+      !options.dataLabels?.formatter
+    ) {
+      const fmt = /** @type {any} */ (config.dataLabels.formatter)
+      const plain = new Options().init().dataLabels.formatter
+      if (config.chart.stacked && config.chart.stackType === '100%') {
+        if (isUntouched(fmt, plain)) {
+          config.dataLabels.formatter = undefined
+          new Defaults(config).stacked100(config)
+        }
+      } else if (fmt?.[STACKED_100]) {
+        config.dataLabels.formatter = plain
+        for (const y of config.yaxis) {
+          if (y.min === 0 && y.max === 100) y.min = y.max = undefined
+        }
+      }
+    }
+
+    const toType = config.chart.requestedType || config.chart.type
+    // A histogram picks its overlay presets by series count, which an update
+    // can change without changing the type. Asked as the other count, the
+    // outgoing presets hand over like any type default.
+    const recount =
+      fromType === toType && toType === 'histogram' && options?.series
+    if (!fromType || (fromType === toType && !recount)) return
+
+    // Ask each side separately, through a config that names only that type, so
+    // neither answer is contaminated by the other's alias flags. Each answer is
+    // then laid over the base options, because a type that says nothing about a
+    // leaf is not saying "absent", it is leaving the library default standing:
+    // a violin sets no markers.size, and what it wants there is the base 0, not
+    // the box plot's 7 and not nothing at all.
+    const base = new Options().init()
+    const from = Utils.extend(
+      base,
+      Defaults.forType(
+        typeOpts(
+          fromType,
+          recount
+            ? { ...config, series: config.series[1] ? [] : [0, 0] }
+            : config,
+        ),
+      ),
+    )
+    const to = Utils.extend(base, Defaults.forType(typeOpts(toType, config)))
+
+    for (const path of recount
+      ? [
+          'fill.opacity',
+          'stroke.show',
+          'stroke.width',
+          'stroke.colors',
+          'tooltip.shared',
+        ]
+      : TYPE_OWNED_PATHS) {
+      if (options && readPath(options, path) !== undefined) continue
+      const fromDefault = readPath(from, path)
+      const toDefault = readPath(to, path)
+      if (fromDefault === undefined && toDefault === undefined) continue
+      if (!isUntouched(readPath(config, path), fromDefault)) continue
+      writePath(config, path, toDefault)
+    }
+
+    // The y-axis is an array by now, one entry per axis, so its type-owned
+    // leaves cannot go through readPath. Same rule, applied to each axis.
+    const fromY = Defaults.typeYAxisDefaults(fromType)
+    const toY = Defaults.typeYAxisDefaults(toType)
+    const baseY = /** @type {Record<string, any>} */ (new Options().yAxis)
+    /** @type {Record<string, any>[]} */
+    const askedY = [].concat(options?.yaxis ?? [])
+    for (const key of new Set([...Object.keys(fromY), ...Object.keys(toY)])) {
+      if (askedY.some((a) => a && a[key] !== undefined)) continue
+      const fromDefault = key in fromY ? fromY[key] : baseY[key]
+      const toDefault = key in toY ? toY[key] : baseY[key]
+      for (const axis of config.yaxis || []) {
+        if (axis && axis[key] === fromDefault) axis[key] = toDefault
+      }
+    }
+  }
+
+  /**
+   * Put on or take off the sparkline preset when an update turns
+   * `chart.sparkline.enabled` on or off; construction is the only other place
+   * it is applied. A leaf moves only while it still holds what the outgoing
+   * mode chose, and never when this update names it.
+   *
+   * @param {Record<string, any>} config the merged w.config, mutated in place
+   * @param {boolean} was whether the sparkline was on before the update
+   * @param {Record<string, any>} [options] this update's payload
+   */
+  static syncSparkline(config, was, options) {
+    const now = !!config.chart.sparkline?.enabled
+    if (now === !!was) return
+    const d = new Defaults({ yaxis: [{ title: {}, axisBorder: {}, axisTicks: {} }] })
+    const plain = plainFor(config)
+    /**
+     * @param {Record<string, any>} preset
+     * @param {Record<string, any>} target
+     * @param {Record<string, any>} off what the leaves are without the preset
+     * @param {Record<string, any>} [asked]
+     * @param {string} [pre]
+     */
+    const walk = (preset, target, off, asked, pre = '') => {
+      for (const k of Object.keys(preset)) {
+        const p = pre + k
+        if (Utils.isObject(preset[k])) {
+          walk(preset[k], target, off, asked, p + '.')
+        } else if (readPath(asked, p) === undefined) {
+          const on = preset[k]
+          const base = readPath(off, p)
+          if (isUntouched(readPath(target, p), now ? base : on)) {
+            writePath(target, p, now ? on : base)
+          }
+        }
+      }
+    }
+    walk(d.sparkline({}), config, plain, options)
+    const asked = options?.yaxis
+    walk(
+      d.opts.yaxis[0],
+      config.yaxis[0],
+      new Options().yAxis,
+      Array.isArray(asked) ? asked[0] : asked,
+    )
+  }
+
+  /**
+   * @param {Record<string, any>} config
+   */
+  static isHorizontalBar(config) {
+    return config.chart.type === 'bar' && !!config.plotOptions.bar.horizontal
+  }
+
+  /**
+   * Hand back what reconcile switched off for a horizontal bar (zoom and the
+   * x-axis tooltip; the y-axis one is off by default anyway) when an update
+   * turns it vertical or into another type. Same rule as syncSparkline: a
+   * leaf moves only while it still holds the preset's false, and never when
+   * this update names it.
+   *
+   * @param {Record<string, any>} config the merged w.config, mutated in place
+   * @param {boolean} was whether the chart was a horizontal bar before
+   * @param {Record<string, any>} [options] this update's payload
+   */
+  static syncHorizontal(config, was, options) {
+    if (!was || Defaults.isHorizontalBar(config)) return
+    const plain = plainFor(config)
+    for (const p of ['chart.zoom.enabled', 'xaxis.tooltip.enabled']) {
+      if (readPath(options, p) === undefined && readPath(config, p) === false) {
+        writePath(config, p, readPath(plain, p))
+      }
+    }
+  }
+
+  /**
+   * Settle the option combinations the renderers do not support. Runs on a new
+   * chart's config and again after every updateOptions, which reaches the same
+   * combinations. The two it cannot settle throw on a new chart, and only warn
+   * on an update: the config is merged by then, and a throw would leave the
+   * chart half updated.
+   *
+   * @param {Record<string, any>} config the merged config, mutated in place
+   * @param {boolean} [isUpdate]
+   */
+  static reconcile(config, isUpdate) {
+    const refuse = (/** @type {string} */ message) => {
+      if (!isUpdate) throw new Error(message)
+      console.warn(message)
+    }
+    // conflicting tooltip option. intersect makes sure to focus on 1 point at a time. Shared cannot be used along with it
+    if (config.tooltip.shared && config.tooltip.intersect) {
+      refuse(
+        'tooltip.shared cannot be enabled when tooltip.intersect is true. Turn off any other option by setting it to false.',
+      )
+    }
+
+    if (Defaults.isHorizontalBar(config)) {
+      // No multiple yaxis for bars
+      if (config.yaxis.length > 1) {
+        refuse(
+          'Multiple Y Axis for bars are not supported. Switch to column chart by setting plotOptions.bar.horizontal=false',
+        )
+      }
+
+      // if yaxis is reversed in horizontal bar chart, you should draw the y-axis on right side
+      if (config.yaxis[0].reversed) {
+        config.yaxis[0].opposite = true
+      }
+
+      config.xaxis.tooltip.enabled = false // no xaxis tooltip for horizontal bar
+      config.yaxis[0].tooltip.enabled = false // no xaxis tooltip for horizontal bar
+      config.chart.zoom.enabled = false // no zooming for horz bars
+    }
+
+    if (config.chart.type === 'bar' || config.chart.type === 'rangeBar') {
+      if (config.tooltip.shared) {
+        if (
+          config.xaxis.crosshairs.width === 'barWidth' &&
+          config.series.length > 1
+        ) {
+          config.xaxis.crosshairs.width = 'tickWidth'
+        }
+      }
+    }
+
+    if (
+      config.chart.type === 'candlestick' ||
+      config.chart.type === 'boxPlot'
+    ) {
+      if (config.yaxis[0].reversed) {
+        console.warn(
+          `Reversed y-axis in ${config.chart.type} chart is not supported.`,
+        )
+        config.yaxis[0].reversed = false
+      }
+      // Only the box plot has a horizontal form. A horizontal candlestick
+      // drew its boxes at garbage positions.
+      if (
+        config.chart.type === 'candlestick' &&
+        config.plotOptions.bar.horizontal
+      ) {
+        console.warn('Horizontal candlestick chart is not supported.')
+        config.plotOptions.bar.horizontal = false
+      }
+    }
+  }
+
+  /**
+   * The y-axis leaves a type chooses for itself. Config writes them into the
+   * options on the way in, because the y-axis is an array a type's defaults
+   * cannot reach, and handOverTypeDefaults reads them back to know which
+   * values were the type's rather than the user's.
+   *
+   * @param {string} type a chart type, or a user-facing alias of one
+   * @returns {Record<string, any>}
+   */
+  static typeYAxisDefaults(type) {
+    // A streamgraph has no zero line, so an axis of stacking offsets would be
+    // read as values nobody gave. A treemap has no value axis at all.
+    if (type === 'streamgraph' || type === 'treemap') return { show: false }
+    return {}
+  }
+
+  hideYAxis() {
+    this.opts.yaxis[0].show = false
+    this.opts.yaxis[0].title.text = ''
+    this.opts.yaxis[0].axisBorder.show = false
+    this.opts.yaxis[0].axisTicks.show = false
+    this.opts.yaxis[0].floating = true
+  }
+
+  line() {
+    return {
+      dataLabels: {
+        enabled: false,
+      },
+      stroke: {
+        width: 5,
+        curve: 'straight',
+      },
+      markers: {
+        size: 0,
+        hover: {
+          sizeOffset: 6,
+        },
+      },
+      xaxis: {
+        crosshairs: {
+          width: 1,
+        },
+      },
+    }
+  }
+
+  /**
+   * @param {Record<string, any>} defaults
+   */
+  sparkline(defaults) {
+    this.hideYAxis()
+    const ret = {
+      grid: {
+        show: false,
+        padding: {
+          left: 0,
+          right: 0,
+          top: 0,
+          bottom: 0,
+        },
+      },
+      legend: {
+        show: false,
+      },
+      xaxis: {
+        labels: {
+          show: false,
+        },
+        tooltip: {
+          enabled: false,
+        },
+        axisBorder: {
+          show: false,
+        },
+        axisTicks: {
+          show: false,
+        },
+      },
+      chart: {
+        toolbar: {
+          show: false,
+        },
+        zoom: {
+          enabled: false,
+        },
+      },
+      dataLabels: {
+        enabled: false,
+      },
+    }
+
+    return Utils.extend(defaults, ret)
+  }
+
+  slope() {
+    this.hideYAxis()
+
+    return {
+      chart: {
+        toolbar: {
+          show: false,
+        },
+        zoom: {
+          enabled: false,
+        },
+      },
+      dataLabels: {
+        enabled: true,
+        /**
+         * @param {any} val
+         * @param {Record<string, any>} opts
+         */
+        formatter(val, opts) {
+          const seriesName = opts.w.config.series[opts.seriesIndex].name
+          return val !== null ? seriesName + ': ' + val : ''
+        },
+        background: {
+          enabled: false,
+        },
+        offsetX: -5,
+      },
+      grid: {
+        xaxis: {
+          lines: {
+            show: true,
+          },
+        },
+        yaxis: {
+          lines: {
+            show: false,
+          },
+        },
+      },
+      xaxis: {
+        position: 'top',
+        labels: {
+          style: {
+            fontSize: 14,
+            fontWeight: 900,
+          },
+        },
+        tooltip: {
+          enabled: false,
+        },
+        crosshairs: {
+          show: false,
+        },
+      },
+      markers: {
+        size: 8,
+        hover: {
+          sizeOffset: 1,
+        },
+      },
+      legend: {
+        show: false,
+      },
+      tooltip: {
+        shared: false,
+        intersect: true,
+        followCursor: true,
+      },
+      stroke: {
+        width: 5,
+        curve: 'straight',
+      },
+    }
+  }
+
+  bar() {
+    return {
+      chart: {
+        stacked: false,
+      },
+      plotOptions: {
+        bar: {
+          dataLabels: {
+            position: 'center',
+          },
+        },
+      },
+      dataLabels: {
+        style: {
+          colors: ['#fff'],
+        },
+        background: {
+          enabled: false,
+        },
+      },
+      stroke: {
+        width: 0,
+        lineCap: 'square',
+      },
+      fill: {
+        opacity: 0.85,
+      },
+      legend: {
+        markers: {
+          shape: 'square',
+        },
+      },
+      tooltip: {
+        shared: false,
+        intersect: true,
+      },
+      xaxis: {
+        tooltip: {
+          enabled: false,
+        },
+        tickPlacement: 'between',
+        crosshairs: {
+          width: 'barWidth',
+          position: 'back',
+          fill: {
+            type: 'gradient',
+          },
+          dropShadow: {
+            enabled: false,
+          },
+          stroke: {
+            width: 0,
+          },
+        },
+      },
+    }
+  }
+
+  funnel() {
+    this.hideYAxis()
+
+    return {
+      ...this.bar(),
+      chart: {
+        animations: {
+          speed: 800,
+          animateGradually: {
+            enabled: false,
+          },
+        },
+      },
+      plotOptions: {
+        bar: {
+          horizontal: true,
+          borderRadiusApplication: 'around',
+          borderRadius: 0,
+          dataLabels: {
+            position: 'center',
+          },
+        },
+      },
+      grid: {
+        show: false,
+        padding: {
+          left: 0,
+          right: 0,
+        },
+      },
+      xaxis: {
+        labels: {
+          show: false,
+        },
+        tooltip: {
+          enabled: false,
+        },
+        axisBorder: {
+          show: false,
+        },
+        axisTicks: {
+          show: false,
+        },
+      },
+    }
+  }
+
+  pyramid() {
+    // Pyramid is funnel rendered in reverse order (widest at bottom).
+    // Internally reuses the bar funnel renderer; ordering is handled in Config.
+    return this.funnel()
+  }
+
+  gauge() {
+    // Gauge defaults: half-circle, single-series, large center value label.
+    // Internally renders via the radialBar pathway.
+    const base = this.radialBar()
+    return {
+      ...base,
+      plotOptions: {
+        radialBar: {
+          startAngle: -135,
+          endAngle: 135,
+          hollow: {
+            margin: 0,
+            size: '60%',
+          },
+          track: {
+            background: '#e7e7e7',
+            strokeWidth: '100%',
+            margin: 5,
+          },
+          dataLabels: {
+            name: {
+              show: false,
+            },
+            value: {
+              show: true,
+              fontSize: '32px',
+              fontWeight: 600,
+              // Placed as the gauge is drawn (see Radial.draw): 8, or on the
+              // needle shape below where the needle reaches.
+              offsetY: undefined,
+            },
+          },
+        },
+      },
+    }
+  }
+
+  waterfall() {
+    // Waterfall defaults: a cumulative walk drawn as floating range columns
+    // (see Config.normalizeAliasedChartType), so it starts from the range-column
+    // defaults and changes only what the walk needs.
+    const range = this.rangeBar()
+
+    return {
+      ...range,
+      chart: {
+        stacked: false,
+        // A waterfall is a fixed set of named steps, not a window onto a
+        // continuum: there is nothing to zoom into, and a horizontal one would
+        // otherwise inherit the timeline range bar's zoom toolbar.
+        zoom: {
+          enabled: false,
+        },
+        animations: {
+          // The bars ARE a left-to-right sequence, so the staggered reveal
+          // traces the walk instead of implying an order that is not there.
+          // (A timeline range bar turns this off; a waterfall wants it.)
+          animateGradually: {
+            enabled: true,
+          },
+        },
+      },
+      plotOptions: {
+        ...range.plotOptions,
+        bar: {
+          .../** @type {any} */ (range.plotOptions).bar,
+          // Narrower than a plain bar's 70%, because the gaps are load-bearing
+          // here: the connectors are drawn in them. Both orientations, so a
+          // horizontal waterfall's connectors have room too.
+          columnWidth: '60%',
+          barHeight: '60%',
+        },
+      },
+      dataLabels: {
+        .../** @type {any} */ (range).dataLabels,
+        // The step is the whole point of a waterfall, so it is written on the
+        // bar by default. The inherited range formatter already reports
+        // `end - start`, which is the delta for a step bar and the sum for a
+        // subtotal / total bar.
+        enabled: true,
+        // No chip behind the label. A waterfall is usually a dense row of
+        // steps, and a chip per label is a second rectangle competing with the
+        // bar it names.
+        background: {
+          enabled: false,
+        },
+        style: {
+          .../** @type {any} */ (range).dataLabels?.style,
+          // Small steps are normal in a waterfall, and a label wider or taller
+          // than its bar gets placed OUTSIDE it. The range column's white ink
+          // is then white text on the chart background, so the two smallest
+          // steps of a P&L bridge simply vanished. Following `chart.foreColor`
+          // instead keeps the label readable off the bar in either theme, and
+          // legible enough over an increase/decrease/total bar.
+          colors: [
+            /** @param {any} opts */
+            (opts) => opts.w.config.chart.foreColor,
+          ],
+        },
+      },
+      legend: {
+        // A waterfall is one series, so the legend would show a single swatch
+        // named after it, and clicking it empties the chart. The legend a
+        // waterfall actually wants names the KINDS of bar (increase, decrease,
+        // total), which is not something the series legend can express.
+        show: false,
+      },
+      tooltip: {
+        shared: false,
+        intersect: true,
+        followCursor: false,
+        // Deliberately no `custom`: the range-column tooltip reads out
+        // "start - end", which is a span the data never claims. The ordinary
+        // tooltip is correct once the value it prints is the step, which
+        // TooltipLabels.formatYValue takes from `w.waterfallData.values`.
+      },
+    }
+  }
+
+  histogram() {
+    // Histogram defaults: a distribution of raw observations, binned by
+    // features/stats and drawn through the bar pathway.
+    //
+    // Two or more distributions overlay by default (see plotOptions.histogram
+    // .overlap), and an overlay only reads if the fill lets the one behind
+    // through. The bin separator goes with it: a hairline exists to keep
+    // touching bins apart, and over translucent overlapping bars it just
+    // outlines every overlap. Both are plain defaults, so either can be set
+    // back.
+    const overlaid =
+      Array.isArray(this.opts?.series) &&
+      this.opts.series.length > 1 &&
+      this.opts?.plotOptions?.histogram?.overlap !== false
+
+    return {
+      ...this.bar(),
+      chart: {
+        stacked: false,
+        // The bins are the summary: they are chosen once from the whole sample
+        // and do NOT re-derive from the visible window, so zooming only
+        // magnifies bars while hiding the rest of the distribution the shape is
+        // read against. Off by default, mirroring heatmap and violin; users can
+        // opt back in with chart.zoom.enabled: true.
+        zoom: {
+          enabled: false,
+        },
+        animations: {
+          // The bars of a histogram are one shape, not N independent
+          // categories, so revealing them one by one reads as a sequence that
+          // is not in the data. The distribution rises as a whole instead.
+          animateGradually: {
+            enabled: false,
+          },
+        },
+      },
+      plotOptions: {
+        bar: {
+          // Bins are adjacent by definition, so the columns touch: a gap
+          // between them would read as a gap in the data. Rounded corners are
+          // dropped for the same reason (they shave area off each bar, and a
+          // histogram's whole claim is that area is proportional to count).
+          columnWidth: '100%',
+          borderRadius: 0,
+          dataLabels: {
+            position: 'top',
+          },
+        },
+      },
+      dataLabels: {
+        enabled: false,
+      },
+      fill: overlaid ? { opacity: 0.65 } : {},
+      // A hairline separator keeps the bin boundaries readable once the columns
+      // touch, the same treatment heatmap cells get.
+      stroke: overlaid
+        ? { show: false }
+        : {
+            show: true,
+            width: 1,
+            colors: ['#fff'],
+          },
+      xaxis: {
+        type: 'numeric',
+        // The axis carries bin midpoints; the range is what people read, and
+        // the tooltip already states it.
+        tooltip: {
+          enabled: false,
+        },
+      },
+      tooltip: {
+        // Overlaid bars share a bin, so hovering one has to report both
+        // distributions: the comparison is the whole point of stacking them on
+        // one axis.
+        shared: overlaid,
+        intersect: false,
+        x: {
+          formatter: (
+            /** @type {number} */ val,
+            /** @type {any} */ opts,
+          ) => {
+            const edges = opts?.w?.histogramData?.edges
+            const k = opts?.dataPointIndex
+            if (!Array.isArray(edges) || typeof k !== 'number' || k < 0) {
+              return String(val)
+            }
+            const lo = edges[k]
+            const hi = edges[k + 1]
+            if (lo === undefined || hi === undefined) return String(val)
+            const fmt = (/** @type {number} */ v) =>
+              Number.isInteger(v) ? String(v) : v.toFixed(2)
+            return `${fmt(lo)} to ${fmt(hi)}`
+          },
+        },
+      },
+    }
+  }
+
+  candlestick() {
+    return {
+      stroke: {
+        width: 1,
+      },
+      fill: {
+        opacity: 1,
+      },
+      dataLabels: {
+        enabled: false,
+      },
+      tooltip: {
+        shared: true,
+        custom: typeOwned(
+          (/** @type {any} */ { seriesIndex, dataPointIndex, w }) => {
+            return this._getBoxTooltip(
+              w,
+              seriesIndex,
+              dataPointIndex,
+              ['Open', 'High', '', 'Low', 'Close'],
+              'candlestick',
+            )
+          },
+        ),
+      },
+      states: {
+        active: {
+          filter: {
+            type: 'none',
+          },
+        },
+      },
+      xaxis: {
+        crosshairs: {
+          width: 1,
+        },
+      },
+    }
+  }
+
+  boxPlot() {
+    return {
+      // No dynamicAnimation override any more: box plot updates used to be
+      // switched off here (2021), since nothing captured a box's previous shape
+      // and every update snapped. Boxes now morph from their own previous
+      // shape, keyed by datum, like candlesticks and bars.
+      stroke: {
+        width: 1,
+        colors: ['#24292e'],
+      },
+      dataLabels: {
+        enabled: false,
+      },
+      tooltip: {
+        shared: true,
+        custom: typeOwned(
+          (/** @type {any} */ { seriesIndex, dataPointIndex, w }) => {
+            return this._getBoxTooltip(
+              w,
+              seriesIndex,
+              dataPointIndex,
+              ['Minimum', 'Q1', 'Median', 'Q3', 'Maximum'],
+              'boxPlot',
+            )
+          },
+        ),
+      },
+      markers: {
+        size: 7,
+        strokeWidth: 1,
+        strokeColors: '#111',
+      },
+      xaxis: {
+        crosshairs: {
+          width: 1,
+        },
+      },
+    }
+  }
+
+  violin() {
+    return {
+      chart: {
+        // Violins are a per-category distribution plot (discrete category
+        // x-axis), so range zooming/panning is meaningless — off by default.
+        zoom: {
+          enabled: false,
+        },
+        animations: {
+          dynamicAnimation: {
+            enabled: false,
+          },
+        },
+      },
+      stroke: {
+        width: 1,
+        colors: ['#24292e'],
+      },
+      fill: {
+        opacity: 0.7,
+      },
+      dataLabels: {
+        enabled: false,
+      },
+      tooltip: {
+        shared: true,
+        custom: typeOwned(
+          (/** @type {any} */ { seriesIndex, dataPointIndex, w }) => {
+            return this._getViolinTooltip(w, seriesIndex, dataPointIndex)
+          },
+        ),
+      },
+      states: {
+        active: {
+          filter: {
+            type: 'none',
+          },
+        },
+      },
+      xaxis: {
+        crosshairs: {
+          width: 1,
+        },
+      },
+    }
+  }
+
+  raincloud() {
+    // Raincloud defaults: the violin baseline, with the three layers arranged
+    // side by side. Vertical: rain left, box middle, cloud right (the classic
+    // published layout); horizontal mirrors it as cloud on top, box + rain
+    // below. Every choice here is a plain default the user can set back.
+    const base = this.violin()
+    const horizontal = this.opts?.plotOptions?.bar?.horizontal === true
+    return {
+      ...base,
+      plotOptions: {
+        violin: {
+          side: horizontal ? 'top' : 'right',
+          box: {
+            show: true,
+            // Tukey fences over minmax: the canonical raincloud box, and safe
+            // here precisely because the rain draws every observation, so
+            // nothing beyond the whiskers is hidden.
+            whiskers: 'tukey',
+          },
+          points: {
+            position: horizontal ? 'bottom' : 'left',
+            // Fill most of the rain lane; the lane is the dots' whole home,
+            // unlike the centered violin scatter that shares it with the body.
+            jitter: 0.85,
+          },
+        },
+      },
+      tooltip: {
+        ...base.tooltip,
+        custom: typeOwned(
+          (/** @type {any} */ { seriesIndex, dataPointIndex, w }) => {
+            return this._getRaincloudTooltip(w, seriesIndex, dataPointIndex)
+          },
+        ),
+      },
+    }
+  }
+
+  rangeBar() {
+    /**
+     * @param {any} opts
+     */
+    const handleTimelineTooltip = (opts) => {
+      const { color, seriesName, ylabel, startVal, endVal } = getRangeValues({
+        ...opts,
+        isTimeline: true,
+      })
+      return buildRangeTooltipHTML({
+        ...opts,
+        color,
+        seriesName,
+        ylabel,
+        start: startVal,
+        end: endVal,
+      })
+    }
+
+    /**
+     * @param {any} opts
+     */
+    const handleRangeColumnTooltip = (opts) => {
+      const { color, seriesName, ylabel, start, end } = getRangeValues(opts)
+      return buildRangeTooltipHTML({
+        ...opts,
+        color,
+        seriesName,
+        ylabel,
+        start,
+        end,
+      })
+    }
+    return {
+      chart: {
+        animations: {
+          animateGradually: {
+            enabled: false,
+          },
+        },
+      },
+      stroke: {
+        width: 0,
+        lineCap: 'square',
+      },
+      plotOptions: {
+        bar: {
+          borderRadius: 0,
+          dataLabels: {
+            position: 'center',
+          },
+        },
+      },
+      dataLabels: {
+        enabled: false,
+        /**
+         * @param {any} val
+         */
+        formatter(
+          /** @type {any} */ val,
+          /** @type {any} */ { seriesIndex, dataPointIndex, w },
+        ) {
+          const getVal = () => {
+            const start =
+              w.rangeData.seriesRangeStart[seriesIndex][dataPointIndex]
+            const end = w.rangeData.seriesRangeEnd[seriesIndex][dataPointIndex]
+            return end - start
+          }
+          if (w.globals.comboCharts) {
+            if (
+              w.config.series[seriesIndex].type === 'rangeBar' ||
+              w.config.series[seriesIndex].type === 'rangeArea'
+            ) {
+              return getVal()
+            } else {
+              return val
+            }
+          } else {
+            return getVal()
+          }
+        },
+        background: {
+          enabled: false,
+        },
+        style: {
+          colors: ['#fff'],
+        },
+      },
+      markers: {
+        size: 10,
+      },
+      tooltip: {
+        shared: false,
+        followCursor: true,
+        custom: typeOwned(
+          /** @param {Record<string, any>} opts */
+          (opts) => {
+            if (
+              opts.w.config.plotOptions &&
+              opts.w.config.plotOptions.bar &&
+              opts.w.config.plotOptions.bar.horizontal
+            ) {
+              return handleTimelineTooltip(opts)
+            } else {
+              return handleRangeColumnTooltip(opts)
+            }
+          },
+        ),
+      },
+      xaxis: {
+        tickPlacement: 'between',
+        tooltip: {
+          enabled: false,
+        },
+        crosshairs: {
+          stroke: {
+            width: 0,
+          },
+        },
+      },
+    }
+  }
+
+  dumbbell() {
+    // Dumbbell defaults: two measures per category, drawn as the interval
+    // between them with both ends marked (see Config.normalizeAliasedChartType).
+    // Starts from the range-bar defaults and changes only what the comparison
+    // needs.
+    const range = this.rangeBar()
+
+    /**
+     * One row of the tooltip: an endpoint's name, in its own colour, and its
+     * value.
+     * @param {string} name @param {string} color @param {any} value
+     */
+    const endpointRow = (name, color, value) =>
+      '<div class="apexcharts-tooltip-dumbbell-endpoint">' +
+      '<span class="series-name" style="color: ' +
+      color +
+      '">' +
+      name +
+      '</span> <span class="value">' +
+      value +
+      '</span></div>'
+
+    /**
+     * @param {any} opts
+     */
+    const handleDumbbellTooltip = (opts) => {
+      const { w, dataPointIndex, seriesIndex } = opts
+      const dumbbell = w.dumbbellData
+
+      if (!dumbbell || dumbbell.form !== 'series') {
+        // The `y: [lo, hi]` form names no endpoints, so there is nothing to
+        // read out but the interval itself.
+        const { color, seriesName, ylabel, start, end } = getRangeValues(opts)
+        return buildRangeTooltipHTML({
+          ...opts,
+          color,
+          seriesName,
+          ylabel,
+          start,
+          end,
+        })
+      }
+
+      const values = dumbbell.values[dataPointIndex] || []
+      const formatter =
+        w.globals.tooltip.tooltipLabels.getFormatters(seriesIndex)
+      const ylabel = w.labelData.labels[dataPointIndex] ?? ''
+
+      let rows = ''
+      /** @type {number[]} */
+      const shown = []
+      for (let k = 0; k < values.length; k++) {
+        if (values[k] === null || dumbbell.hidden.indexOf(k) !== -1) continue
+        shown.push(values[k])
+        rows += endpointRow(
+          dumbbell.names[k],
+          w.globals.colors[k],
+          formatter.yLbFormatter(values[k]),
+        )
+      }
+
+      // The gap is the reason the two dots are on one row, so it is read out
+      // rather than left to be eyeballed. Only when there are exactly two
+      // endpoints: with three or more "the difference" names nothing.
+      const gap =
+        shown.length === 2
+          ? '<div class="apexcharts-tooltip-dumbbell-gap">' +
+            '<span class="category">' +
+            w.config.plotOptions.bar.dumbbell.tooltip.differenceLabel +
+            ': </span><span class="value">' +
+            formatter.yLbFormatter(Math.abs(shown[1] - shown[0])) +
+            '</span></div>'
+          : ''
+
+      return (
+        '<div class="apexcharts-tooltip-rangebar apexcharts-tooltip-dumbbell">' +
+        '<div><span class="category">' +
+        ylabel +
+        '</span></div>' +
+        rows +
+        gap +
+        '</div>'
+      )
+    }
+
+    return {
+      ...range,
+      chart: {
+        stacked: false,
+        // A dumbbell is a fixed set of named rows, not a window onto a
+        // continuum: there is nothing to zoom into, and a horizontal one would
+        // otherwise inherit the timeline range bar's zoom toolbar.
+        zoom: {
+          enabled: false,
+        },
+      },
+      plotOptions: {
+        ...range.plotOptions,
+        bar: {
+          .../** @type {any} */ (range.plotOptions).bar,
+          // The connector, not a bar: thin enough that the marked ends are what
+          // the eye lands on, thick enough to read as a join at a glance.
+          barHeight: 6,
+          columnWidth: 6,
+          // A default rather than written into the options, so it hands over
+          // with the type: a dumbbell made a range bar stayed a dumbbell.
+          isDumbbell: true,
+          dumbbell: {
+            dataLabels: {
+              // The two values ARE the comparison, so they are written at the
+              // ends by default. The centred range label a range bar would draw
+              // reads out `end - start` over the connector, which is the one
+              // number a dumbbell can already be seen to say.
+              enabled: true,
+            },
+          },
+        },
+      },
+      dataLabels: {
+        .../** @type {any} */ (range).dataLabels,
+        enabled: false,
+      },
+      legend: {
+        // Two named measures, which is exactly what the series legend is for.
+        // (The `y: [lo, hi]` form has one series and no endpoint names; that is
+        // what `legend.customLegendItems` is for.)
+        show: true,
+        position: 'bottom',
+        horizontalAlign: 'left',
+        markers: {
+          // Echoes the marked ends rather than the connector.
+          shape: 'circle',
+        },
+      },
+      tooltip: {
+        shared: false,
+        intersect: true,
+        followCursor: false,
+        custom: typeOwned(handleDumbbellTooltip),
+      },
+    }
+  }
+
+  /**
+   * The connector's thickness, for any range bar drawn `isDumbbell`.
+   *
+   * Written into the opts rather than returned as defaults because it applies
+   * to the flag wherever it is set, not only to `chart.type: 'dumbbell'`.
+   *
+   * @param {Record<string, any>} opts
+   */
+  dumbbellSizing(opts) {
+    if (!opts.plotOptions.bar?.barHeight) {
+      opts.plotOptions.bar.barHeight = 2
+    }
+    if (!opts.plotOptions.bar?.columnWidth) {
+      opts.plotOptions.bar.columnWidth = 2
+    }
+    return opts
+  }
+
+  area() {
+    return {
+      stroke: {
+        width: 4,
+        fill: {
+          type: 'solid',
+          gradient: {
+            inverseColors: false,
+            shade: 'light',
+            type: 'vertical',
+            opacityFrom: 0.65,
+            opacityTo: 0.5,
+            stops: [0, 100, 100],
+          },
+        },
+      },
+      fill: {
+        type: 'gradient',
+        gradient: {
+          inverseColors: false,
+          shade: 'light',
+          type: 'vertical',
+          opacityFrom: 0.65,
+          opacityTo: 0.5,
+          stops: [0, 100, 100],
+        },
+      },
+      markers: {
+        size: 0,
+        hover: {
+          sizeOffset: 6,
+        },
+      },
+      tooltip: {
+        followCursor: false,
+      },
+    }
+  }
+
+  rangeArea() {
+    /**
+     * @param {any} opts
+     */
+    const handleRangeAreaTooltip = (opts) => {
+      const { color, seriesName, ylabel, start, end } = getRangeValues(opts)
+      return buildRangeTooltipHTML({
+        ...opts,
+        color,
+        seriesName,
+        ylabel,
+        start,
+        end,
+      })
+    }
+    return {
+      stroke: {
+        curve: 'straight',
+        width: 0,
+      },
+      fill: {
+        type: 'solid',
+        opacity: 0.6,
+      },
+      markers: {
+        size: 0,
+      },
+      states: {
+        hover: {
+          filter: {
+            type: 'none',
+          },
+        },
+        active: {
+          filter: {
+            type: 'none',
+          },
+        },
+      },
+      tooltip: {
+        intersect: false,
+        shared: true,
+        followCursor: true,
+        custom: typeOwned(
+          /** @param {Record<string, any>} opts */
+          (opts) => handleRangeAreaTooltip(opts),
+        ),
+      },
+    }
+  }
+
+  streamgraph() {
+    // Streamgraph defaults: a stacked area on a computed baseline, drawn
+    // through the range-area pathway (see Config.normalizeAliasedChartType).
+    // Starts from the range-area defaults and changes only what the form needs.
+    const range = this.rangeArea()
+
+    /**
+     * The hovered column, every band read out at once.
+     *
+     * The band's own `[lo, hi]` are stacking offsets, not measurements — the
+     * numbers the reader gave are on `w.streamgraphData.values` — so the
+     * inherited range tooltip would print two coordinates nobody supplied.
+     * Read out top-down in stacking order so the list matches the picture.
+     *
+     * @param {any} opts
+     */
+    const handleStreamTooltip = (opts) => {
+      const { w, dataPointIndex, seriesIndex } = opts
+      const data = w.streamgraphData
+
+      if (!data || !Array.isArray(data.order)) {
+        // Bands were supplied ready-stacked, so there is nothing but the
+        // interval itself to read out.
+        const { color, seriesName, ylabel, start, end } = getRangeValues(opts)
+        return buildRangeTooltipHTML({
+          ...opts,
+          color,
+          seriesName,
+          ylabel,
+          start,
+          end,
+        })
+      }
+
+      const { ylabel } = getRangeValues(opts)
+
+      // NOT the inherited y formatter. That one takes its decimal count from
+      // `gl.yValueDecimal`, which is measured off the values the chart DREW —
+      // and a streamgraph draws wiggle offsets, whose fractions run to the full
+      // width of a double. It turns a band worth 26 into "26.0000000000000000".
+      // A `tooltip.y` the user configured still wins, because that one is about
+      // the numbers being reported rather than the ones being plotted.
+      // Which band the cursor is actually INSIDE, rather than the one the
+      // generic capture picked.
+      //
+      // `getNearestValues` resolves a hover to the series whose stored y is
+      // nearest, and for a range area the stored y is the band's LOWER EDGE
+      // (`seriesYvalues` takes the isRangeStart pass). On a stacked surface
+      // that is close to arbitrary: hovering deep inside Drama captures News,
+      // because News' lower edge happens to run nearer the cursor than Drama's
+      // does. Containment is what a band chart means by "the one you are
+      // pointing at", and it is also what the hover outline traces, so
+      // resolving it here is what keeps the two from naming different bands.
+      // The hit-test itself is the streamgraph layer's (StreamLabels.bandAt),
+      // the same one the hover dim uses, so the two cannot drift apart.
+      const layer = opts.ctx && opts.ctx.streamgraph
+      const clientY = w.interact && w.interact.clientY
+      const hit =
+        layer && clientY != null
+          ? layer.bandAtClientY(clientY, dataPointIndex)
+          : -1
+      const active = hit < 0 ? seriesIndex : hit
+
+      const configured = w.formatters.ttVal !== undefined
+      /** @param {number} k @param {number} v */
+      const bandValue = (k, v) => {
+        if (configured) {
+          const f = w.globals.tooltip.tooltipLabels.getFormatters(k)
+          if (typeof f.yLbFormatter === 'function') return f.yLbFormatter(v)
+        }
+        if (Number.isInteger(v)) return String(v)
+        // Six places is past anything a part-to-whole reading needs, and it
+        // drops the float noise that summing the reader's own values leaves.
+        return String(Number(v.toFixed(6)))
+      }
+
+      let rows = ''
+      /** One row; returns the value it read out, 0 when it had none. */
+      const row = (/** @type {number} */ k) => {
+        const v = data.values[k]?.[dataPointIndex]
+        if (v == null || !isFinite(v)) return 0
+        rows +=
+          '<div class="apexcharts-tooltip-stream-band' +
+          (k === active ? ' apexcharts-active' : '') +
+          '">' +
+          '<span class="apexcharts-tooltip-marker" style="background-color: ' +
+          w.globals.colors[k] +
+          '"></span>' +
+          '<span class="series-name">' +
+          data.names[k] +
+          '</span> <span class="value">' +
+          bandValue(k, v) +
+          '</span></div>'
+        return v
+      }
+      let total = 0
+      for (let i = data.order.length - 1; i >= 0; i--) {
+        total += row(data.order[i])
+      }
+      const bands = rows
+      // A combo line over the stream is not a part of the whole: read out
+      // below the total, and never added to it.
+      rows = ''
+      ;(data.lines || []).forEach(row)
+
+      // The total is the one number a streamgraph genuinely cannot be read for
+      // — the drifting baseline is exactly what hides it — so it is stated
+      // rather than left to be estimated from the envelope.
+      const totalRow =
+        data.offset === 'expand'
+          ? ''
+          : '<div class="apexcharts-tooltip-stream-total">' +
+            '<span class="series-name">Total</span> <span class="value">' +
+            bandValue(seriesIndex, total) +
+            '</span></div>'
+
+      return (
+        '<div class="apexcharts-tooltip-stream">' +
+        '<div class="apexcharts-tooltip-title">' +
+        ylabel +
+        '</div>' +
+        bands +
+        totalRow +
+        rows +
+        '</div>'
+      )
+    }
+
+    return {
+      ...range,
+      chart: {
+        stacked: false,
+      },
+      stroke: {
+        // monotoneCubic, not `smooth`. `smooth` sets its control points at a
+        // fixed fraction of the x gap without consulting the slope on either
+        // side, which puts an inflection at EVERY point: a band that simply
+        // declines (18, 9, 0) is drawn as a run of little S-curves, so it
+        // appears to stall and dip repeatedly on the way down. On a stack of
+        // twenty bands that invented wobble is most of what the reader sees.
+        // Fritsch-Carlson is shape preserving — where the data is monotone the
+        // curve is monotone — so a falling band reads as one continuous fall.
+        curve: 'monotoneCubic',
+        // Bands meet edge to edge, so any stroke at all draws a seam down the
+        // middle of every boundary and doubles it at the two outer edges.
+        width: 0,
+      },
+      fill: {
+        type: 'solid',
+        // A streamgraph reads as one continuous surface, so the bands are
+        // opaque: at range-area's 0.6 the grid shows through and the boundaries
+        // between neighbours turn into a third, muddier colour.
+        opacity: 1,
+      },
+      dataLabels: {
+        // One label per point on a stacked surface is unreadable at any real
+        // series count. The names go on the bands instead
+        // (plotOptions.streamgraph.labels).
+        enabled: false,
+      },
+      grid: {
+        // There is nothing to measure against, so gridlines only add noise
+        // behind an opaque surface. The x ruler stays: the whole point of the
+        // form is *when* the mix changed.
+        //
+        // `padding` is deliberately left alone. Zeroing it so the surface
+        // bleeds to the plot edges is tempting and costs almost nothing
+        // visually, but it puts the first and last category label half outside
+        // the SVG, so a category streamgraph starts with an axis reading "19"
+        // where it should read "2019".
+        yaxis: { lines: { show: false } },
+      },
+      markers: {
+        size: 0,
+        // A streamgraph has no data points to hit, only bands. The inherited
+        // `sizeOffset` grows a size-0 marker to 3px on hover, which puts a dot
+        // on a band BOUNDARY — a place that is not a value in either band.
+        hover: {
+          size: 0,
+          sizeOffset: 0,
+        },
+      },
+      tooltip: {
+        intersect: false,
+        shared: false,
+        followCursor: true,
+        custom: typeOwned(
+          /** @param {Record<string, any>} opts */
+          (opts) => handleStreamTooltip(opts),
+        ),
+      },
+      legend: {
+        // On, even though the band labels already name every band in place.
+        // The legend and the labels are not doing the same job: a label says
+        // WHICH band this is, and the legend is the only thing on the chart you
+        // can CLICK. Dropping it to avoid saying six names twice took the one
+        // control a streamgraph really wants with it — pulling a band out and
+        // watching the baseline re-solve under it is most of what there is to
+        // do here, and there was no way to ask for it.
+        //
+        // It also covers the bands too thin to hold a name, which are exactly
+        // the ones a reader most needs named.
+        show: true,
+        position: 'top',
+        horizontalAlign: 'center',
+      },
+    }
+  }
+
+  /**
+   * @param {Record<string, any>} defaults
+   */
+  brush(defaults) {
+    const ret = {
+      chart: {
+        toolbar: {
+          autoSelected: 'selection',
+          show: false,
+        },
+        zoom: {
+          enabled: false,
+        },
+      },
+      dataLabels: {
+        enabled: false,
+      },
+      stroke: {
+        width: 1,
+      },
+      tooltip: {
+        enabled: false,
+      },
+      xaxis: {
+        tooltip: {
+          enabled: false,
+        },
+      },
+    }
+
+    return Utils.extend(defaults, ret)
+  }
+
+  /**
+   * @param {Record<string, any>} opts
+   */
+  stacked100(opts) {
+    opts.dataLabels = opts.dataLabels || {}
+
+    /**
+     * @param {ApexYAxis} yaxe
+     * @param {number} index
+     */
+    opts.yaxis.forEach((/** @type {any} */ yaxe, /** @type {any} */ index) => {
+      opts.yaxis[index].min = 0
+      opts.yaxis[index].max = 100
+    })
+
+    // A formatter the user set wins in every chart type. Nothing is written
+    // back otherwise: an own `formatter: undefined` on the user config used to
+    // be copied over the Options default by Utils.extend, so any 100% stacked
+    // chart that is not typed `bar` (a combo, an area) had NO formatter at all
+    // and threw the moment data labels were switched on (#2429).
+    if (opts.dataLabels.formatter) return opts
+
+    /** @param {any} val */
+    const percent = (val) => {
+      if (typeof val === 'number') {
+        return val ? val.toFixed(0) + '%' : val
+      }
+      return val
+    }
+
+    // Only the series that are slices of a 100% stack are handed the
+    // percentage (BarDataLabels reads w.globals.seriesPercent, Line passes
+    // its percent row): the bars, and stacked areas and lines (#5384). A
+    // line drawn unstacked over a 100% bar stack (a combo with the default
+    // `stackOnlyBar`) still gets its raw value, so it keeps the plain
+    // default rather than a '%'. Classified by CoreUtils.percentStackKinds,
+    // the same predicate getPercentSeries totals by.
+    // The plain default is the same as Options' `dataLabels.formatter`,
+    // inlined rather than building a full Options tree for one function.
+    /** @param {any} val */
+    const plain = (val) => (val !== null ? val : '')
+
+    // Classified from config, so the formatter is safe however early it is
+    // read: Dimensions measures the stacked-total label during plotCoords
+    // (gridPadForStackedTotalDataLabels), before plotChartType builds
+    // globals.columnSeries. Without that the reserve measured the plain
+    // string ("5700") while the drawn label read "5700%", under-reserving by
+    // the "%" and pushing the total label past the SVG viewport on a
+    // horizontal 100% stack (#3579). That early measure passes seriesIndex 0
+    // whatever the stack holds, so until columnSeries exists every index
+    // reads as a percent whenever any series does.
+    const kinds = CoreUtils.percentStackKinds(opts)
+    const hasPercent = kinds.some(Boolean)
+    /**
+     * @param {any} val
+     * @param {{ seriesIndex?: number, w?: any }} [ctx]
+     */
+    const format = (val, ctx) => {
+      const early = !ctx?.w?.globals?.columnSeries
+      const i = /** @type {number} */ (ctx?.seriesIndex)
+      const isPercent = early ? hasPercent : !!kinds[i]
+      return isPercent ? percent(val) : plain(val)
+    }
+    // Marked, so a later stackType change can tell it from the user's.
+    /** @type {any} */
+    const marked = format
+    marked[STACKED_100] = true
+    opts.dataLabels.formatter = marked
+    return opts
+  }
+
+  /**
+   * Whether a category x axis is drawn as numbers, which removes the edge
+   * spacing a line, area or scatter would otherwise get. Not for the types
+   * that draw names along it (a horizontal bar, a heatmap) or have none.
+   *
+   * @param {string} chartType
+   * @param {Record<string, any>} opts
+   * @param {Record<string, any>} chartDefaults
+   * @returns {boolean}
+   */
+  static catToNumeric(chartType, opts, chartDefaults) {
+    const isBarHorizontal =
+      (chartType === 'bar' ||
+        chartType === 'boxPlot' ||
+        chartType === 'violin') &&
+      opts.plotOptions?.bar?.horizontal
+
+    // A type that owns its plot has no category axis to space: the registry
+    // list, since a hand-kept copy of it once left treemap out.
+    const unsupportedZoom = SOLO_TYPES.includes(chartType)
+
+    // The type's own axis counts as much as the user's: a histogram asks for a
+    // numeric axis through Defaults.histogram, not by writing it into opts.
+    const xaxisType = opts.xaxis.type ?? chartDefaults.xaxis?.type
+
+    // Scatter jitter (strip plots) owns its own numeric band axis in
+    // Data.expandScatterJitterData, so the auto category→numeric conversion
+    // (and its default floor-based label formatter) must not run for it.
+    const isScatterJitter =
+      (chartType === 'scatter' || chartType === 'bubble') &&
+      opts.plotOptions?.scatter?.jitter?.enabled
+
+    const tickPlacement =
+      opts.xaxis.tickPlacement || chartDefaults.xaxis?.tickPlacement
+    return (
+      !isBarHorizontal &&
+      !unsupportedZoom &&
+      !isScatterJitter &&
+      xaxisType !== 'datetime' &&
+      xaxisType !== 'numeric' &&
+      tickPlacement !== 'between'
+    )
+  }
+
+  /**
+   * Whether the x label formatter is only the floor default a converted axis
+   * gets when the page has none, which turns a value into its integer part.
+   * @param {Record<string, any>} xaxis
+   */
+  static isFloorXLabelFormatter(xaxis) {
+    return xaxis.labels?.formatter === floorLabel
+  }
+
+  /**
+   * Re-decide the conversion after an update merged into the config: a type
+   * or orientation change can move the chart to the other side of it. When it
+   * turns off, the axis gets back what the conversion took (its names, type,
+   * formatter and tick count); when it turns on, the next render converts.
+   *
+   * @param {Record<string, any>} config the merged w.config, mutated in place
+   * @param {Record<string, any>} [options] this update's payload
+   */
+  static syncCatToNumeric(config, options) {
+    const x = config.xaxis
+    // An update that names a tickAmount is the user's choice, even when it is
+    // the 'dataPoints' the conversion wrote before. A payload converted on the
+    // way in (new categories) already carries its own mark.
+    const payload = options?.xaxis
+    if (
+      payload?.tickAmount !== undefined &&
+      payload.autoDataPointsTicks === undefined
+    ) {
+      x.autoDataPointsTicks = false
+    }
+    const was = !!x.convertedCatToNumeric
+    // A converted axis reads 'numeric' because the conversion wrote it.
+    let asked = options?.xaxis?.type
+    if (was && asked === 'numeric') asked = undefined
+    const cd = Defaults.forType(config)
+    const now = Defaults.catToNumeric(
+      config.chart.type,
+      { ...config, xaxis: { ...x, type: was ? asked : x.type } },
+      cd,
+    )
+    if (now === was) return
+    x.convertedCatToNumeric = now
+    if (now) return
+    const f = x.labels.formatter
+    const base = f?.baseFormatter || f
+    x.labels.formatter = base === floorLabel ? undefined : base
+    if (f?.categoryNames && !x.categories?.length) x.categories = f.categoryNames
+    x.type = asked || cd.xaxis?.type || 'category'
+    if (x.tickAmount === 'dataPoints' && !options?.xaxis?.tickAmount) {
+      x.tickAmount = undefined
+    }
+    x.autoDataPointsTicks = false
+  }
+
+  /**
+   * @param {Record<string, any>} opts
+   * @param {any[]} [cats] the category names, when they are not in `opts`
+   */
+  convertCatToNumericXaxis(opts, cats) {
+    opts.xaxis.type = 'numeric'
+    opts.xaxis.labels = opts.xaxis.labels || {}
+    // Every parse converts again, and the formatter in the config is by then
+    // the wrapper an earlier one installed. Wrapping that grew the chain by one
+    // closure per render, so wrap the formatter it wrapped instead.
+    opts.xaxis.labels.formatter = opts.xaxis.labels.formatter || floorLabel
+    const current = /** @type {any} */ (opts.xaxis.labels.formatter)
+    const defaultFormatter = current.baseFormatter || current
+    let labels =
+      opts.xaxis.categories && opts.xaxis.categories.length
+        ? opts.xaxis.categories
+        : opts.labels
+
+    if (cats && cats.length) {
+      /**
+       * @param {any} c
+       */
+      labels = cats.map((/** @type {any} */ c) => {
+        return Array.isArray(c) ? c : String(c)
+      })
+    }
+
+    if (labels && labels.length) {
+      const names = labels
+      /** @type {any} */
+      const format = function (/** @type {any} */ val) {
+        if (!Utils.isNumber(val)) return defaultFormatter(val)
+
+        // The converted axis is numeric, so its scale can put a tick where no
+        // category sits: past the last one, before the first, or between two
+        // after a zoom. There is nothing to format there, so the slot stays
+        // blank. Handing the user's formatter the `undefined` that
+        // out-of-range indexing produces is what made a formatter declared
+        // (value: string | number) throw on a plain category chart (#5324);
+        // and the built-in formatter already turned that undefined into '' one
+        // step later, so the rendered axis is unchanged.
+        const label = names[Math.floor(val) - 1]
+        return label === undefined ? '' : defaultFormatter(label)
+      }
+      // Once converted, this formatter is the only place the names live
+      // (`categories` is emptied below). An update that brings a new
+      // formatter but no categories reads them back from here.
+      format.categoryNames = names
+      format.baseFormatter = defaultFormatter
+      opts.xaxis.labels.formatter = format
+    }
+
+    opts.xaxis.categories = []
+    opts.labels = []
+    // Remember whether 'dataPoints' is the conversion's default or the
+    // user's choice: Range keeps the default count on numeric x values for
+    // the first, and honours the second. Every parse converts again, so a
+    // 'dataPoints' this function wrote earlier stays marked as its own.
+    const x = opts.xaxis
+    if (!x.tickAmount) {
+      x.tickAmount = 'dataPoints'
+      x.autoDataPointsTicks = true
+    } else {
+      x.autoDataPointsTicks =
+        x.tickAmount === 'dataPoints' && x.autoDataPointsTicks === true
+    }
+    return opts
+  }
+
+  bubble() {
+    return {
+      dataLabels: {
+        style: {
+          colors: ['#fff'],
+        },
+      },
+      tooltip: {
+        shared: false,
+        intersect: true,
+      },
+      xaxis: {
+        crosshairs: {
+          width: 0,
+        },
+      },
+      fill: {
+        type: 'solid',
+        gradient: {
+          shade: 'light',
+          inverse: true,
+          shadeIntensity: 0.55,
+          opacityFrom: 0.4,
+          opacityTo: 0.8,
+        },
+      },
+    }
+  }
+
+  scatter() {
+    return {
+      dataLabels: {
+        enabled: false,
+      },
+      tooltip: {
+        shared: false,
+        intersect: true,
+      },
+      markers: {
+        size: 6,
+        strokeWidth: 1,
+        hover: {
+          sizeOffset: 2,
+        },
+      },
+    }
+  }
+
+  heatmap() {
+    return {
+      chart: {
+        stacked: false,
+        // A heatmap is a fixed grid: zooming/panning only distorts the cells
+        // and (on a datetime axis) collapses the month labels to repeats, so
+        // it is off by default, mirroring treemap. Users can opt back in with
+        // chart.zoom.enabled: true.
+        zoom: {
+          enabled: false,
+        },
+      },
+      fill: {
+        opacity: 1,
+      },
+      dataLabels: {
+        style: {
+          colors: ['#fff'],
+        },
+      },
+      stroke: {
+        colors: ['#fff'],
+      },
+      tooltip: {
+        // Anchor the tooltip above the hovered cell with a downward arrow
+        // (flipping below near the top edge), the same treatment horizontal
+        // bars get, rather than trailing the cursor. Opt back into the old
+        // behavior with tooltip.followCursor: true.
+        followCursor: false,
+        marker: {
+          show: false,
+        },
+        x: {
+          show: false,
+        },
+      },
+      legend: {
+        position: 'top',
+        markers: {
+          shape: 'square',
+        },
+      },
+      grid: {
+        padding: {
+          right: 20,
+        },
+      },
+    }
+  }
+
+  treemap() {
+    return {
+      chart: {
+        zoom: {
+          enabled: false,
+        },
+      },
+      dataLabels: {
+        style: {
+          fontSize: 14,
+          fontWeight: 600,
+          colors: ['#fff'],
+        },
+      },
+      stroke: {
+        show: true,
+        width: 2,
+        colors: ['#fff'],
+      },
+      legend: {
+        show: false,
+      },
+      fill: {
+        opacity: 1,
+        gradient: {
+          stops: [0, 100],
+        },
+      },
+      tooltip: {
+        followCursor: true,
+        x: {
+          show: false,
+        },
+      },
+      grid: {
+        show: false,
+        padding: {
+          left: 0,
+          right: 0,
+        },
+      },
+      xaxis: {
+        crosshairs: {
+          show: false,
+        },
+        tooltip: {
+          enabled: false,
+        },
+        // A treemap has no x axis to read: the tiles are the whole plot, and
+        // the ticks mark data-point positions that mean nothing here. One tick
+        // per row is invisible at a dozen rows and a solid comb under the plot
+        // at several hundred, so they are off by default. Set
+        // `xaxis.axisTicks.show: true` to bring them back.
+        axisTicks: {
+          show: false,
+        },
+      },
+    }
+  }
+
+  unit() {
+    return {
+      chart: {
+        toolbar: {
+          show: false,
+        },
+      },
+      dataLabels: {
+        enabled: false,
+      },
+      stroke: {
+        show: false,
+        width: 0,
+      },
+      fill: {
+        opacity: 1,
+      },
+      tooltip: {
+        followCursor: true,
+        x: {
+          show: false,
+        },
+      },
+      legend: {
+        show: true,
+        position: 'bottom',
+      },
+      grid: {
+        padding: {
+          left: 0,
+          right: 0,
+          top: 0,
+          bottom: 0,
+        },
+      },
+    }
+  }
+
+  icicle() {
+    return {
+      chart: {
+        toolbar: {
+          show: false,
+        },
+      },
+      dataLabels: {
+        style: {
+          colors: ['#fff'],
+        },
+      },
+      stroke: {
+        colors: ['#fff'],
+      },
+      fill: {
+        opacity: 1,
+      },
+      // Off by default: every cell carries its own label, so a legend repeats
+      // what the chart already says. It also only lines up with the colours
+      // when the tree has several roots, because the palette is applied to the
+      // shallowest level that branches. A multi-root icicle can turn it on.
+      legend: {
+        show: false,
+        position: 'bottom',
+      },
+      grid: {
+        padding: {
+          left: 0,
+          right: 0,
+          top: 0,
+          bottom: 0,
+        },
+      },
+    }
+  }
+
+  sunburst() {
+    return {
+      chart: {
+        toolbar: {
+          show: false,
+        },
+      },
+      dataLabels: {
+        style: {
+          colors: ['#fff'],
+        },
+        dropShadow: {
+          enabled: true,
+        },
+      },
+      stroke: {
+        colors: ['#fff'],
+      },
+      fill: {
+        opacity: 1,
+      },
+      // Unlike pie, sunburst keeps the STANDARD themed tooltip (light/dark).
+      // Slice-coloured tooltips (fillSeriesColor) wash out here because child
+      // arcs are tinted toward white per depth; users can still opt in.
+      legend: {
+        position: 'right',
+      },
+      grid: {
+        padding: {
+          left: 0,
+          right: 0,
+          top: 0,
+          bottom: 0,
+        },
+      },
+    }
+  }
+
+  pie() {
+    return {
+      chart: {
+        toolbar: {
+          show: false,
+        },
+      },
+      plotOptions: {
+        pie: {
+          donut: {
+            labels: {
+              show: false,
+            },
+          },
+        },
+      },
+      dataLabels: {
+        formatter: percentLabel,
+        style: {
+          colors: ['#fff'],
+        },
+        background: {
+          enabled: false,
+        },
+        dropShadow: {
+          enabled: true,
+        },
+      },
+      stroke: {
+        colors: ['#fff'],
+      },
+      fill: {
+        opacity: 1,
+        gradient: {
+          shade: 'light',
+          stops: [0, 100],
+        },
+      },
+      tooltip: {
+        theme: 'dark',
+        fillSeriesColor: true,
+      },
+      legend: {
+        position: 'right',
+      },
+      grid: {
+        padding: {
+          left: 0,
+          right: 0,
+          top: 0,
+          bottom: 0,
+        },
+      },
+    }
+  }
+
+  donut() {
+    return {
+      chart: {
+        toolbar: {
+          show: false,
+        },
+      },
+      dataLabels: {
+        formatter: percentLabel,
+        style: {
+          colors: ['#fff'],
+        },
+        background: {
+          enabled: false,
+        },
+        dropShadow: {
+          enabled: true,
+        },
+      },
+      stroke: {
+        colors: ['#fff'],
+      },
+      fill: {
+        opacity: 1,
+        gradient: {
+          shade: 'light',
+          shadeIntensity: 0.35,
+          stops: [80, 100],
+          opacityFrom: 1,
+          opacityTo: 1,
+        },
+      },
+      tooltip: {
+        theme: 'dark',
+        fillSeriesColor: true,
+      },
+      legend: {
+        position: 'right',
+      },
+      grid: {
+        padding: {
+          left: 0,
+          right: 0,
+          top: 0,
+          bottom: 0,
+        },
+      },
+    }
+  }
+
+  polarArea() {
+    return {
+      chart: {
+        toolbar: {
+          show: false,
+        },
+      },
+      dataLabels: {
+        formatter: percentLabel,
+        enabled: false,
+      },
+      stroke: {
+        show: true,
+        width: 2,
+      },
+      fill: {
+        opacity: 0.7,
+      },
+      tooltip: {
+        theme: 'dark',
+        fillSeriesColor: true,
+      },
+      legend: {
+        position: 'right',
+      },
+      grid: {
+        padding: {
+          left: 0,
+          right: 0,
+          top: 0,
+          bottom: 0,
+        },
+      },
+    }
+  }
+
+  radar() {
+    this.opts.yaxis[0].labels.offsetY = this.opts.yaxis[0].labels.offsetY
+      ? this.opts.yaxis[0].labels.offsetY
+      : 6
+
+    return {
+      dataLabels: {
+        enabled: false,
+        style: {
+          fontSize: '11px',
+        },
+      },
+      stroke: {
+        width: 2,
+      },
+      markers: {
+        size: 5,
+        strokeWidth: 1,
+        strokeOpacity: 1,
+      },
+      fill: {
+        opacity: 0.2,
+      },
+      tooltip: {
+        shared: false,
+        intersect: true,
+        followCursor: true,
+      },
+      grid: {
+        show: false,
+        padding: {
+          left: 0,
+          right: 0,
+          top: 0,
+          bottom: 0,
+        },
+      },
+      xaxis: {
+        labels: {
+          formatter: (/** @type {any} */ val) => val,
+          style: {
+            colors: ['#a8a8a8'],
+            fontSize: '11px',
+          },
+        },
+        tooltip: {
+          enabled: false,
+        },
+        crosshairs: {
+          show: false,
+        },
+      },
+    }
+  }
+
+  radialBar() {
+    return {
+      chart: {
+        animations: {
+          dynamicAnimation: {
+            enabled: true,
+            speed: 800,
+          },
+        },
+        toolbar: {
+          show: false,
+        },
+      },
+      stroke: {
+        // Radial value arcs are stroked open arcs; square/round caps would
+        // extend the stroke half a stroke-width past each endpoint, making
+        // the "starting edge" visibly stick out past the geometric arc.
+        // Butt cap is the only one that aligns with the arc's true angular
+        // span. Without this, a chart that previously was a bar (whose
+        // defaults set lineCap='square') would carry that cap across into
+        // the radial render after a type morph.
+        lineCap: 'butt',
+      },
+      fill: {
+        gradient: {
+          shade: 'dark',
+          shadeIntensity: 0.4,
+          inverseColors: false,
+          type: 'diagonal2',
+          opacityFrom: 1,
+          opacityTo: 1,
+          stops: [70, 98, 100],
+        },
+      },
+      legend: {
+        show: false,
+        position: 'right',
+      },
+      tooltip: {
+        enabled: false,
+        fillSeriesColor: true,
+      },
+      grid: {
+        padding: {
+          left: 0,
+          right: 0,
+          top: 0,
+          bottom: 0,
+        },
+      },
+    }
+  }
+
+  /**
+   * @param {import('../../types/internal').ChartStateW} w
+   * @param {number} seriesIndex
+   * @param {number} dataPointIndex
+   * @param {any[]} labels
+   * @param {string} chartType
+   */
+  _getBoxTooltip(w, seriesIndex, dataPointIndex, labels, chartType) {
+    const o = w.candleData.seriesCandleO[seriesIndex][dataPointIndex]
+    const h = w.candleData.seriesCandleH[seriesIndex][dataPointIndex]
+    const m = w.candleData.seriesCandleM[seriesIndex][dataPointIndex]
+    const l = w.candleData.seriesCandleL[seriesIndex][dataPointIndex]
+    const c = w.candleData.seriesCandleC[seriesIndex][dataPointIndex]
+
+    const _si = /** @type {Record<string,any>} */ (w.config.series[seriesIndex])
+
+    if (_si.type && _si.type !== chartType) {
+      return `<div class="apexcharts-custom-tooltip">
+          ${
+            _si.name ? nameAsHtml(_si.name) : 'series-' + (seriesIndex + 1)
+          }: <strong>${w.seriesData.series[seriesIndex][dataPointIndex]}</strong>
+        </div>`
+    } else {
+      return (
+        `<div class="apexcharts-tooltip-box apexcharts-tooltip-${w.config.chart.type}">` +
+        `<div>${labels[0]}: <span class="value">` +
+        o +
+        '</span></div>' +
+        `<div>${labels[1]}: <span class="value">` +
+        h +
+        '</span></div>' +
+        // A median of 0 is a median: zero-centred data (residuals, deltas)
+        // lost the row to a truthiness test. Candlesticks name no third row.
+        (labels[2] && m != null && !Number.isNaN(m)
+          ? `<div>${labels[2]}:<span class="value">` + m + '</span></div>'
+          : '') +
+        `<div>${labels[3]}: <span class="value">` +
+        l +
+        '</span></div>' +
+        `<div>${labels[4]}: <span class="value">` +
+        c +
+        '</span></div>' +
+        '</div>'
+      )
+    }
+  }
+
+  /**
+   * Shared tooltip for a violin: distribution value range and observation
+   * count. Per-point hover is intentionally unsupported (jitter renders as a
+   * single path), so the tooltip summarizes the violin as a whole.
+   *
+   * @param {import('../../types/internal').ChartStateW} w
+   * @param {number} seriesIndex
+   * @param {number} dataPointIndex
+   */
+  _getViolinTooltip(w, seriesIndex, dataPointIndex) {
+    const minV = w.violinData.seriesViolinMin[seriesIndex]?.[dataPointIndex]
+    const maxV = w.violinData.seriesViolinMax[seriesIndex]?.[dataPointIndex]
+    const pts =
+      w.violinData.seriesViolinPoints[seriesIndex]?.[dataPointIndex] || []
+    const name =
+      /** @type {Record<string,any>} */ (w.config.series[seriesIndex]).name ||
+      'series-' + (seriesIndex + 1)
+
+    return (
+      `<div class="apexcharts-tooltip-box apexcharts-tooltip-${w.config.chart.type}">` +
+      `<div class="apexcharts-tooltip-violin-name">${nameAsHtml(name)}</div>` +
+      `<div>Min: <span class="value">${minV}</span></div>` +
+      `<div>Max: <span class="value">${maxV}</span></div>` +
+      `<div>Observations: <span class="value">${pts.length}</span></div>` +
+      '</div>'
+    )
+  }
+
+  /**
+   * Shared tooltip for a raincloud: the five-number summary its box draws,
+   * plus the observation count. Falls back to the violin tooltip when a datum
+   * carries no summary (precomputed density without a sample).
+   *
+   * @param {import('../../types/internal').ChartStateW} w
+   * @param {number} seriesIndex
+   * @param {number} dataPointIndex
+   */
+  _getRaincloudTooltip(w, seriesIndex, dataPointIndex) {
+    const summary =
+      w.violinData.seriesViolinSummary[seriesIndex]?.[dataPointIndex]
+    if (!summary) {
+      return this._getViolinTooltip(w, seriesIndex, dataPointIndex)
+    }
+    const pts =
+      w.violinData.seriesViolinPoints[seriesIndex]?.[dataPointIndex] || []
+    const name =
+      /** @type {Record<string,any>} */ (w.config.series[seriesIndex]).name ||
+      'series-' + (seriesIndex + 1)
+    // Quantiles are derived, so they arrive with float noise; the tooltip is
+    // read by people.
+    /** @param {number} v */
+    const fmt = (v) => {
+      if (!isFinite(v)) return String(v)
+      const r = Math.round(v)
+      return Math.abs(v - r) < 1e-6 ? String(r) : String(Number(v.toFixed(2)))
+    }
+    const [lo, q1, med, q3, hi] = summary
+
+    return (
+      `<div class="apexcharts-tooltip-box apexcharts-tooltip-${w.config.chart.type}">` +
+      `<div class="apexcharts-tooltip-violin-name">${nameAsHtml(name)}</div>` +
+      `<div>Whisker high: <span class="value">${fmt(hi)}</span></div>` +
+      `<div>Q3: <span class="value">${fmt(q3)}</span></div>` +
+      `<div>Median: <span class="value">${fmt(med)}</span></div>` +
+      `<div>Q1: <span class="value">${fmt(q1)}</span></div>` +
+      `<div>Whisker low: <span class="value">${fmt(lo)}</span></div>` +
+      `<div>Observations: <span class="value">${pts.length}</span></div>` +
+      '</div>'
+    )
+  }
+}

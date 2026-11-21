@@ -1,28 +1,33 @@
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap');
 
-@import url('Estructura/Encabezado.css');
-
-@import url('Estructura/Barra_Lateral.css');
-@import url('Estructura/Pie_pagina.css');
+@import url('Estructura/Encabezado.css?v=20261112-recovery-refresh-hide-1');
+@import url('Estructura/Barra_Lateral.css?v=20261113-client-sidebar-profile-actions-1');
+@import url('Estructura/Pie_pagina.css?v=20261109-responsive-2');
 @import url('Estructura/404.css');
 
-@import url('Inicio/inicio_sesion.css');
+@import url('Inicio/inicio_sesion.css?v=20261109-mobile-1');
+@import url('Inicio/registrar_credenciales.css');
+@import url('Inicio/registrar_clientes.css?v=20261109-responsive-3');
+@import url('Inicio/menu_acceso.css');
 
-@import url('Modulos/formulario_base.css');
+@import url('Credenciales/buscar_usuario.css');
+@import url('Credenciales/verificar_codigo.css');
+@import url('Credenciales/menu_recuperar_credenciales.css');
+@import url('Credenciales/cambiar_contrasania.css');
+@import url('Credenciales/recuperar_usuario.css');
 
-@import url('Dialogos/dialogo.css');
+@import url('Modulos/formulario_base.css?v=20261113-client-cart-controls-1');
 
-@import url('Funciones/barra_progreso.css');
+@import url('Comunicacion/Soporte/chat.css');
+
+@import url('Dialogos/dialogo.css?v=20261113-radio-focus-circle-1');
+
 @import url('Funciones/anti_duplicado.css');
 @import url('Funciones/campo_password.css');
-@import url('Funciones/barra_password.css');
-@import url('Funciones/perfiles.css');
-@import url('Funciones/grupo_controles.css');
-@import url('Funciones/contador_caracteres.css');
-@import url('Funciones/sin_barra_progreso.css');
+@import url('Funciones/botones_formulario.css');
 
 @import url('Foro/foro.css');
-@import url('Panel_Usuario/panel_usuario.css');
+@import url('Panel_Usuario/panel_usuario.css?v=20261109-responsive-3');
 
 * {
     margin: 0;
@@ -33,15 +38,14 @@
 
 .body-logueado {
     display: grid;
-    grid-template-columns: 260px 1fr;
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto 1fr auto;
     grid-template-areas:
-        "header header"
-        "aside  main"
-        "footer footer";
+        "header"
+        "main"
+        "footer";
     min-height: 100vh;
     background: #102f4e;
-    /* Evita que se vea blanco si hay un microespacio */
 }
 
 .pagina-404 {
@@ -49,7 +53,6 @@
     margin: 0;
 }
 
-/* ENCABEZADO */
 .header-logueado {
     grid-area: header;
     position: sticky;
@@ -59,49 +62,16 @@
     z-index: 1000;
 }
 
-/* ASIDE Y FOOTER */
-.aside-logueado {
-    grid-area: aside;
-    position: sticky;
-    top: 125px;
-    height: calc(100vh - 125px);
-    background: #102f4e;
-    color: #fffbf4;
-    z-index: 900;
-    overflow-y: auto;
-    overflow-x: hidden;
-    transition: transform 0.3s ease, left 0.3s ease;
-    border-top: none;
-    /* Asegura que no tenga bordes extra */
-}
-
-.main-logueado {
-    grid-area: main;
-    width: 100%;
-    background: #ffffff;
-    /* O el color de fondo que tenga tu área de trabajo principal */
-}
-
 .footer-logueado {
     grid-area: footer;
 }
 
-/* RESPONSIVO (MENOR A 992PX) */
 @media (max-width: 992px) {
     .body-logueado {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
         grid-template-areas:
             "header"
             "main"
             "footer";
-    }
-
-    .aside-logueado {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 260px;
-        height: 100vh;
-        z-index: 1050;
     }
 }

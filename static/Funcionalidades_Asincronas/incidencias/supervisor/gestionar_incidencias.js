@@ -27,8 +27,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const csrfToken = document.querySelector("[name=csrfmiddlewaretoken]").value;
 
-    const btn_incidencias_pdf = document.getElementById("lista_incidencias_pdf");
-
     const btn_retroceder = document.querySelector(".btn_retroceder");
     const btn_avanzar = document.querySelector(".btn_avanzar");
 
@@ -45,7 +43,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const resultado = await respuesta.json();
             console.log(resultado);
 
-            select_tipos_incidencias.innerHTML = "<option value='' selected>Selecciona el Tipo de Incidencia</option>";
+            select_tipos_incidencias.innerHTML = "<option value='' selected>Todos los tipos de Incidencias</option>";
 
             select_tipos_incidencias_m.innerHTML = "";
 
@@ -72,7 +70,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const resultado = await respuesta.json();
             console.log(resultado);
 
-            select_fechas_incidencias.innerHTML = "<option value='' selected>Selecciona la Fecha de Incidencia</option>";
+            select_fechas_incidencias.innerHTML = "<option value='' selected>Todas las fechas</option>";
 
             if (resultado.estado != "exito") {
                 await Swal.fire({
@@ -115,17 +113,31 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const incidencias_pagina = incidencias.slice(inicio, fin);
 
+        if (incidencias_pagina.length === 0) {
+            contenedor_incidencias.innerHTML = `
+                <tr>
+                    <td colspan="5" class="texto_sin_registros">
+                        No hay incidencias registradas.
+                    </td>
+                </tr>
+            `;
+
+            btn_retroceder.disabled = true;
+            btn_avanzar.disabled = true;
+            return;
+        }
+
         incidencias_pagina.forEach((registro, index) => {
             const fila = document.createElement("tr");
 
             fila.dataset.id_incidencia = registro.id;
 
             fila.innerHTML = `
-                <td>${index + 1}</td>
-                <td>${registro.titulo}</td>
-                <td>${registro.tipo}</td>
-                <td>${registro.fecha_hora}</td>
-                <td>
+            <td>${inicio + index + 1}</td>
+            <td>${registro.titulo}</td>
+            <td>${registro.tipo}</td>
+            <td>${registro.fecha_hora}</td>
+            <td>
                     <button
                         type="button"
                         class="btn_tabla"
@@ -431,39 +443,4 @@ document.addEventListener("DOMContentLoaded", () => {
         dialogo_actualizar.close();
     });
 
-
-    btn_incidencias_pdf.addEventListener("click", async () => {
-        const datos = new FormData();
-        datos.append("csrfmiddlewaretoken", csrfToken);
-        datos.append("fecha_incidencia", select_fechas_incidencias.value);
-        datos.append("tipo_incidencia", select_tipos_incidencias.value);
-
-        try {
-            const respuesta = await fetch("/incidencias/lista_incidencias_pdf/", {
-                method: "POST",
-                body: datos
-            });
-            const tipoRespuesta = respuesta.headers.get("Content-Type");
-            if (tipoRespuesta?.includes("application/json")) {
-                const resultado = await respuesta.json();
-                Swal.fire({
-                    title: resultado.title,
-                    text: resultado.descripcion,
-                    icon: resultado.icon
-                });
-                return;
-            }
-
-            const archivo = await respuesta.blob();
-            const url = URL.createObjectURL(archivo);
-
-            window.open(url, "_blank");
-
-            setTimeout(() => {
-                URL.revokeObjectURL(url);
-            }, 1000);
-        } catch (error) {
-            console.error(error);
-        }
-    });
 });

@@ -5,7 +5,7 @@
 {% load static %}
 
 <section class="contenedor_formulario">
-    <div class="contenedor_campos_amplio">
+    <div class="contenedor_campos_intermedio">
         <h2>Instento de Inicio de Sesión</h2>
 
         <div class="modulo_buqueda">
@@ -14,20 +14,50 @@
             <form method="post" class="formulario_base">
                 {% csrf_token %}
 
-                <div class="campo_reducido">
-                    <label for="fechas_registradas">Fechas Registradas:</label>
-                    <select name="fechas_registradas" id="fechas_registradas"></select>
+                <div class="campos_fila">
+                    <div class="campo_formulario">
+                        <label for="fechas_registradas">Fechas Registradas:</label>
+                        <select name="fechas_registradas" id="fechas_registradas"></select>
+                    </div>
                 </div>
             </form>
         </div>
 
         <div class="modulo_visualizar">
-            <div class="encabezado_registrados">
-                <button type="button" class="btn_pdf" id="intentos_sesion_pdf">
-                    <i class="fa-regular fa-file-pdf"></i>
-                    Reporte
-                </button>
-            </div>
+            <section class="estadisticas_intentos" aria-labelledby="titulo_estadisticas_intentos">
+                <h3 id="titulo_estadisticas_intentos">Estadísticas de intentos de sesión</h3>
+
+                <div class="resumen_intentos" aria-live="polite">
+                    <article class="tarjeta_intento">
+                        <span>Total de intentos</span>
+                        <strong id="total_intentos">0</strong>
+                    </article>
+                    <article class="tarjeta_intento">
+                        <span>Intentos exitosos</span>
+                        <strong id="intentos_exitosos">0</strong>
+                    </article>
+                    <article class="tarjeta_intento">
+                        <span>Intentos fallidos</span>
+                        <strong id="intentos_fallidos">0</strong>
+                    </article>
+                </div>
+
+                <div class="grafica_intentos">
+                    <h4>Intentos de sesión por fecha</h4>
+                    <div class="contenedor_grafica_intentos" id="contenedor_grafica_intentos">
+                        <canvas
+                            id="grafica_intentos"
+                            role="img"
+                            aria-label="Gráfica de intentos de sesión por fecha"
+                        ></canvas>
+                    </div>
+                    <p id="mensaje_grafica_intentos" class="mensaje_grafica_intentos" hidden>
+                        No hay datos para mostrar.
+                    </p>
+                </div>
+            </section>
+
+            <p id="estado_intentos" class="estado_intentos" role="alert" hidden></p>
 
             <div class="contenedor_tabla">
                 <table>
@@ -46,14 +76,14 @@
             </div>
 
             <div class="botones_navegacion">
-                <button class="btn_secundario btn_retroceder" type="button">Retroceder</button>
-                <button class="btn_primario btn_avanzar" type="button">Avanzar</button>
+                <button class="btn_secundario btn_ret" type="button">Retroceder</button>
+                <button class="btn_primario btn_av" type="button">Avanzar</button>
             </div>
         </div>
 
     </div>
 </section>
 
-<script src="{% static 'Funcionalidades_Asincronas/seguridad/intentos_sesion.js' %}"></script>
+<script src="{% static 'Funcionalidades_Asincronas/seguridad/intentos_sesion.js' %}?v=20261112-attempt-stats-1"></script>
 
 {% endblock %}

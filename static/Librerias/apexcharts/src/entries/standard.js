@@ -1,0 +1,79 @@
+// @ts-check
+/**
+ * ApexCharts: the default bundle's entry point (the standard chart types).
+ *
+ * This is what the default import resolves to:
+ *   import ApexCharts from 'apexcharts'
+ *
+ * Registers the standard chart types. Use a sub-entry point instead
+ * (e.g. 'apexcharts/line') to ship only the types you need.
+ */
+import ApexCharts from '../apexcharts'
+import * as coreInternals from './core.js'
+import '../features/all.js'
+import Bar from '../charts/Bar'
+import BarStacked from '../charts/BarStacked'
+import BoxCandleStick from '../charts/BoxCandleStick'
+import HeatMap from '../charts/HeatMap'
+import Line from '../charts/Line'
+import Pie from '../charts/Pie'
+import Radar from '../charts/Radar'
+import Radial from '../charts/Radial'
+import RangeBar from '../charts/RangeBar'
+import Treemap from '../charts/Treemap'
+import drainPendingAddons from '../utils/PendingAddons.js'
+
+ApexCharts.use({
+  line: Line,
+  area: Line,
+  scatter: Line,
+  bubble: Line,
+  rangeArea: Line,
+  bar: Bar,
+  column: Bar,
+  barStacked: BarStacked,
+  rangeBar: RangeBar,
+  candlestick: BoxCandleStick,
+  boxPlot: BoxCandleStick,
+  pie: Pie,
+  donut: Pie,
+  polarArea: Pie,
+  radialBar: Radial,
+  radar: Radar,
+  heatmap: HeatMap,
+  treemap: Treemap,
+})
+
+/**
+ * The shared-module surface a script-tag add-on layers onto.
+ *
+ * A page without a bundler loads `apexcharts.js` and then, say,
+ * `features/trellis.js`. That add-on needs the same Graphics, Utils and Scales
+ * the page already has: a second copy would double the payload and, worse, give
+ * it class identities the core does not recognise. So the default bundle hangs the
+ * `__apex_*` modules it already contains off the global, and the UMD add-on
+ * build resolves its shared imports here instead of inlining them
+ * (`build/shared-modules.mjs`, target 'global').
+ *
+ * PRIVATE and unversioned. It is not in the type definitions, it is not
+ * semver-stable, and application code must never read it. Bundler users get the
+ * same modules the supported way, as `apexcharts/core` exports.
+ *
+ * Defined once. With core external, two bundles that both inline this entry
+ * (the default bundle and a larger one built on top of it) run this on the same
+ * class, and a second non-configurable define throws "Cannot redefine
+ * property". The first definition already points at the one shared core.
+ */
+if (!Object.prototype.hasOwnProperty.call(ApexCharts, '__internals')) {
+  Object.defineProperty(ApexCharts, '__internals', {
+    value: coreInternals,
+    enumerable: false,
+    writable: false,
+    configurable: false,
+  })
+}
+
+// Add-ons whose script tags ran before this one waited for the surface above.
+drainPendingAddons(ApexCharts)
+
+export default ApexCharts

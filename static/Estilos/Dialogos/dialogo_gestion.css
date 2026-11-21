@@ -1,0 +1,310 @@
+.contenedor_gestion_datos {
+    position: relative;
+    width: 100%;
+    max-width: 950px;
+    max-height: 90vh;
+    margin: 0 auto;
+    padding: 30px;
+    overflow-y: auto;
+    background-color: #ffffff;
+    border: 1px solid #dce6ec;
+    border-radius: 14px;
+    box-shadow: 0 8px 28px rgba(0, 48, 70, 0.12);
+    box-sizing: border-box;
+    font-family: Arial, sans-serif;
+}
+
+.contenedor_gestion_datos h2 {
+    margin: 0 45px 24px 0;
+    padding-bottom: 15px;
+    color: #00445f;
+    border-bottom: 2px solid #e3edf2;
+    font-size: 24px;
+    line-height: 1.4;
+}
+
+.contenedor_gestion_datos .btn_cerrar {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    color: #647985;
+    background-color: transparent;
+    border: none;
+    border-radius: 8px;
+    font-size: 25px;
+    cursor: pointer;
+    transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.contenedor_gestion_datos .btn_cerrar:hover {
+    color: #c62828;
+    background-color: #fff0f0;
+}
+
+.modulo_dialogo_gestion {
+    width: 100%;
+    min-width: 0;
+}
+
+.formulario_gestion_datos {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    width: 100%;
+    min-width: 0;
+}
+
+.contenedor_visualizar_datos {
+    display: grid;
+    grid-template-columns: repeat(3, max-content);
+    align-items: start;
+    gap: 18px 20px;
+    width: 100%;
+    padding: 22px;
+    background-color: #f8fafc;
+    border: 1px solid #dce6ec;
+    border-radius: 11px;
+    box-sizing: border-box;
+}
+
+.contenedor_visualizar_datos::before {
+    content: "Información del equipo asignado";
+    grid-column: 1 / -1;
+    padding-bottom: 12px;
+    color: #00445f;
+    border-bottom: 1px solid #dce6ec;
+    font-size: 16px;
+}
+
+.contenedor_modificar {
+    display: grid;
+    grid-template-columns: repeat(2, max-content);
+    align-items: start;
+    gap: 20px;
+    width: 100%;
+    min-width: 0;
+    padding: 22px;
+    background-color: #f8fafc;
+    border: 1px solid #dce6ec;
+    border-radius: 11px;
+    box-sizing: border-box;
+}
+
+.contenedor_visualizar_datos::before {
+    content: "Información del equipo asignado";
+    grid-column: 1 / -1;
+    padding-bottom: 12px;
+    color: #00445f;
+    border-bottom: 1px solid #dce6ec;
+    font-size: 16px;
+}
+
+.campo_formulario {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+.campo_formulario label {
+    color: #244454;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.campo_formulario input,
+.campo_formulario select {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    min-height: 43px;
+    padding: 11px 13px;
+    color: #365361;
+    background-color: #ffffff;
+    border: 1px solid #cbd9e1;
+    border-radius: 8px;
+    outline: none;
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1.5;
+    box-sizing: border-box;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.campo_formulario input[readonly] {
+    color: #365361;
+    background-color: #edf3f6;
+    border-color: #d5e0e6;
+    cursor: default;
+}
+
+.campo_formulario input:not([readonly]):focus,
+.campo_formulario select:focus {
+    border-color: #00779e;
+    box-shadow: 0 0 0 3px rgba(0, 119, 158, 0.12);
+}
+
+.contenedor_mensajes {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-width: 0;
+    padding: 15px 18px;
+    color: #365361;
+    background-color: #edf5f8;
+    border: 1px solid #cbdfe8;
+    border-radius: 9px;
+    box-sizing: border-box;
+}
+
+.contenedor_mensajes p {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.contenedor_gestion_datos h2,
+.contenedor_gestion_datos .btn_cerrar,
+.contenedor_gestion_datos .contenedor_visualizar_datos::before,
+.contenedor_gestion_datos .campo_formulario label,
+.contenedor_gestion_datos .campo_formulario input,
+.contenedor_gestion_datos .campo_formulario select,
+.contenedor_gestion_datos .contenedor_mensajes,
+.contenedor_gestion_datos .contenedor_mensajes p,
+.contenedor_gestion_datos .mensaje-feedback,
+.contenedor_gestion_datos .btn_primario {
+    font-weight: 400;
+}
+
+.reloj_procesamiento {
+    flex-shrink: 0;
+    color: #00779e;
+    font-size: 19px;
+}
+
+.contenedor_modificar {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: 20px;
+    width: 100%;
+    min-width: 0;
+    padding: 22px;
+    background-color: #f8fafc;
+    border: 1px solid #dce6ec;
+    border-radius: 11px;
+    box-sizing: border-box;
+}
+
+.mensaje-feedback {
+    min-height: 0;
+    color: #c62828;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.mensaje-feedback:empty {
+    display: none;
+}
+
+.contenedor_boton_submit {
+    display: flex;
+    justify-content: flex-end;
+    width: 100%;
+}
+
+.btn_primario {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 150px;
+    min-height: 44px;
+    padding: 11px 22px;
+    color: #ffffff;
+    background-color: #00779e;
+    border: 1px solid #00779e;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background-color 0.2s ease,
+        border-color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.btn_primario:hover {
+    background-color: #00445f;
+    border-color: #00445f;
+}
+
+.btn_primario:disabled {
+    color: #71838c;
+    background-color: #dce5e9;
+    border-color: #dce5e9;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+@media (max-width: 600px) {
+    .contenedor_gestion_datos {
+        width: 100%;
+        max-height: calc(100dvh - 20px);
+        padding: 23px 18px;
+        border-radius: 11px;
+    }
+
+    .contenedor_gestion_datos h2 {
+        margin-right: 35px;
+        margin-bottom: 20px;
+        font-size: 21px;
+    }
+
+    .contenedor_gestion_datos .btn_cerrar {
+        top: 15px;
+        right: 13px;
+    }
+
+    .contenedor_visualizar_datos,
+    .contenedor_modificar {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 15px;
+        padding: 16px;
+    }
+
+    .contenedor_modificar .campo_formulario:last-child {
+        grid-column: 1;
+    }
+
+    .contenedor_mensajes {
+        align-items: flex-start;
+        padding: 13px;
+    }
+
+    .contenedor_boton_submit {
+        justify-content: stretch;
+    }
+
+    .btn_primario {
+        width: 100%;
+    }
+}
+
+@media (max-width: 360px) {
+    .contenedor_gestion_datos {
+        padding: 20px 13px;
+    }
+
+    .contenedor_visualizar_datos,
+    .contenedor_modificar {
+        padding: 12px;
+    }
+}

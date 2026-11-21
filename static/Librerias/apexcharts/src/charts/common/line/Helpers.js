@@ -1,0 +1,182 @@
+// @ts-check
+import Utils from '../../../utils/Utils'
+import { prevRecords } from '../PreviousPaths'
+
+export default class Helpers {
+  /**
+   * @param {import('../../../charts/Line').default} lineCtx
+   */
+  constructor(lineCtx) {
+    this.w = lineCtx.w
+    this.lineCtx = lineCtx
+  }
+
+  /**
+   * @param {number} i index into `series`, the rows this draw call renders
+   * @param {any[]} series
+   * @param {number} realIndex index into the config / fill options
+   */
+  sameValueSeriesFix(i, series, realIndex) {
+    const w = this.w
+    const s = series[i]
+
+    // applied only to LINE chart
+    // a small adjustment to allow gradient line to draw correctly for all same values
+    /* #fix https://github.com/apexcharts/apexcharts.js/issues/358 */
+    if (
+      (w.config.fill.type === 'gradient' ||
+        w.config.fill.type[realIndex] === 'gradient') &&
+      s.every((/** @type {any} */ v) => v === s[0])
+    ) {
+      series[i] = s.slice()
+      series[i][s.length - 1] += 0.000001
+    }
+    return series
+  }
+
+  /** @param {{series: any, realIndex: any, x: any, y: any, i: any, j: any, prevY: any}} opts */
+  calculatePoints({ series, realIndex, x, y, i, j, prevY }) {
+    const w = this.w
+
+    const ptX = []
+    const ptY = []
+
+    let xPT1st = this.lineCtx.categoryAxisCorrection + w.config.markers.offsetX
+
+    // the first point for line series
+    // we need to check whether it's not a time series, because a time series may
+    // start from the middle of the x axis
+    if (w.axisFlags.isXNumeric) {
+      xPT1st =
+        (w.seriesData.seriesX[realIndex][0] - w.globals.minX) /
+          this.lineCtx.xRatio +
+        w.config.markers.offsetX
+    }
+
+    // push 2 points for the first data values
+    if (j === 0) {
+      ptX.push(xPT1st)
+      ptY.push(
+        Utils.isNumber(series[i][0]) ? prevY + w.config.markers.offsetY : null,
+      )
+    }
+
+    ptX.push(x + w.config.markers.offsetX)
+    ptY.push(
+      Utils.isNumber(series[i][j + 1]) ? y + w.config.markers.offsetY : null,
+    )
+
+    return {
+      x: ptX,
+      y: ptY,
+    }
+  }
+
+  /** @param {{pathFromLine: any, pathFromArea: any, realIndex: any}} opts */
+  checkPreviousPaths({ pathFromLine, pathFromArea, realIndex }) {
+    const w = this.w
+
+    for (const gpp of prevRecords(w, realIndex)) {
+      if (
+        (gpp.type === 'line' || gpp.type === 'area') &&
+        gpp.paths.length > 0
+      ) {
+        if (gpp.type === 'line') {
+          this.lineCtx.appendPathFrom = false
+          pathFromLine = gpp.paths[0].d
+        } else if (gpp.type === 'area') {
+          this.lineCtx.appendPathFrom = false
+          pathFromArea = gpp.paths[0].d
+
+          if (w.config.stroke.show && gpp.paths[1]) {
+            pathFromLine = gpp.paths[1].d
+          }
+        }
+      }
+    }
+
+    return {
+      pathFromLine,
+      pathFromArea,
+    }
+  }
+
+  /**
+   * The range-area band this series drew last render, or null.
+   *
+   * checkPreviousPaths only knows line and area, so a range area never found
+   * its previous shape: every update, a legend toggle included, started all of
+   * its bands from the baseline and re-grew them. A range area draws its band
+   * as one closed path from two halves (Line.draw joins the lower and upper
+   * pathFrom), so this returns the whole captured band to morph from, in place
+   * of that join. Only a single-path band qualifies: a null splits it into one
+   * path per segment, and those keep the baseline entry.
+   * @param {number} realIndex
+   * @returns {string | null}
+   */
+  previousRangeAreaPath(realIndex) {
+    for (const gpp of prevRecords(this.w, realIndex)) {
+      if (
+        gpp.type === 'rangeArea' &&
+        gpp.paths.length === 1 &&
+        gpp.paths[0].d
+      ) {
+        return gpp.paths[0].d
+      }
+    }
+    return null
+  }
+
+  /** @param {{i: any, realIndex: any, series: any, prevY: any, lineYPosition: any, translationsIndex: any}} opts */
+  determineFirstPrevY({
+    i,
+    realIndex,
+    series,
+    prevY,
+    lineYPosition,
+    translationsIndex,
+  }) {
+    const stackSeries = this.lineCtx.isStackedSeries(realIndex)
+
+    if (typeof series[i]?.[0] !== 'undefined') {
+      if (stackSeries) {
+        if (i > 0) {
+          // Top of the stack at THIS series' first x. Reading
+          // prevSeriesY[i - 1][0] instead assumed both series start at the same
+          // x, which is not true once the arrays are ragged (#4886).
+          const top = this.lineCtx.stackTopAt(realIndex, 0)
+          lineYPosition = top === undefined ? this.lineCtx.zeroY : top
+        } else {
+          // the first series will not have prevY values
+          lineYPosition = this.lineCtx.zeroY
+        }
+      } else {
+        lineYPosition = this.lineCtx.zeroY
+      }
+      prevY =
+        lineYPosition -
+        series[i][0] / this.lineCtx.yRatio[translationsIndex] +
+        (this.lineCtx.isReversed
+          ? series[i][0] / this.lineCtx.yRatio[translationsIndex]
+          : 0) *
+          2
+    } else {
+      // the first value in the current series is null
+      if (stackSeries && i > 0 && typeof series[i][0] === 'undefined') {
+        // check for undefined value (undefined value will occur when we clear the series while user clicks on legend to hide serieses)
+        for (let s = i - 1; s >= 0; s--) {
+          // for loop to get to 1st previous value until we get it
+          if (series[s][0] !== null && typeof series[s][0] !== 'undefined') {
+            lineYPosition = this.lineCtx.prevSeriesY[s][0]
+            prevY = lineYPosition
+            break
+          }
+        }
+      }
+    }
+    return {
+      prevY,
+      lineYPosition,
+    }
+  }
+}

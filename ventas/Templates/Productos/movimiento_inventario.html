@@ -1,0 +1,63 @@
+{% extends 'Estructura/base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="contenedor_formulario">
+    <div class="contenedor_campos_amplio">
+        <h2>Visualizar Inventario</h2>
+
+        <div class="modulo_buqueda">
+            <h3>Búsqueda Producto(s)</h3>
+
+            <form method="post" class="formulario_base">
+                {% csrf_token %}
+
+                <div class="campos_fila">
+                    <div class="campo_formulario">
+                        <label for="categoria_producto_b">Categoria Producto:</label>
+                        <select name="categoria_producto" id="categoria_producto_b"></select>
+                    </div>
+
+                    <div class="campo_formulario">
+                        <label for="unidad_medida_b">Unidad de Medida:</label>
+                        <select name="unidad_medida" id="unidad_medida_b"></select>
+                    </div>
+
+                </div>
+            </form>
+        </div>
+
+        <div class="modulo_visualizar">
+
+            <!-- Envoltorio para manejar el scroll y recortar bordes -->
+            <div class="contenedor_tabla">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>PRODUCTO</th>
+                            <th>CÓDIGO</th>
+                            <th>TIPO DE MOVIMIENTO</th>
+                            <th>CANTIDAD</th>
+                            <th>VALOR TOTAL</th>
+                            <th>FECHA Y HORA</th>
+                        </tr>
+                    </thead>
+                    <tbody id="contenedor_productos"></tbody>
+                </table>
+            </div>
+
+            <div class="botones_navegacion">
+                <button class="btn_secundario btn_retroceder" type="button">Retroceder</button>
+                <button class="btn_primario btn_avanzar" type="button">Avanzar</button>
+            </div>
+        </div>
+
+    </div>
+</section>
+
+<script src="{% static 'Funcionalidades_Asincronas/ventas/productos/inventario_producto.js' %}"></script>
+
+{% endblock %}

@@ -1,0 +1,152 @@
+{% extends 'Estructura/base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="contenedor_formulario">
+    <div class="contenedor_campos_intermedio">
+        <h2>Historial de Entrega de Equipos</h2>
+
+        <div class="modulo_buqueda">
+            <h3>Búsqueda</h3>
+
+            <form method="post" class="formulario_base">
+                {% csrf_token %}
+                <div class="campos_fila">
+                    <div class="campo_formulario">
+                        <label for="supervisores_encargados">Supervisor Encargado:</label>
+                        <select name="supervisores_encargados" id="supervisores_encargados"></select>
+                    </div>
+
+                    <div class="campo_formulario">
+                        <label for="categoria_equipos">Categoria Equipo:</label>
+                        <select name="categoria_equipos" id="categoria_equipos"></select>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="modulo_visualizar detalle">
+            <!-- Envoltorio para manejar el scroll y recortar bordes -->
+            <div class="contenedor_tabla">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>SUPERVISOR(A)</th>
+                            <th>TURNO</th>
+                            <th>EQUIPO</th>
+                        </tr>
+                    </thead>
+                    <tbody id="contenedor_historial_entregas"></tbody>
+                </table>
+            </div>
+
+            <div class="botones_navegacion">
+                <button class="btn_secundario btn_ret" type="button">Retroceder</button>
+                <button class="btn_primario btn_av" type="button">Avanzar</button>
+            </div>
+        </div>
+
+    </div>
+</section>
+
+<dialog id="dialogo_historial" class="dialogo">
+    <div class="contenedor_datos">
+        <button type="button" id="btn_cerrar" class="btn_cerrar">
+            <i class="fa-solid fa-square-xmark"></i>
+        </button>
+
+        <h2>Datos del historial entrega</h2>
+
+        <div class="modulo_dialogo_datos">
+            <form method="post" class="formulario_dialogo_datos">
+                {% csrf_token %}
+
+                <div class="campo_formulario">
+                    <label for="equipo_entregado">Equipos:</label>
+                    <input type="text" id="equipo_entregado" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="categoria_equipo">Categoria Equipo:</label>
+                    <input type="text" id="categoria_equipo" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="codigo_equipo">Código Equipo:</label>
+                    <input type="text" id="codigo_equipo" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="cantidad_entrega_anterior">Cantidad de Entrega Anterior:</label>
+                    <input type="text" id="cantidad_entrega_anterior" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="cantidad_entrega_nueva">Cantidad de Entrega Nueva:</label>
+                    <input type="text" id="cantidad_entrega_nueva" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="cantidad_disponibles_anterior">Cantidad Disponible Anterior:</label>
+                    <input type="text" id="cantidad_disponibles_anterior" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="cantidad_disponibles_nuevo">Cantidad Disponible Nuevo:</label>
+                    <input type="text" id="cantidad_disponibles_nuevo" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="estado_anterior">Estado Anterior:</label>
+                    <input type="text" id="estado_anterior" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="estado_nuevo">Estado Anterior:</label>
+                    <input type="text" id="estado_nuevo" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="motivo_incidencia_anterior">Estado Anterior:</label>
+                    <textarea id="motivo_incidencia_anterior" readonly></textarea>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="motivo_incidencia_nueva">Estado Nueva:</label>
+                    <textarea id="motivo_incidencia_nueva" readonly></textarea>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="observacion_anterior">Observación Anterior:</label>
+                    <textarea id="observacion_anterior" readonly></textarea>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="observacion_nueva">Observación Nueva:</label>
+                    <textarea id="observacion_nueva" readonly></textarea>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="fecha_actualizacion">Fecha Actualización:</label>
+                    <input type="text" id="fecha_actualizacion" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="motivo_actualizacion">Motivo de Actualización:</label>
+                    <textarea id="motivo_actualizacion" readonly></textarea>
+                </div>
+
+            </form>
+        </div>
+
+    </div>
+</dialog>
+
+
+<script
+    src="{% static 'Funcionalidades_Asincronas/entrega_equipos/administrador/historial_entrega_equipos.js' %}"></script>
+
+{% endblock %}

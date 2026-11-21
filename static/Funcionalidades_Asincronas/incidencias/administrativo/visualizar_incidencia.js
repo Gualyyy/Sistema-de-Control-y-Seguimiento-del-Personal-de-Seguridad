@@ -19,8 +19,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const dialogo_incidencia = document.getElementById("dialogo_incidencia");
     const btn_cerrar_incidencia = document.getElementById("btn_cerrar_incidencia");
 
-    const btn_lista_incidencias_pdf = document.getElementById("lista_incidencias_pdf");
-
     const csrfToken = document.querySelector("[name=csrfmiddlewaretoken]").value;
 
     let tipo_incidencia = "", turno_laboral = "";
@@ -206,44 +204,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     btn_cerrar_incidencia.addEventListener("click", () => {
         dialogo_incidencia.close();
-    });
-
-    btn_lista_incidencias_pdf.addEventListener("click", async () => {
-        try {
-            const datos = new FormData();
-            datos.append("csrfmiddlewaretoken", csrfToken);
-            datos.append("tipo_incidencia", select_tipos_incidencias.value);
-            datos.append("turno_laboral", select_turno_laboral.value);
-
-            const respuesta = await fetch("/incidencias/lista_incidencias_admin_pdf/", {
-                method: "POST",
-                body: datos
-            });
-            const tipoRespuesta = respuesta.headers.get("Content-Type") || "";
-
-            if (tipoRespuesta.includes("application/json")) {
-                const resultado = await respuesta.json();
-
-                Swal.fire({
-                    title: resultado.title,
-                    text: resultado.descripcion,
-                    icon: resultado.icon
-                });
-                return;
-            }
-
-            const archivo = await respuesta.blob();
-            const url = URL.createObjectURL(archivo);
-
-            window.open(url, "_blank");
-
-            setTimeout(() => {
-                URL.revokeObjectURL(url);
-            }, 10000);
-
-        } catch (error) {
-            console.error(error);
-        }
     });
 
 });

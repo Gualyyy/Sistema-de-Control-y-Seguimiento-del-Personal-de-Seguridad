@@ -1,0 +1,221 @@
+.contenedor_registro {
+    position: relative;
+    width: 100%;
+    min-width: 0;
+    margin: 0 auto;
+    padding: 30px;
+    background-color: #ffffff;
+    border: 1px solid #dce6ec;
+    border-radius: 14px;
+    box-shadow: 0 8px 28px rgba(0, 48, 70, 0.12);
+    box-sizing: border-box;
+    font-family: Arial, sans-serif;
+}
+
+.contenedor_registro *,
+.contenedor_registro *::before,
+.contenedor_registro *::after {
+    box-sizing: border-box;
+}
+
+.contenedor_registro h2 {
+    margin: 0 35px 25px 0;
+    padding-bottom: 15px;
+    color: #00445f;
+    font-size: 24px;
+    line-height: 1.4;
+    border-bottom: 2px solid #e3edf2;
+    overflow-wrap: anywhere;
+}
+
+.contenedor_registro .btn_cerrar {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    color: #647985;
+    background-color: transparent;
+    border: none;
+    border-radius: 8px;
+    font-size: 25px;
+    cursor: pointer;
+    transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.contenedor_registro .btn_cerrar:hover {
+    color: #c62828;
+    background-color: #fff0f0;
+}
+
+.contenedor_registro .btn_cerrar:focus-visible {
+    outline: 3px solid rgba(198, 40, 40, 0.2);
+    outline-offset: 3px;
+}
+
+.contenedor_registro .modulo_dialogo_registro {
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding: 22px;
+    background-color: #f7fafc;
+    border: 1px solid #dce5eb;
+    border-radius: 12px;
+}
+
+.contenedor_registro .formulario_dialogo_visualizar {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+}
+
+.contenedor_registro .formulario_dialogo_visualizar .campo_formulario {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 9px;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding: 15px;
+    background-color: #ffffff;
+    border: 1px solid #d8e3e9;
+    border-radius: 9px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.contenedor_registro .formulario_dialogo_visualizar .campo_formulario:hover {
+    border-color: #a9c8d5;
+    box-shadow: 0 2px 7px rgba(0, 68, 95, 0.04);
+}
+
+.contenedor_registro .formulario_dialogo_visualizar .campo_formulario label {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    color: #244454;
+    font-size: 14px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.contenedor_registro .formulario_dialogo_visualizar .campo_formulario input {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    min-height: 45px;
+    margin: 0;
+    padding: 11px 13px;
+    color: #365361;
+    background-color: #f3f7f9;
+    border: 1px solid #dce5eb;
+    border-radius: 8px;
+    outline: none;
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1.5;
+    box-shadow: none;
+    cursor: default;
+    opacity: 1;
+    -webkit-text-fill-color: #365361;
+}
+
+.contenedor_registro .formulario_dialogo_visualizar .campo_formulario input[readonly] {
+    color: #365361;
+    background-color: #f3f7f9;
+    border-color: #dce5eb;
+    cursor: default;
+}
+
+.contenedor_registro .formulario_dialogo_visualizar .campo_formulario input:focus {
+    border-color: #8ab9cc;
+    box-shadow: 0 0 0 3px rgba(0, 119, 158, 0.08);
+}
+
+.contenedor_registro .formulario_dialogo_visualizar input[type="hidden"] {
+    display: none;
+}
+
+.contenedor_registro h2,
+.contenedor_registro .formulario_dialogo_visualizar .campo_formulario label,
+.contenedor_registro .formulario_dialogo_visualizar .campo_formulario input {
+    font-weight: 400;
+}
+
+@media (max-width: 520px) {
+    .dialogo {
+        width: calc(100% - 20px);
+        max-width: calc(100% - 20px);
+        max-height: calc(100dvh - 20px);
+        padding: 0;
+        border-radius: 11px;
+    }
+
+    .contenedor_registro {
+        padding: 23px 18px;
+        border-radius: 11px;
+    }
+
+    .contenedor_registro h2 {
+        margin: 0 35px 20px 0;
+        padding-bottom: 12px;
+        font-size: 21px;
+    }
+
+    .contenedor_registro .btn_cerrar {
+        top: 15px;
+        right: 13px;
+    }
+
+    .contenedor_registro .contenedor_btn_pdf {
+        margin-bottom: 16px;
+    }
+
+    .contenedor_registro .btn_pdf_dialog {
+        min-height: 41px;
+        padding: 10px 15px;
+    }
+
+    .contenedor_registro .modulo_dialogo_registro {
+        padding: 13px;
+        border-radius: 10px;
+    }
+
+    .contenedor_registro .formulario_dialogo_visualizar {
+        gap: 12px;
+    }
+
+    .contenedor_registro .formulario_dialogo_visualizar .campo_formulario {
+        gap: 7px;
+        padding: 12px;
+    }
+
+    .contenedor_registro .formulario_dialogo_visualizar .campo_formulario label {
+        font-size: 13px;
+    }
+
+    .contenedor_registro .formulario_dialogo_visualizar .campo_formulario input {
+        min-height: 42px;
+        padding: 10px;
+        font-size: 13px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    .contenedor_registro .btn_cerrar,
+    .contenedor_registro .btn_pdf_dialog,
+    .contenedor_registro .formulario_dialogo_visualizar .campo_formulario {
+        transition: none;
+    }
+}

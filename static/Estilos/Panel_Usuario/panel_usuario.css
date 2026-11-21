@@ -1,4 +1,4 @@
-@import url('estilos_graficas.css');
+@import url('estilos_graficas.css?v=20261109-responsive-3');
 
 .main-logueado {
     grid-area: main;
@@ -18,14 +18,15 @@
     margin: 0 0 24px;
     padding: 22px 26px;
     box-sizing: border-box;
-    background: #ffffff;
+    background: #00445f;
+    border: 1px solid #00779e;
     border-radius: 12px;
-    box-shadow: 0 3px 12px rgba(16, 47, 78, 0.07);
+    box-shadow: 0 3px 12px rgba(0, 68, 95, 0.12);
 }
 
 .encabezado_panel_usuario h2 {
     margin: 0;
-    color: #102f4e;
+    color: #ffffff;
     font-size: 23px;
     font-weight: 700;
 }
@@ -36,4 +37,33 @@
     gap: 24px;
     width: 100%;
     min-width: 0;
+}
+
+@media (max-width: 850px) {
+    .panel_usuario {
+        padding: 18px 16px 28px;
+    }
+
+    .encabezado_panel_usuario {
+        margin-bottom: 18px;
+        padding: 18px 20px;
+    }
+
+    .encabezado_panel_usuario h2 {
+        font-size: 21px;
+    }
+}
+
+@media (max-width: 450px) {
+    .panel_usuario {
+        padding: 14px 12px 24px;
+    }
+
+    .encabezado_panel_usuario {
+        padding: 16px;
+    }
+
+    .encabezado_panel_usuario h2 {
+        font-size: 19px;
+    }
 }

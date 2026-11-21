@@ -16,8 +16,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const input_fecha_entrega = document.getElementById("fecha_entrega");
     const textarea_observacion_entrega = document.getElementById("observacion_entrega");
 
-    const btn_lista_entrega_pdf = document.getElementById("lista_entrega_pdf");
-    const btn_datos_entrega_pdf = document.getElementById("datos_entrega_pdf");
+    const btn_ret = document.querySelector(".botones_navegacion .btn_ret");
+    const btn_av = document.querySelector(".botones_navegacion .btn_av");
 
     let categoria = "";
 
@@ -27,7 +27,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const resultado = await respuesta.json();
             console.log(resultado);
 
-            select_categoria_equipos.innerHTML = "<option value=''>Selecciona la Categoria</option>"
+            select_categoria_equipos.innerHTML = "<option value=''>Todas las Categorias</option>"
 
             if (resultado.estado == "fallo") {
                 await Swal.fire({
@@ -56,6 +56,10 @@ document.addEventListener("DOMContentLoaded", () => {
         await equipos_recibido_registrados();
     });
 
+    const filas_por_pagina = 10;
+    let pagina_actual = 1;
+    let equipos_recibidos = [];
+
     async function equipos_recibido_registrados() {
         try {
             const formulario = new FormData();
@@ -64,31 +68,90 @@ document.addEventListener("DOMContentLoaded", () => {
             const respuesta = await fetch("/asignaciones/visualizar_equipos_supervisor/", {
                 method: "POST",
                 headers: {
-                    "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]").value
+                    "X-CSRFToken": document.querySelector(
+                        "[name=csrfmiddlewaretoken]"
+                    ).value
                 },
                 body: formulario
             });
             const resultado = await respuesta.json();
             console.log(resultado);
 
-            contenedor_equipos_recibido.innerHTML = "";
+            if (resultado.estado !== "exito") {
+                equipos_recibidos = [];
+                pagina_actual = 1;
+                mostrar_equipos_recibidos();
+                return;
+            }
 
-            resultado.equipos.forEach((recibido, index) => {
-                contenedor_equipos_recibido.innerHTML += `
-                    <tr data-id_recibido="${recibido.id_entrega}">
-                        <td>${index + 1}</td>
-                        <td>${recibido.equipo}</td>
-                        <td>${recibido.codigo}</td>
-                        <td>${recibido.cantidad_entregada}</td>
-                        <td>${recibido.cantidad_disponible}</td>
-                        <td>${recibido.fecha_entrega}</td>
-                    </tr>
-                `;
-            });
+            equipos_recibidos = resultado.equipos || [];
+            pagina_actual = 1;
+
+            mostrar_equipos_recibidos();
+
         } catch (error) {
             console.error(error);
         }
     }
+
+    function mostrar_equipos_recibidos() {
+        contenedor_equipos_recibido.innerHTML = "";
+
+        const inicio = (pagina_actual - 1) * filas_por_pagina;
+        const fin = inicio + filas_por_pagina;
+
+        const equipos_pagina = equipos_recibidos.slice(inicio, fin);
+
+        const total_paginas = Math.ceil(
+            equipos_recibidos.length / filas_por_pagina
+        );
+
+        if (equipos_pagina.length === 0) {
+            contenedor_equipos_recibido.innerHTML = `
+            <tr>
+                <td colspan="7" class="texto_sin_registros">
+                    No hay equipos recibidos registrados.
+                </td>
+            </tr>
+        `;
+        } else {
+            equipos_pagina.forEach((recibido, index) => {
+                contenedor_equipos_recibido.innerHTML += `
+                <tr data-id_recibido="${recibido.id_entrega}">
+                    <td>${inicio + index + 1}</td>
+                    <td>${recibido.equipo}</td>
+                    <td>${recibido.codigo}</td>
+                    <td>${recibido.cantidad_entregada}</td>
+                    <td>${recibido.cantidad_disponible}</td>
+                    <td>${recibido.fecha_entrega}</td>
+                    <td>${recibido.estado}</td>
+                </tr>
+            `;
+            });
+        }
+
+        btn_ret.disabled = pagina_actual <= 1;
+        btn_av.disabled = pagina_actual >= total_paginas;
+    }
+
+    btn_ret.addEventListener("click", () => {
+        if (pagina_actual > 1) {
+            pagina_actual--;
+            mostrar_equipos_recibidos();
+        }
+    });
+
+    btn_av.addEventListener("click", () => {
+        const total_paginas = Math.ceil(
+            equipos_recibidos.length / filas_por_pagina
+        );
+
+        if (pagina_actual < total_paginas) {
+            pagina_actual++;
+            mostrar_equipos_recibidos();
+        }
+    });
+
     equipos_recibido_registrados();
 
     contenedor_equipos_recibido.addEventListener("click", async (e) => {
@@ -137,72 +200,4 @@ document.addEventListener("DOMContentLoaded", () => {
         dialogo_recibido.close();
     });
 
-    btn_lista_entrega_pdf.addEventListener("click", async () => {
-        const formulario = new FormData();
-        formulario.append("categoria", select_categoria_equipos.value);
-        formulario.append("csrfmiddlewaretoken", document.querySelector("[name=csrfmiddlewaretoken]").value);
-
-        try {
-            const respuesta = await fetch("/asignaciones/lista_equipos_recibido_pdf/", {
-                method: "POST",
-                body: formulario
-            });
-
-            const contentType = respuesta.headers.get("content-type") || "";
-
-            if (!respuesta.ok || !contentType.includes("application/pdf")) {
-                const resultado = await respuesta.json();
-                Swal.fire({
-                    title: resultado.title || "Error",
-                    text: resultado.descripcion || "No se pudo generar el reporte.",
-                    icon: resultado.icon || "error"
-                });
-                return;
-            }
-
-            const blob = await respuesta.blob();
-            const url = URL.createObjectURL(blob);
-
-            window.open(url, "_blank");
-
-            setTimeout(() => URL.revokeObjectURL(url), 60000);
-
-        } catch (error) {
-            console.error(error);
-        }
-    });
-
-    btn_datos_entrega_pdf.addEventListener("click", async () => {
-        const formulario = new FormData();
-        formulario.append("id_entrega", input_id_recibido_equipo.value);
-        formulario.append("csrfmiddlewaretoken", document.querySelector("[name=csrfmiddlewaretoken]").value);
-
-        try {
-            const respuesta = await fetch("/asignaciones/datos_equipo_recibido_pdf/", {
-                method: "POST",
-                body: formulario
-            });
-            const contentType = respuesta.headers.get("content-type") || "";
-
-            if (!respuesta.ok || !contentType.includes("application/pdf")) {
-                const resultado = await respuesta.json();
-                Swal.fire({
-                    title: resultado.title || "Error",
-                    text: resultado.descripcion || "No se pudo generar el reporte PDF.",
-                    icon: resultado.icon || "error"
-                });
-                return;
-            }
-
-            const archivo = await respuesta.blob();
-            const url = URL.createObjectURL(archivo);
-
-            window.open(url, "_blank");
-
-            setTimeout(() => URL.revokeObjectURL(url), 60000);
-
-        } catch (error) {
-            console.error(error);
-        }
-    });
 });

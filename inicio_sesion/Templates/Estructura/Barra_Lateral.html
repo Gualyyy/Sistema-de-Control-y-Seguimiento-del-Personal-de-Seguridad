@@ -20,17 +20,20 @@
                     <i class="fa-solid fa-user-plus"></i>
                     Registrar
                 </a>
-
+            </div>
+            <div class="submenu-container">
                 <a href="{% url 'actualizacion_datos_usuarios' %}">
                     <i class="fa-solid fa-user-pen"></i>
                     Actualizar
                 </a>
-
+            </div>
+            <div class="submenu-container">
                 <a href="{% url 'visualizar_empleados' %}">
                     <i class="fa-solid fa-users-viewfinder"></i>
                     Visualizar
                 </a>
-
+            </div>
+            <div class="submenu-container">
                 <a href="{% url 'gestionar_perfiles_empleado' %}">
                     <i class="fa-solid fa-user-gear"></i>
                     Gestionar Perfiles
@@ -42,12 +45,11 @@
                 <i class="fa-solid fa-people-arrows-left-right"></i> Supervisores Encargados
             </summary>
             <div class="submenu-container">
-                <a href="{% url 'supervisores_generales' %}">
-                    <i class="fa-solid fa-helmet-safety"></i> Registrados
-                </a>
                 <a href="{% url 'gestion_incidencia_administrativo' %}">
                     <i class="fa-solid fa-file-circle-exclamation"></i> Incidencias
                 </a>
+            </div>
+            <div class="submenu-container">
                 <a href="{% url 'visualizar_asignaciones_admin' %}">
                     <i class="fa-solid fa-boxes-stacked"></i> Asignaciones
                 </a>
@@ -55,17 +57,38 @@
         </details>
         <details>
             <summary>
-                <i class="fa-solid fa-laptop"></i> Gestión de Equipos
+                <i class="fa-solid fa-toolbox"></i>
+                Gestión de Equipos
             </summary>
+
             <div class="submenu-container">
                 <a href="{% url 'registros_equipos' %}">
-                    <i class="fa-solid fa-square-plus"></i> Registrar
+                    <i class="fa-solid fa-circle-plus"></i>
+                    Registrar
                 </a>
-                <a href="{% url 'actualizacion_equipos' %}">
-                    <i class="fa-solid fa-pen-to-square"></i> Actualizar
+            </div>
+
+            <div class="submenu-container">
+                <a href="{% url 'gestionar_equipos' %}">
+                    <i class="fa-solid fa-list-check"></i>
+                    Gestionar
                 </a>
-                <a href="{% url 'visualizacion_equipos' %}">
-                    <i class="fa-solid fa-desktop"></i> Visualizar
+            </div>
+        </details>
+        <details>
+            <summary>
+                <i class="fa-solid fa-wallet"></i> Gastos
+            </summary>
+
+            <div class="submenu-container">
+                <a href="{% url 'registrar_gastos' %}">
+                    <i class="fa-solid fa-circle-plus"></i> Registrar
+                </a>
+            </div>
+
+            <div class="submenu-container">
+                <a href="{% url 'gestion_gastos' %}">
+                    <i class="fa-solid fa-list-check"></i> Gestionar
                 </a>
             </div>
         </details>
@@ -76,85 +99,32 @@
 
             <div class="submenu-container">
                 <a href="{% url 'registrar_entrega_equipos' %}">
-                    <i class="fa-solid fa-file-circle-plus"></i> Registrar
+                    <i class="fa-solid fa-box-open"></i> Registrar
                 </a>
             </div>
 
             <div class="submenu-container">
                 <a href="{% url 'visualizar_entrega_equipos' %}">
-                    <i class="fa-solid fa-boxes-stacked"></i> Visualizar
+                    <i class="fa-solid fa-clipboard-list"></i> Visualizar
                 </a>
             </div>
 
             <div class="submenu-container">
                 <a href="{% url 'correccion_entrega_equipos' %}">
-                    <i class="fa-solid fa-file-pen"></i> Corrección
+                    <i class="fa-solid fa-screwdriver-wrench"></i> Corrección
                 </a>
             </div>
-        </details>
-        <details>
-            <summary>
-                <i class="fa-solid fa-truck-ramp-box"></i> Clientes
-            </summary>
 
             <div class="submenu-container">
-                <a href="{% url 'registrar_clientes_ventas' %}">
-                    <i class="fa-solid fa-file-circle-plus"></i> Registrar
-                </a>
-            </div>
-            <div class="submenu-container">
-                <a href="{% url 'actualizar_clientes_ventas' %}">
-                    <i class="fa-solid fa-file-circle-plus"></i> Actualizar
-                </a>
-            </div>
-            <div class="submenu-container">
-                <a href="{% url 'visualizar_clientes_ventas' %}">
-                    <i class="fa-solid fa-file-circle-plus"></i> Visualizar
+                <a href="{% url 'historial_entregas_equipos' %}">
+                    <i class="fa-solid fa-clock-rotate-left"></i> Historial
                 </a>
             </div>
         </details>
-        <details>
-            <summary>
-                <i class="fa-solid fa-truck-ramp-box"></i> Productos
-            </summary>
-
-            <div class="submenu-container">
-                <a href="{% url 'registrar_productos' %}">
-                    <i class="fa-solid fa-file-circle-plus"></i> Registrar
-                </a>
-            </div>
-            <div class="submenu-container">
-                <a href="{% url 'visualizar_productos' %}">
-                    <i class="fa-solid fa-file-circle-plus"></i> Visualizar
-                </a>
-            </div>
-            <div class="submenu-container">
-                <a href="{% url 'actualizar_producto' %}">
-                    <i class="fa-solid fa-file-circle-plus"></i> Actualizar
-                </a>
-            </div>
-            <div class="submenu-container">
-                <a href="{% url 'actualizar_existencia' %}">
-                    <i class="fa-solid fa-file-circle-plus"></i> Existencia
-                </a>
-            </div>
-            <div class="submenu-container">
-                <a href="{% url 'registrar_precio_volumen' %}">
-                    <i class="fa-solid fa-file-circle-plus"></i> Precio Volumen
-                </a>
-            </div>
-        </details>
-        <details>
-            <summary>
-                <i class="fa-solid fa-truck-ramp-box"></i> Venta
-            </summary>
-
-            <div class="submenu-container">
-                <a href="{% url 'registrar_pago_productos' %}">
-                    <i class="fa-solid fa-file-circle-plus"></i> Registrar
-                </a>
-            </div>
-        </details>
+        <a href="{% url 'reporte_sistema_administrador' %}">
+            <i class="fa-solid fa-file-pdf"></i>
+            Reportes
+        </a>
         <details>
             <summary>
                 <i class="fa-solid fa-shield-halved"></i> Seguridad del Sistema
@@ -168,6 +138,27 @@
                 </a>
                 <a href="{% url 'visualizar_intentos_sesion' %}">
                     <i class="fa-solid fa-user-lock"></i> Intentos de Sesión
+                </a>
+            </div>
+        </details>
+        {% endif %}
+
+        {% if request.session.perfil == "Cliente" %}
+        <details>
+            <summary>
+                <i class="fa-solid fa-cart-shopping"></i>
+                Compras
+            </summary>
+            <div class="submenu-container">
+                <a href="{% url 'registrar_compra_cliente' %}">
+                    <i class="fa-solid fa-cart-plus"></i>
+                    Registrar
+                </a>
+            </div>
+            <div class="submenu-container">
+                <a href="{% url 'historial_compra_cliente' %}">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                    Visualizar
                 </a>
             </div>
         </details>
@@ -202,25 +193,243 @@
         </details>
         <details>
             <summary>
-                <i class="fa-solid fa-dolly"></i>
+                <i class="fa-solid fa-people-arrows-left-right"></i>
                 Gestión de Asignaciones
             </summary>
+
             <div class="submenu-container">
                 <a href="{% url 'asignar_equipo_usuario' %}">
                     <i class="fa-solid fa-box-open"></i>
                     Registrar Asignación
                 </a>
             </div>
+
             <div class="submenu-container">
                 <a href="{% url 'gestionar_asignaciones_equipos' %}">
-                    <i class="fa-solid fa-list-check"></i>
+                    <i class="fa-solid fa-clipboard-list"></i>
                     Gestión de Asignaciones
+                </a>
+            </div>
+
+            <div class="submenu-container">
+                <a href="{% url 'movimiento_equipos' %}">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                    Movimiento Equipos
+                </a>
+            </div>
+        </details>
+        {% endif %}
+
+        {% if request.session.perfil == "Propietario" %}
+        <details>
+            <summary>
+                <i class="fa-solid fa-user-tie"></i>
+                Encargado Administrativo
+            </summary>
+            <div class="submenu-container">
+                <a href="{% url 'registrar_administrador' %}">
+                    <i class="fa-solid fa-user-plus"></i>
+                    Registrar
+                </a>
+            </div>
+            <div class="submenu-container">
+                <a href="{% url 'visualizar_administrador' %}">
+                    <i class="fa-solid fa-users"></i>
+                    Visualizar
+                </a>
+            </div>
+            <div class="submenu-container">
+                <a href="{% url 'actualizar_administrador' %}">
+                    <i class="fa-solid fa-user-pen"></i>
+                    Actualizar
+                </a>
+            </div>
+        </details>
+        <details>
+            <summary>
+                <i class="fa-solid fa-magnifying-glass"></i>
+                Consultar
+            </summary>
+            <div class="submenu-container">
+                <a href="{% url 'visualizar_empleados' %}">
+                    <i class="fa-solid fa-address-card"></i>
+                    Empleados
+                </a>
+            </div>
+            <div class="submenu-container">
+                <a href="{% url 'gestion_incidencia_administrativo' %}">
+                    <i class="fa-solid fa-file-circle-exclamation"></i>
+                    Incidencias
+                </a>
+            </div>
+            <div class="submenu-container">
+                <a href="{% url 'visualizar_entrega_equipos' %}">
+                    <i class="fa-solid fa-clipboard-list"></i> 
+                    Entrega Equipos
+                </a>
+            </div>
+            <div class="submenu-container">
+                <a href="{% url 'visualizar_asignaciones_admin' %}">
+                    <i class="fa-solid fa-boxes-stacked"></i>
+                    Asignaciones
+                </a>
+            </div>
+        </details>
+        <a href="{% url 'reporte_sistema_administrador' %}">
+            <i class="fa-solid fa-file-pdf"></i>
+            Reportes
+        </a>
+        {% endif %}
+
+        {% if request.session.perfil == "Atención al Cliente" %}
+        <a href="{% url 'reemplazar_contactos_foro' %}">
+            <i class="fa-solid fa-address-book"></i>
+            Contacto Foro
+        </a>
+        <details>
+            <summary>
+                <i class="fa-solid fa-users"></i> Clientes
+            </summary>
+            <div class="submenu-container">
+                <a href="{% url 'actualizar_clientes_ventas' %}">
+                    <i class="fa-solid fa-user-pen"></i> Actualizar
+                </a>
+            </div>
+
+            <div class="submenu-container">
+                <a href="{% url 'visualizar_clientes_ventas' %}">
+                    <i class="fa-solid fa-address-book"></i> Visualizar
+                </a>
+            </div>
+        </details>
+
+        <details>
+            <summary>
+                <i class="fa-solid fa-boxes-stacked"></i> Productos
+            </summary>
+
+            <div class="submenu-container">
+                <a href="{% url 'registrar_productos' %}">
+                    <i class="fa-solid fa-box-open"></i> Registrar
+                </a>
+            </div>
+
+            <div class="submenu-container">
+                <a href="{% url 'visualizar_productos' %}">
+                    <i class="fa-solid fa-eye"></i> Visualizar
+                </a>
+            </div>
+
+            <div class="submenu-container">
+                <a href="{% url 'actualizar_producto' %}">
+                    <i class="fa-solid fa-pen-to-square"></i> Actualizar
+                </a>
+            </div>
+
+            <div class="submenu-container">
+                <a href="{% url 'actualizar_existencia' %}">
+                    <i class="fa-solid fa-boxes-stacked"></i> Existencia
+                </a>
+            </div>
+
+            <div class="submenu-container">
+                <a href="{% url 'movimiento_producto' %}">
+                    <i class="fa-solid fa-right-left"></i> Movimiento
+                </a>
+            </div>
+
+            <div class="submenu-container">
+                <a href="{% url 'gestionar_categorias' %}">
+                    <i class="fa-solid fa-layer-group"></i> Categorías
+                </a>
+            </div>
+
+            <div class="submenu-container">
+                <a href="{% url 'registrar_precio_volumen' %}">
+                    <i class="fa-solid fa-tags"></i> Precio por volumen
+                </a>
+            </div>
+        </details>
+
+        <details>
+            <summary>
+                <i class="fa-solid fa-money-check-dollar"></i> Cuentas de Pago
+            </summary>
+            <div class="submenu-container">
+                <a href="{% url 'registrar_cuentas' %}">
+                    <i class="fa-solid fa-circle-plus"></i> Registrar
+                </a>
+            </div>
+            <div class="submenu-container">
+                <a href="{% url 'gestionar_cuentas' %}">
+                    <i class="fa-solid fa-building-columns"></i> Gestionar
+                </a>
+            </div>
+        </details>
+
+        <details>
+            <summary>
+                <i class="fa-solid fa-cash-register"></i> Ventas
+            </summary>
+
+            <div class="submenu-container">
+                <a href="{% url 'verificar_compras_clientes' %}">
+                    <i class="fa-solid fa-clipboard-check"></i> Verificar
+                </a>
+            </div>
+
+            <div class="submenu-container">
+                <a href="{% url 'ganancias_ventas' %}">
+                    <i class="fa-solid fa-chart-line"></i> Ganancias
                 </a>
             </div>
         </details>
         {% endif %}
 
     </nav>
+
+    <!-- Barra inferior de información del usuario -->
+    <div class="barra-perfil">
+
+        <div class="perfil-usuario-info">
+
+            <div class="foto-perfil">
+                <img src="{% if foto_perfil %}{{ foto_perfil }}{% else %}{% static 'Imagenes/foto_perfil.png' %}{% endif %}"
+                    alt="Foto de perfil" data-foto-predeterminada="{% static 'Imagenes/foto_perfil.png' %}"
+                    id="foto_usuario_menu">
+            </div>
+
+            <div class="datos-perfil">
+                <span class="cargo-perfil">
+                    {{ request.session.perfil }}
+                </span>
+
+                <span class="nombre-perfil">
+                    {{ request.session.usuario }}
+                </span>
+            </div>
+
+        </div>
+
+        <div class="acciones-perfil">
+
+            <a href="{% url 'actualizar_datos_sistema' %}" class="btn-editar-perfil" title="Mi perfil"
+                aria-label="Mi perfil">
+                <i class="fa-solid fa-user-gear"></i>
+                <span>Mi perfil</span>
+            </a>
+
+            <a href="{% url 'cerrar_sesion' %}" class="btn-cerrar-sesion" title="Cerrar sesión"
+                aria-label="Cerrar sesión">
+                <i class="fa-solid fa-power-off"></i>
+                <span>Cerrar sesión</span>
+            </a>
+
+        </div>
+
+    </div>
 </aside>
+
+<script src="{% static 'Funcionalidades_Asincronas/configuracion/perfil_barra_nav.js' %}"></script>
 
 {% endif %}

@@ -1,0 +1,244 @@
+{% extends 'Email/Base.html' %}
+
+{% block content %}
+
+<section style="
+    margin: 0;
+    padding: 20px 0;
+    width: 100%;
+    box-sizing: border-box;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    color: #1e293b;
+    line-height: 1.5;
+">
+    <div style="
+        width: 100%;
+        max-width: 620px;
+        margin: 0 auto;
+        padding: 32px;
+        box-sizing: border-box;
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-top: 5px solid #059669;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    ">
+
+        <!-- CABECERA DE CONFIRMACIÓN -->
+        <div style="text-align: center; margin-bottom: 24px;">
+            <span style="
+                display: inline-block;
+                padding: 6px 16px;
+                background-color: #d1fae5;
+                color: #047857;
+                font-size: 12px;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                border-radius: 9999px;
+                margin-bottom: 12px;
+            ">
+                ✓ Compra Aprobada & Confirmada
+            </span>
+            <h2 style="
+                margin: 0;
+                color: #0f172a;
+                font-size: 24px;
+                font-weight: 800;
+            ">
+                Comprobante de Venta
+            </h2>
+        </div>
+
+        <p style="
+            margin: 0 0 24px;
+            color: #475569;
+            font-size: 15px;
+            line-height: 1.6;
+        ">
+            Estimado(a) <strong>{{ usuario.nombre_razon_social }}</strong>,
+            nos complace informarle que su pago ha sido verificado con éxito y su compra en <strong>Hielo Caipe
+                C.A.</strong> ha sido confirmada.
+        </p>
+
+        <!-- TARJETA DE INFORMACIÓN DE LA COMPRA -->
+        <div style="
+            margin-bottom: 24px;
+            padding: 18px 20px;
+            background-color: #f8fafc;
+            border: 1px solid #f1f5f9;
+            border-radius: 8px;
+        ">
+            <h3 style="
+                margin: 0 0 14px;
+                color: #0f172a;
+                font-size: 14px;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            ">
+                Detalles de la transacción
+            </h3>
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size: 13px;">
+                <tr>
+                    <td style="padding: 6px 0; color: #64748b; width: 45%;">N° Comprobante:</td>
+                    <td style="padding: 6px 0; color: #0f172a; font-weight: 700;">{{ comprobante }}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 6px 0; color: #64748b;">Fecha de emisión:</td>
+                    <td style="padding: 6px 0; color: #0f172a; font-weight: 600;">{{ fecha_compra|date:"d/m/Y H:i" }}
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 6px 0; color: #64748b;">Cliente / Razón Social:</td>
+                    <td style="padding: 6px 0; color: #0f172a; font-weight: 600;">{{ usuario.nombre_razon_social }}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 6px 0; color: #64748b;">Tasa de cambio aplicada:</td>
+                    <td style="padding: 6px 0; color: #0f172a; font-weight: 600;">Bs. {{ tasa_cambio|floatformat:2 }} /
+                        USD</td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- TABLA DE PRODUCTOS -->
+        <h3 style="
+            margin: 0 0 12px;
+            color: #0f172a;
+            font-size: 15px;
+            font-weight: 700;
+        ">
+            Productos Procesados
+        </h3>
+
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="
+            margin-bottom: 24px;
+            border-collapse: collapse;
+            font-size: 13px;
+            width: 100%;
+        ">
+            <thead>
+                <tr style="background-color: #0f172a; color: #ffffff;">
+                    <th align="left" style="padding: 10px 12px; border-top-left-radius: 6px; font-weight: 600;">Producto
+                    </th>
+                    <th align="center" style="padding: 10px 8px; font-weight: 600;">Cant.</th>
+                    <th align="right" style="padding: 10px 12px; font-weight: 600;">Precio Unit.</th>
+                    <th align="right" style="padding: 10px 12px; border-top-right-radius: 6px; font-weight: 600;">
+                        Subtotal</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for articulo in articulos %}
+                <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 12px; color: #1e293b; font-weight: 600;">
+                        {{ articulo.producto.nombre }}
+                    </td>
+
+                    <td align="center" style="padding: 12px; color: #334155;">
+                        {% if articulo.producto.id_unidad.permite_decimales %}
+                        {{ articulo.cantidad|floatformat:"-3" }}
+                        {% else %}
+                        {{ articulo.cantidad|floatformat:"0" }}
+                        {% endif %}
+                    </td>
+
+                    <td align="right" style="padding: 12px; color: #334155;">
+                        <span style="font-weight: 600;">Bs. {{ articulo.precio_unitario|floatformat:2 }}</span>
+                        <br>
+                        <span style="font-size: 11px; color: #94a3b8;">$ {{ articulo.precio_unitario_usd|floatformat:2 }}</span>
+                    </td>
+
+                    <td align="right" style="padding: 12px; color: #0f172a;">
+                        <span style="font-weight: 700;">Bs. {{ articulo.subtotal|floatformat:2 }}</span>
+                        <br>
+                        <span style="font-size: 11px; color: #94a3b8;">$ {{ articulo.subtotal_usd|floatformat:2 }}</span>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" align="center" style="padding: 20px; color: #64748b;">
+                        No se encontraron productos registrados en esta compra.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- RESUMEN FINANCIERO -->
+        <div style="
+            margin-bottom: 24px;
+            padding: 16px 20px;
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+        ">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size: 13px;">
+                <tr>
+                    <td style="padding: 4px 0; color: #64748b;">Subtotal:</td>
+                    <td align="right" style="padding: 4px 0; color: #1e293b; font-weight: 600;">
+                        Bs. {{ subtotal|floatformat:2 }} <span style="font-size: 11px; color: #94a3b8;">($ {{ subtotal_usd|floatformat:2 }})</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 4px 0; color: #64748b;">Descuento:</td>
+                    <td align="right" style="padding: 4px 0; color: #1e293b; font-weight: 600;">
+                        Bs. {{ descuento|floatformat:2 }} <span style="font-size: 11px; color: #94a3b8;">($ {{ descuento_usd|floatformat:2 }})</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 4px 0; color: #64748b;">Impuesto (16%):</td>
+                    <td align="right" style="padding: 4px 0; color: #1e293b; font-weight: 600;">
+                        Bs. {{ impuesto|floatformat:2 }} <span style="font-size: 11px; color: #94a3b8;">($ {{ impuesto_usd|floatformat:2 }})</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="2" style="padding: 8px 0;">
+                        <div style="border-top: 1px solid #cbd5e1;"></div>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 4px 0; color: #0f172a; font-size: 16px; font-weight: 800;">TOTAL PAGADO:</td>
+                    <td align="right" style="padding: 4px 0; color: #059669; font-size: 16px; font-weight: 800;">
+                        Bs. {{ total|floatformat:2 }}
+                        <br>
+                        <span style="font-size: 12px; color: #047857;">$ {{ total_usd|floatformat:2 }} USD</span>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- NOTA AL PIE -->
+        <div style="
+            padding: 12px 14px;
+            background-color: #ecfdf5;
+            border-left: 4px solid #10b981;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        ">
+            <p style="
+                margin: 0;
+                color: #064e3b;
+                font-size: 12px;
+                line-height: 1.5;
+            ">
+                Los montos en divisas ($ USD) se muestran como referencia basados en la tasa oficial registrada al
+                momento de la venta.
+            </p>
+        </div>
+
+        <p style="
+            margin: 0;
+            color: #94a3b8;
+            font-size: 12px;
+            text-align: center;
+            line-height: 1.5;
+        ">
+            Gracias por su compra en <strong>Hielo Caipe C.A.</strong><br>
+            Conserve este correo electrónico como su comprobante digital de pago.
+        </p>
+
+    </div>
+</section>
+
+{% endblock %}

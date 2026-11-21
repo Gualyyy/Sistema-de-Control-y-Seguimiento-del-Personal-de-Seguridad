@@ -1,0 +1,129 @@
+{% extends 'Estructura/base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="contenedor_formulario">
+    <div class="contenedor_campos_amplio">
+        <h2>Visualizar Clientes</h2>
+
+        <div class="modulo_buqueda">
+            <h3>Búsqueda Cliente(s)</h3>
+
+            <form method="post" class="formulario_base">
+                {% csrf_token %}
+
+                <div class="campos_fila">
+                    <div class="campo_formulario">
+                        <label for="tipo_cliente_b">Tipo de Cliente:</label>
+                        <select name="tipo_cliente_b" id="tipo_cliente_b">
+                            <option value="NATURAL" selected>Persona Natural</option>
+                            <option value="EMPRESA">Empresa</option>
+                        </select>
+                    </div>
+
+                    <div class="campos_reducido">
+                        <label for="identificador_b">Identificador Cliente:</label>
+                        <div class="grupo_doble">
+                            <select name="tipo_identificador_b" id="tipo_identificador_b" class="campo_select"></select>
+                            <input type="text" name="identificador_b" id="identificador_b" autocomplete="off">
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="modulo_visualizar detalle">
+
+            <!-- Envoltorio para manejar el scroll y recortar bordes -->
+            <div class="contenedor_tabla">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>CLIENTE</th>
+                            <th>IDENTIFICADOR</th>
+                            <th>TIPO DE CLIENTE</th>
+                            <th>ESTADO</th>
+                        </tr>
+                    </thead>
+                    <tbody id="contenedor_clientes"></tbody>
+                </table>
+            </div>
+
+            <div class="botones_navegacion">
+                <button class="btn_secundario btn_retroceder" type="button">Retroceder</button>
+                <button class="btn_primario btn_avanzar" type="button">Avanzar</button>
+            </div>
+        </div>
+
+    </div>
+</section>
+
+<dialog id="dialogo_detalle" class="dialogo">
+    <div class="contenedor_datos">
+        <button type="button" id="btn_cerrar_detalle" class="btn_cerrar">
+            <i class="fa-solid fa-square-xmark"></i>
+        </button>
+
+        <h2>Detalle del Cliente</h2>
+
+        <div class="modulo_dialogo_datos">
+            <form method="post" class="formulario_dialogo_datos">
+                <input type="hidden" name="id_cliente" id="id_cliente">
+
+                <div class="campo_formulario">
+                    <label for="cliente_registrado">Cliente Registrado:</label>
+                    <input type="text" id="cliente_registrado" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="identificador">Identificador:</label>
+                    <input type="text" id="identificador" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="tipo_cliente">Tipo de Identificador:</label>
+                    <input type="text" id="tipo_cliente" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="telefono">Telefono:</label>
+                    <input type="text" id="telefono" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="correo_electronico">Correo Electronico:</label>
+                    <input type="text" id="correo_electronico" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="condicion_residencia">Condición de Residencia:</label>
+                    <input type="text" id="condicion_residencia" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="municipio_residencia">Municipio de Residencia:</label>
+                    <input type="text" id="municipio_residencia" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="parroquia_residencia">Parroquia de Residencia:</label>
+                    <input type="text" id="parroquia_residencia" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="direccion_residencia">Dirección de Residencia:</label>
+                    <textarea id="direccion_residencia" readonly></textarea>
+                </div>
+            </form>
+        </div>
+
+    </div>
+</dialog>
+
+<script src="{% static 'Funcionalidades/identificador.js' %}"></script>
+<script src="{% static 'Funcionalidades_Asincronas/clientes/visualizar_clientes.js' %}"></script>
+
+{% endblock %}

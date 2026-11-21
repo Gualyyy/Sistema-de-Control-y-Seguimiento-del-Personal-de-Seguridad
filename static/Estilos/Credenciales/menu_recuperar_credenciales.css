@@ -1,0 +1,310 @@
+.pagina_menu_recuperar {
+    width: 100%;
+    min-height: 100vh;
+    padding: 40px 25px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: linear-gradient(135deg, #f8fbfc, #eaf7fc);
+    box-sizing: border-box;
+    font-family: 'Montserrat', sans-serif;
+}
+
+.contenedor_menu_recuperar {
+    width: 100%;
+    max-width: 1050px;
+    margin: 0 auto;
+}
+
+.encabezado_menu_recuperar {
+    width: 100%;
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.encabezado_menu_recuperar h2 {
+    margin: 0 0 12px;
+    color: #00445f;
+    font-size: clamp(24px, 3vw, 34px);
+    font-weight: 800;
+    letter-spacing: -0.5px;
+}
+
+.encabezado_menu_recuperar p {
+    margin: 0;
+    color: #52717e;
+    font-size: 15px;
+    font-weight: 500;
+    line-height: 1.6;
+}
+
+.opciones_recuperacion {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: stretch;
+    gap: 28px;
+    width: 100%;
+}
+
+.contenedor_recuperar_usuario,
+.contenedor_cambiar_contrasenia {
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 460px;
+    padding: 32px 28px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    background: #ffffff;
+    border: 1px solid #dcecf2;
+    border-radius: 22px;
+    box-shadow: 0 8px 25px rgba(0, 68, 95, 0.08);
+    box-sizing: border-box;
+    transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.contenedor_recuperar_usuario:hover,
+.contenedor_cambiar_contrasenia:hover {
+    transform: translateY(-7px);
+    border-color: #00b6ea;
+    box-shadow: 0 16px 35px rgba(0, 68, 95, 0.15);
+}
+
+.imagen_recuperacion {
+    width: 190px;
+    height: 170px;
+    flex-shrink: 0;
+    margin-bottom: 22px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #f1faff;
+    border-radius: 18px;
+    overflow: hidden;
+}
+
+.imagen_recuperacion img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    padding: 10px;
+    box-sizing: border-box;
+    transition: transform 0.3s ease;
+}
+
+.contenedor_recuperar_usuario:hover .imagen_recuperacion img,
+.contenedor_cambiar_contrasenia:hover .imagen_recuperacion img {
+    transform: scale(1.06);
+}
+
+.contenedor_recuperar_usuario h3,
+.contenedor_cambiar_contrasenia h3 {
+    width: 100%;
+    min-height: 29px;
+    margin: 0 0 14px;
+    color: #00445f;
+    font-size: 21px;
+    font-weight: 800;
+    line-height: 1.4;
+}
+
+.contenedor_recuperar_usuario p,
+.contenedor_cambiar_contrasenia p {
+    width: 100%;
+    max-width: 310px;
+    min-height: 50px;
+    margin: 0 0 25px;
+    color: #617985;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.8;
+}
+
+.boton_recuperacion {
+    width: 100%;
+    max-width: 290px;
+    min-height: 48px;
+    margin-top: auto;
+    padding: 0 18px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    color: #ffffff;
+    background: #00779e;
+    border: 2px solid #00779e;
+    border-radius: 12px;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 700;
+    box-sizing: border-box;
+    transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.boton_recuperacion:hover {
+    color: #ffffff;
+    background: #00445f;
+    border-color: #00445f;
+    box-shadow: 0 6px 15px rgba(0, 68, 95, 0.2);
+}
+
+.boton_recuperacion:focus-visible {
+    outline: 3px solid #00b6ea;
+    outline-offset: 4px;
+}
+
+.boton_recuperacion span {
+    min-width: 0;
+}
+
+.flecha_boton {
+    margin-left: auto;
+    font-size: 13px;
+    transition: transform 0.25s ease;
+}
+
+.boton_recuperacion:hover .flecha_boton {
+    transform: translateX(4px);
+}
+
+@media (max-width: 768px) {
+    .pagina_menu_recuperar {
+        padding: 35px 20px;
+    }
+
+    .encabezado_menu_recuperar {
+        margin-bottom: 30px;
+    }
+
+    .opciones_recuperacion {
+        gap: 18px;
+    }
+
+    .contenedor_recuperar_usuario,
+    .contenedor_cambiar_contrasenia {
+        padding: 25px 18px;
+    }
+
+    .imagen_recuperacion {
+        width: 150px;
+        height: 145px;
+    }
+
+    .contenedor_recuperar_usuario h3,
+    .contenedor_cambiar_contrasenia h3 {
+        font-size: 18px;
+    }
+
+    .contenedor_recuperar_usuario p,
+    .contenedor_cambiar_contrasenia p {
+        font-size: 13px;
+    }
+
+    .boton_recuperacion {
+        padding: 0 12px;
+        gap: 8px;
+        font-size: 13px;
+    }
+}
+
+@media (max-width: 560px) {
+    .pagina_menu_recuperar {
+        padding: 30px 18px;
+        align-items: flex-start;
+    }
+
+    .encabezado_menu_recuperar {
+        margin-bottom: 25px;
+    }
+
+    .encabezado_menu_recuperar h2 {
+        font-size: 25px;
+        line-height: 1.4;
+    }
+
+    .encabezado_menu_recuperar p {
+        font-size: 14px;
+    }
+
+    .opciones_recuperacion {
+        flex-direction: column;
+        align-items: center;
+        gap: 22px;
+    }
+
+    .contenedor_recuperar_usuario,
+    .contenedor_cambiar_contrasenia {
+        flex: 0 0 auto;
+        width: 100%;
+        max-width: 400px;
+        min-height: 0;
+        padding: 28px 22px;
+    }
+
+    .imagen_recuperacion {
+        width: 175px;
+        height: 155px;
+        margin-bottom: 20px;
+    }
+
+    .contenedor_recuperar_usuario h3,
+    .contenedor_cambiar_contrasenia h3 {
+        font-size: 20px;
+    }
+
+    .contenedor_recuperar_usuario p,
+    .contenedor_cambiar_contrasenia p {
+        min-height: 0;
+        margin-bottom: 22px;
+    }
+
+    .boton_recuperacion {
+        max-width: 100%;
+        min-height: 50px;
+        font-size: 14px;
+    }
+}
+
+@media (max-width: 420px) {
+    .pagina_menu_recuperar {
+        padding: 24px 12px;
+    }
+
+    .encabezado_menu_recuperar h2 {
+        font-size: 22px;
+    }
+
+    .opciones_recuperacion {
+        gap: 16px;
+    }
+
+    .contenedor_recuperar_usuario,
+    .contenedor_cambiar_contrasenia {
+        padding: 22px 18px;
+        border-radius: 18px;
+    }
+
+    .imagen_recuperacion {
+        width: 150px;
+        height: 135px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    .contenedor_recuperar_usuario,
+    .contenedor_cambiar_contrasenia,
+    .imagen_recuperacion img,
+    .boton_recuperacion,
+    .flecha_boton {
+        transition: none;
+    }
+
+    .contenedor_recuperar_usuario:hover,
+    .contenedor_cambiar_contrasenia:hover {
+        transform: none;
+    }
+}

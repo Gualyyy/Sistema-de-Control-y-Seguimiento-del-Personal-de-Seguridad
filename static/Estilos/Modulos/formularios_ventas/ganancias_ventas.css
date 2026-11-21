@@ -1,0 +1,440 @@
+/* ==========================================
+   MÓDULO DE GANANCIAS DE VENTAS
+========================================== */
+
+.modulo_ganancias_ventas {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    width: 100%;
+    min-width: 0;
+    margin: 0 auto;
+    color: #102f4e;
+    font-family: inherit;
+    box-sizing: border-box;
+}
+
+.modulo_ganancias_ventas *,
+.modulo_ganancias_ventas *::before,
+.modulo_ganancias_ventas *::after {
+    box-sizing: border-box;
+}
+
+/* ==========================================
+   RESUMEN FINANCIERO
+========================================== */
+
+.modulo_ganancias_ventas .grupo_estadistico {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 17px;
+    width: 100%;
+}
+
+.modulo_ganancias_ventas .estadistica_ingreso_neto,
+.modulo_ganancias_ventas .estadistica_costo_mercancia,
+.modulo_ganancias_ventas .estadistica_ganancia {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-width: 0;
+    min-height: 125px;
+    padding: 20px;
+    background: #ffffff;
+    border: 1px solid #dce8ef;
+    border-radius: 13px;
+    box-shadow: 0 3px 12px rgba(0, 68, 95, 0.055);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.modulo_ganancias_ventas .estadistica_ingreso_neto:hover,
+.modulo_ganancias_ventas .estadistica_costo_mercancia:hover,
+.modulo_ganancias_ventas .estadistica_ganancia:hover {
+    border-color: #a9ccdc;
+    box-shadow: 0 6px 17px rgba(0, 68, 95, 0.09);
+    transform: translateY(-2px);
+}
+
+/* ==========================================
+   ICONOS DE ESTADÍSTICAS
+========================================== */
+
+.modulo_ganancias_ventas .estadistica_icono {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 49px;
+    height: 49px;
+    border-radius: 12px;
+    font-size: 20px;
+}
+
+.modulo_ganancias_ventas .estadistica_ingreso_neto .estadistica_icono {
+    color: #00779e;
+    background: #e8f5fa;
+}
+
+.modulo_ganancias_ventas .estadistica_costo_mercancia .estadistica_icono {
+    color: #476b83;
+    background: #edf3f7;
+}
+
+.modulo_ganancias_ventas .estadistica_ganancia .estadistica_icono {
+    color: #16845b;
+    background: #e8f6ef;
+}
+
+/* ==========================================
+   INFORMACIÓN DE ESTADÍSTICAS
+========================================== */
+
+.modulo_ganancias_ventas .estadistica_informacion {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.modulo_ganancias_ventas .estadistica_informacion span {
+    color: #526b7d;
+    font-size: 12px;
+    font-weight: 650;
+    line-height: 1.4;
+}
+
+.modulo_ganancias_ventas .estadistica_informacion strong {
+    color: #102f4e;
+    font-size: clamp(18px, 1.6vw, 23px);
+    font-weight: 750;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+    font-variant-numeric: tabular-nums;
+}
+
+.modulo_ganancias_ventas .estadistica_informacion small {
+    color: #8497a5;
+    font-size: 10px;
+    font-weight: 500;
+    line-height: 1.5;
+}
+
+/* ==========================================
+   CONTENEDORES DE GRÁFICAS
+========================================== */
+
+.modulo_ganancias_ventas .contenedor_evolucion_ganancias,
+.modulo_ganancias_ventas .contenedor_ganancias_producto,
+.modulo_ganancias_ventas .contenedor_ganancias_periodo {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-width: 0;
+    padding: 23px;
+    overflow: hidden;
+    background: #ffffff;
+    border: 1px solid #dce8ef;
+    border-radius: 13px;
+    box-shadow: 0 3px 12px rgba(0, 68, 95, 0.055);
+}
+
+/* ==========================================
+   ENCABEZADOS DE GRÁFICAS
+========================================== */
+
+.modulo_ganancias_ventas .encabezado_grafica {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    width: 100%;
+    margin-bottom: 17px;
+}
+
+.modulo_ganancias_ventas .encabezado_grafica>div {
+    min-width: 0;
+}
+
+.modulo_ganancias_ventas .encabezado_grafica h3 {
+    margin: 0 0 6px;
+    color: #102f4e;
+    font-size: 17px;
+    font-weight: 750;
+    line-height: 1.35;
+}
+
+.modulo_ganancias_ventas .encabezado_grafica p {
+    margin: 0;
+    color: #8295a3;
+    font-size: 12px;
+    font-weight: 450;
+    line-height: 1.6;
+}
+
+/* ==========================================
+   ÁREAS DE GRÁFICAS
+========================================== */
+
+.modulo_ganancias_ventas #evolucion_ganancias,
+.modulo_ganancias_ventas #ganancias_producto,
+.modulo_ganancias_ventas #ganancias_por_periodo {
+    width: 100%;
+    min-width: 0;
+}
+
+.modulo_ganancias_ventas #evolucion_ganancias {
+    min-height: 330px;
+}
+
+.modulo_ganancias_ventas #ganancias_producto {
+    min-height: 310px;
+}
+
+.modulo_ganancias_ventas #ganancias_por_periodo {
+    min-height: 320px;
+}
+
+.modulo_ganancias_ventas .apexcharts-canvas {
+    max-width: 100%;
+    margin: 0 auto;
+}
+
+.modulo_ganancias_ventas .apexcharts-svg {
+    max-width: 100%;
+}
+
+/* ==========================================
+   OPCIONES DE PERÍODO
+========================================== */
+
+.modulo_ganancias_ventas .opciones_periodo_ganancias {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
+    width: 100%;
+    margin: 0 0 12px;
+}
+
+.modulo_ganancias_ventas .opciones_periodo_ganancias button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 92px;
+    min-height: 37px;
+    padding: 9px 16px;
+    color: #476579;
+    background: #ffffff;
+    border: 1px solid #d5e3eb;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 650;
+    cursor: pointer;
+    transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.modulo_ganancias_ventas .opciones_periodo_ganancias button:hover {
+    color: #00779e;
+    background: #edf7fb;
+    border-color: #a9ccdc;
+}
+
+.modulo_ganancias_ventas .opciones_periodo_ganancias button.activo {
+    color: #ffffff;
+    background: #00779e;
+    border-color: #00779e;
+}
+
+.modulo_ganancias_ventas .opciones_periodo_ganancias button:focus-visible {
+    outline: 3px solid rgba(0, 119, 158, 0.2);
+    outline-offset: 2px;
+}
+
+/* ==========================================
+   MENSAJES SIN REGISTROS
+========================================== */
+
+.modulo_ganancias_ventas .mensaje_sin_registros {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 13px;
+    width: 100%;
+    min-height: 280px;
+    padding: 25px;
+    color: #8295a3;
+    text-align: center;
+}
+
+.modulo_ganancias_ventas .mensaje_sin_registros i {
+    color: #00779e;
+    font-size: 37px;
+}
+
+.modulo_ganancias_ventas .mensaje_sin_registros span {
+    max-width: 350px;
+    color: #718797;
+    font-size: 13px;
+    line-height: 1.7;
+}
+
+/* ==========================================
+   RESPONSIVE - PANTALLAS MEDIANAS
+========================================== */
+
+@media (max-width: 1100px) {
+
+    .modulo_ganancias_ventas .grupo_estadistico {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .modulo_ganancias_ventas .estadistica_ganancia {
+        grid-column: 1 / -1;
+    }
+
+}
+
+/* ==========================================
+   RESPONSIVE - TABLET
+========================================== */
+
+@media (max-width: 768px) {
+
+    .modulo_ganancias_ventas {
+        gap: 17px;
+    }
+
+    .modulo_ganancias_ventas .grupo_estadistico {
+        gap: 12px;
+    }
+
+    .modulo_ganancias_ventas .estadistica_ingreso_neto,
+    .modulo_ganancias_ventas .estadistica_costo_mercancia,
+    .modulo_ganancias_ventas .estadistica_ganancia {
+        min-height: 112px;
+        padding: 16px;
+        gap: 12px;
+    }
+
+    .modulo_ganancias_ventas .estadistica_icono {
+        width: 43px;
+        height: 43px;
+        font-size: 18px;
+    }
+
+    .modulo_ganancias_ventas .estadistica_informacion strong {
+        font-size: 19px;
+    }
+
+    .modulo_ganancias_ventas .contenedor_evolucion_ganancias,
+    .modulo_ganancias_ventas .contenedor_ganancias_producto,
+    .modulo_ganancias_ventas .contenedor_ganancias_periodo {
+        padding: 18px;
+    }
+
+}
+
+/* ==========================================
+   RESPONSIVE - MÓVILES
+========================================== */
+
+@media (max-width: 550px) {
+
+    .modulo_ganancias_ventas {
+        gap: 14px;
+    }
+
+    .modulo_ganancias_ventas .grupo_estadistico {
+        grid-template-columns: 1fr;
+        gap: 11px;
+    }
+
+    .modulo_ganancias_ventas .estadistica_ganancia {
+        grid-column: auto;
+    }
+
+    .modulo_ganancias_ventas .estadistica_ingreso_neto,
+    .modulo_ganancias_ventas .estadistica_costo_mercancia,
+    .modulo_ganancias_ventas .estadistica_ganancia {
+        min-height: 100px;
+        padding: 15px;
+    }
+
+    .modulo_ganancias_ventas .estadistica_informacion strong {
+        font-size: 21px;
+    }
+
+    .modulo_ganancias_ventas .contenedor_evolucion_ganancias,
+    .modulo_ganancias_ventas .contenedor_ganancias_producto,
+    .modulo_ganancias_ventas .contenedor_ganancias_periodo {
+        padding: 15px;
+        border-radius: 11px;
+    }
+
+    .modulo_ganancias_ventas .encabezado_grafica {
+        margin-bottom: 13px;
+    }
+
+    .modulo_ganancias_ventas .encabezado_grafica h3 {
+        font-size: 15px;
+    }
+
+    .modulo_ganancias_ventas .encabezado_grafica p {
+        font-size: 11px;
+    }
+
+    .modulo_ganancias_ventas .opciones_periodo_ganancias {
+        justify-content: flex-start;
+        gap: 7px;
+    }
+
+    .modulo_ganancias_ventas .opciones_periodo_ganancias button {
+        flex: 1;
+        min-width: 0;
+        padding: 9px 8px;
+        font-size: 11px;
+    }
+
+    .modulo_ganancias_ventas #evolucion_ganancias {
+        min-height: 280px;
+    }
+
+    .modulo_ganancias_ventas #ganancias_producto {
+        min-height: 270px;
+    }
+
+    .modulo_ganancias_ventas #ganancias_por_periodo {
+        min-height: 280px;
+    }
+
+}
+
+/* ==========================================
+   RESPONSIVE - MÓVILES PEQUEÑOS
+========================================== */
+
+@media (max-width: 360px) {
+
+    .modulo_ganancias_ventas .estadistica_informacion strong {
+        font-size: 18px;
+    }
+
+    .modulo_ganancias_ventas .estadistica_informacion span {
+        font-size: 11px;
+    }
+
+    .modulo_ganancias_ventas .estadistica_informacion small {
+        font-size: 9px;
+    }
+
+    .modulo_ganancias_ventas .estadistica_icono {
+        width: 39px;
+        height: 39px;
+        font-size: 16px;
+    }
+
+}

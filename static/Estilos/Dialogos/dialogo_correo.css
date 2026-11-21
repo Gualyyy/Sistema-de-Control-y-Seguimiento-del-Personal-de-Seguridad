@@ -1,0 +1,390 @@
+.contenedor_correos {
+    position: relative;
+    width: 100%;
+    min-width: 0;
+    margin: 0 auto;
+    padding: 28px;
+    background-color: #ffffff;
+    font-weight: normal;
+    box-sizing: border-box;
+}
+
+.contenedor_correos *,
+.contenedor_correos *::before,
+.contenedor_correos *::after {
+    box-sizing: border-box;
+    font-weight: normal;
+}
+
+.contenedor_correos .contenedor_encabezado {
+    width: 100%;
+    min-width: 0;
+    margin: 0 0 22px;
+}
+
+.contenedor_correos .contenedor_encabezado h2 {
+    margin: 0 0 14px;
+    padding-bottom: 13px;
+    color: #00445f;
+    border-bottom: 2px solid #e3edf2;
+    font-size: 22px;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+
+.contenedor_correos .contenedor_encabezado p {
+    margin: 0;
+    color: #607783;
+    font-size: 13px;
+    line-height: 1.7;
+    overflow-wrap: anywhere;
+}
+
+.contenedor_correos .contenedor_mensajes {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 9px;
+    width: 100%;
+    min-width: 0;
+    padding: 11px 14px;
+    margin: 14px 0 17px;
+    border: 1px solid #b9dce9;
+    border-radius: 9px;
+    color: #075985;
+    background-color: #f0f9ff;
+    font-size: 13px;
+    line-height: 1.5;
+    text-align: center;
+    overflow-wrap: anywhere;
+}
+
+.contenedor_correos .contenedor_mensajes p {
+    flex: 0 1 auto;
+    min-width: 0;
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.contenedor_correos .contenedor_mensajes[hidden] {
+    display: none;
+}
+
+.contenedor_correos .contador_notificacion {
+    flex-shrink: 0;
+    margin-left: 3px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.contenedor_correos .reloj_procesamiento {
+    display: inline-block;
+    flex-shrink: 0;
+    font-size: 17px;
+    transform-origin: center;
+    animation: girar_reloj 1.2s linear infinite;
+    will-change: transform;
+}
+
+@keyframes girar_reloj {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.contenedor_correos .formulario_seleccion {
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+}
+
+.contenedor_correos .formulario_seleccion .campo_formulario {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 13px;
+    width: 100%;
+    min-width: 0;
+    min-height: 62px;
+    margin: 0;
+    padding: 13px 15px;
+    color: #365361;
+    background-color: #f7fafc;
+    border: 1px solid #dce6eb;
+    border-radius: 11px;
+    text-align: left;
+    cursor: pointer;
+    transition:
+        background-color 0.2s ease,
+        border-color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.contenedor_correos .formulario_seleccion .campo_formulario:hover {
+    background-color: #f0f8fb;
+    border-color: #9ac5d5;
+}
+
+.contenedor_correos .formulario_seleccion .campo_formulario input[type="radio"] {
+    appearance: none;
+    -webkit-appearance: none;
+    display: inline-grid;
+    place-content: center;
+    flex: 0 0 20px;
+    width: 20px;
+    height: 20px;
+    min-width: 20px;
+    min-height: 20px;
+    margin: 0;
+    padding: 0;
+    background-color: #ffffff;
+    border: 1.6px solid #aabdc7;
+    border-radius: 50%;
+    outline: none;
+    box-shadow: none;
+    cursor: pointer;
+    transition:
+        border-color 0.2s ease,
+        background-color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.contenedor_correos .formulario_seleccion .campo_formulario input[type="radio"]::before {
+    content: "";
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: #ffffff;
+    transform: scale(0);
+    transition: transform 0.15s ease;
+}
+
+.contenedor_correos .formulario_seleccion .campo_formulario input[type="radio"]:checked {
+    background-color: #00779e;
+    border-color: #00779e;
+}
+
+.contenedor_correos .formulario_seleccion .campo_formulario input[type="radio"]:checked::before {
+    transform: scale(1);
+    border-radius: 50%;
+}
+
+.contenedor_correos .formulario_seleccion .campo_formulario input[type="radio"]:focus {
+    outline: none;
+    box-shadow: none;
+}
+
+.contenedor_correos .formulario_seleccion .campo_formulario input[type="radio"]:focus-visible {
+    outline: 2px solid rgba(0, 119, 158, 0.35);
+    outline-offset: 3px;
+    border-radius: 50%;
+    box-shadow: none;
+}
+
+.contenedor_correos .formulario_seleccion .campo_formulario label {
+    display: block;
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    color: #365361;
+    font-size: 13px;
+    line-height: 1.5;
+    text-align: left;
+    overflow-wrap: anywhere;
+    cursor: pointer;
+}
+
+.contenedor_correos .formulario_seleccion .campo_formulario:has(input[type="radio"]:checked) {
+    background-color: #edf7fb;
+    border-color: #00779e;
+    box-shadow: 0 0 0 1px rgba(0, 119, 158, 0.08);
+}
+
+.contenedor_correos .formulario_seleccion .campo_formulario:has(input[type="radio"]:checked) label {
+    color: #00445f;
+}
+
+.contenedor_correos .formulario_seleccion .campo_formulario:has(input[type="radio"]:focus-visible) {
+    outline: 2px solid rgba(0, 119, 158, 0.3);
+    outline-offset: 3px;
+}
+
+.contenedor_correos .formulario_seleccion .campo_formulario:has(input[type="radio"]:disabled) {
+    color: #84939c;
+    background-color: #edf1f4;
+    border-color: #d5dfe5;
+    box-shadow: none;
+    cursor: not-allowed;
+    opacity: 0.75;
+}
+
+.contenedor_correos .formulario_seleccion .campo_formulario input[type="radio"]:disabled {
+    background-color: #e3e9ed;
+    border-color: #b9c5cc;
+    cursor: not-allowed;
+}
+
+.contenedor_correos .formulario_seleccion .campo_formulario input[type="radio"]:disabled:checked {
+    background-color: #9aaab3;
+    border-color: #9aaab3;
+}
+
+.contenedor_correos .formulario_seleccion .campo_formulario input[type="radio"]:disabled + label {
+    color: #84939c;
+    cursor: not-allowed;
+}
+
+.contenedor_correos .formulario_seleccion .campo_formulario:has(input[type="radio"]:disabled):hover {
+    background-color: #edf1f4;
+    border-color: #d5dfe5;
+}
+
+.contenedor_correos .contenedor_boton_submit {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    margin-top: 14px;
+}
+
+.contenedor_correos .boton_login {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 140px;
+    min-height: 44px;
+    padding: 11px 22px;
+    color: #ffffff;
+    background-color: #00445f;
+    border: 1px solid #00445f;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 13px;
+    text-align: center;
+    cursor: pointer;
+    transition:
+        background-color 0.2s ease,
+        border-color 0.2s ease,
+        transform 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.contenedor_correos .boton_login:hover {
+    background-color: #00779e;
+    border-color: #00779e;
+    box-shadow: 0 3px 9px rgba(0, 68, 95, 0.13);
+}
+
+.contenedor_correos .boton_login:active {
+    transform: scale(0.98);
+}
+
+.contenedor_correos .boton_login:focus-visible {
+    outline: 2px solid rgba(0, 119, 158, 0.4);
+    outline-offset: 3px;
+}
+
+.contenedor_correos .boton_login:disabled {
+    color: #84939c;
+    background-color: #e3e9ed;
+    border-color: #d5dfe5;
+    box-shadow: none;
+    cursor: not-allowed;
+    transform: none;
+}
+
+@media (max-width: 520px) {
+    .dialogo {
+        width: calc(100% - 20px);
+        max-width: calc(100% - 20px);
+        max-height: calc(100dvh - 20px);
+        padding: 0;
+        border-radius: 11px;
+    }
+
+    .contenedor_correos {
+        padding: 22px 17px;
+    }
+
+    .contenedor_correos .contenedor_encabezado {
+        margin-bottom: 19px;
+    }
+
+    .contenedor_correos .contenedor_encabezado h2 {
+        margin-bottom: 13px;
+        padding-bottom: 11px;
+        font-size: 20px;
+    }
+
+    .contenedor_correos .contenedor_encabezado p {
+        font-size: 12px;
+    }
+
+    .contenedor_correos .contenedor_mensajes {
+        gap: 8px;
+        padding: 10px 12px;
+        margin: 12px 0 15px;
+        font-size: 12px;
+    }
+
+    .contenedor_correos .formulario_seleccion {
+        gap: 10px;
+    }
+
+    .contenedor_correos .formulario_seleccion .campo_formulario {
+        min-height: 56px;
+        padding: 11px 12px;
+        gap: 11px;
+        border-radius: 9px;
+    }
+
+    .contenedor_correos .formulario_seleccion .campo_formulario input[type="radio"] {
+        flex-basis: 19px;
+        width: 19px;
+        height: 19px;
+        min-width: 19px;
+        min-height: 19px;
+    }
+
+    .contenedor_correos .formulario_seleccion .campo_formulario input[type="radio"]::before {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+    }
+
+    .contenedor_correos .formulario_seleccion .campo_formulario label {
+        font-size: 12px;
+    }
+
+    .contenedor_correos .contenedor_boton_submit {
+        margin-top: 12px;
+    }
+
+    .contenedor_correos .boton_login {
+        width: 100%;
+        min-height: 43px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .contenedor_correos .reloj_procesamiento {
+        animation: none;
+    }
+
+    .contenedor_correos .formulario_seleccion .campo_formulario,
+    .contenedor_correos .formulario_seleccion .campo_formulario input[type="radio"],
+    .contenedor_correos .formulario_seleccion .campo_formulario input[type="radio"]::before,
+    .contenedor_correos .boton_login {
+        transition: none;
+    }
+}

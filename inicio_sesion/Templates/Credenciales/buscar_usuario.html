@@ -1,0 +1,114 @@
+{% extends 'Estructura/Base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="pagina_busqueda_usuario">
+    <div class="contenedor_retroceso">
+        <a href="{% url 'inicio_sesion' %}">
+            <i class="fa-solid fa-arrow-left"></i>
+            Regresar
+        </a>
+    </div>
+
+    <div class="contenedor_busqueda_usuario">
+
+        <div class="contenedor_img">
+            <img src="{% static 'Imagenes/buscar_usuario.png' %}"
+                alt="Ilustración de búsqueda de empleados y registro de credenciales">
+
+            <div class="contenido_img_busqueda">
+                <h2>Busqueda de Usuario en el Sistema</h2>
+                <p>Verificar la existencia del usuario en el sistema</p>
+            </div>
+        </div>
+
+        <div class="encabezado_formulario">
+            <h3>Búsqueda de Usuario</h3>
+            <p>
+                Verifique la existencia del empleado para habilitar
+                el acceso al sistema administrativo.
+            </p>
+        </div>
+
+        <form method="post" id="formulario_busqueda">
+            {% csrf_token %}
+
+            <div class="campo_reducido">
+                <label for="cedula_identidad">Cédula de Identidad:</label>
+
+                <div class="grupo_doble">
+                    <select name="nacionalidad" id="nacionalidad" class="campo_select" aria-label="Nacionalidad"
+                        required>
+                        <option value="V" selected>V</option>
+                        <option value="E">E</option>
+                        <option value="J">J</option>
+                        <option value="G">G</option>
+                    </select>
+
+                    <input type="text" name="num_cedula" id="cedula_identidad" placeholder="Ingrese el número de cédula"
+                        autocomplete="off" required>
+                </div>
+            </div>
+
+            <div class="contenedor_boton_submit">
+                <button type="submit" class="btn_submit" id="btn_busqueda">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    Buscar
+                </button>
+            </div>
+        </form>
+
+    </div>
+</section>
+
+<dialog id="correos_usuario" class="dialogo_reducido">
+    <div class="contenedor_correos">
+
+        <div class="contenedor_encabezado">
+            <h2>Correos Electrónicos Registrados</h2>
+            <p>
+                Selecciona uno de los correos electrónicos
+                al que deseas enviar el código de verificación.
+            </p>
+        </div>
+
+        <div id="contenedor_mensajes_seleccion" class="contenedor_mensajes">
+            <i class="fa-solid fa-hourglass-half reloj_procesamiento"></i>
+            <p>Realizar la acción del perfil.</p>
+        </div>
+
+        <form method="post" id="formulario_seleccion" class="formulario_seleccion">
+            {% csrf_token %}
+
+            <div class="campo_formulario">
+                <input type="radio" name="correo_seleccionado" id="correo_principal" value="principal" required>
+
+                <label for="correo_principal" id="nombre_principal">
+                    Correo principal
+                </label>
+            </div>
+
+            <div class="campo_formulario" id="contenedor_correo_secundario">
+                <input type="radio" name="correo_seleccionado" id="correo_secundario" value="secundario">
+
+                <label for="correo_secundario" id="nombre_secundario">
+                    Correo secundario
+                </label>
+            </div>
+
+            <div class="contenedor_boton_submit">
+                <button type="submit" class="boton_login" id="btn_enviar_codigo">
+                    Enviar código
+                </button>
+            </div>
+
+        </form>
+    </div>
+</dialog>
+
+<script src="{% static 'Funcionalidades/cedula_identidad.js' %}"></script>
+<script src="{% static 'Funcionalidades_Asincronas/recuperar_credenciales/busqueda_usuario.js' %}"></script>
+
+{% endblock %}

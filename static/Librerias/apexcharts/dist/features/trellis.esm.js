@@ -1,0 +1,5553 @@
+var __defProp = Object.defineProperty;
+var __defProps = Object.defineProperties;
+var __getOwnPropDescs = Object.getOwnPropertyDescriptors;
+var __getOwnPropSymbols = Object.getOwnPropertySymbols;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __propIsEnum = Object.prototype.propertyIsEnumerable;
+var __pow = Math.pow;
+var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __spreadValues = (a, b) => {
+  for (var prop in b || (b = {}))
+    if (__hasOwnProp.call(b, prop))
+      __defNormalProp(a, prop, b[prop]);
+  if (__getOwnPropSymbols)
+    for (var prop of __getOwnPropSymbols(b)) {
+      if (__propIsEnum.call(b, prop))
+        __defNormalProp(a, prop, b[prop]);
+    }
+  return a;
+};
+var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
+var __objRest = (source, exclude) => {
+  var target = {};
+  for (var prop in source)
+    if (__hasOwnProp.call(source, prop) && exclude.indexOf(prop) < 0)
+      target[prop] = source[prop];
+  if (source != null && __getOwnPropSymbols)
+    for (var prop of __getOwnPropSymbols(source)) {
+      if (exclude.indexOf(prop) < 0 && __propIsEnum.call(source, prop))
+        target[prop] = source[prop];
+    }
+  return target;
+};
+var __async = (__this, __arguments, generator) => {
+  return new Promise((resolve2, reject) => {
+    var fulfilled = (value) => {
+      try {
+        step(generator.next(value));
+      } catch (e) {
+        reject(e);
+      }
+    };
+    var rejected = (value) => {
+      try {
+        step(generator.throw(value));
+      } catch (e) {
+        reject(e);
+      }
+    };
+    var step = (x2) => x2.done ? resolve2(x2.value) : Promise.resolve(x2.value).then(fulfilled, rejected);
+    step((generator = generator.apply(__this, __arguments)).next());
+  });
+};
+/*!
+ * ApexCharts v8.7.0
+ * (c) 2018-2026 ApexCharts
+ */
+import * as _core from "apexcharts/core";
+import _core__default from "apexcharts/core";
+import { default as default2 } from "apexcharts/core";
+const Utils = _core.__apex_Utils;
+const Environment = _core.__apex_Environment_Environment;
+const BrowserAPIs = _core.__apex_BrowserAPIs_BrowserAPIs;
+const addResizeListener = _core.__apex_Resize_addResizeListener;
+const removeResizeListener = _core.__apex_Resize_removeResizeListener;
+function warnMissingFeature(subject, feature, opts = {}) {
+  const {
+    module = `features/${feature}`,
+    entry,
+    scripts = [`features/${feature}.js`],
+    tail
+  } = opts;
+  const tags = scripts.map((f) => `<script src='.../dist/${f}'>`).join(" and ");
+  globalThis.console.warn(
+    `ApexCharts: ${subject} requires the ${feature} feature, which is not in this bundle. Bundler: import 'apexcharts/${module}'` + (entry ? ` (or from 'apexcharts/${entry}')` : "") + `. Script tag: add ${tags} after the ApexCharts script, or load apexcharts.full.min.js instead.` + (tail ? ` ${tail}` : "")
+  );
+}
+class SvgRenderer {
+  /**
+   * @param {any} w
+   * @param {any} ctx
+   */
+  constructor(w, ctx) {
+    this.w = w;
+    this.ctx = ctx;
+    this.kind = "svg";
+  }
+  // ── lifecycle (SVG builds its layer via the existing plotChartType flow) ──
+  beginSeries() {
+  }
+  present() {
+    return null;
+  }
+  clear() {
+  }
+  // ── emit primitives (delegate to Graphics: the canvas renderer mirrors
+  //    this exact surface) ──
+  /** @param {any} attrs */
+  group(attrs) {
+    return this.ctx.graphics.group(attrs);
+  }
+  /** @param {any} opts */
+  drawPath(opts) {
+    return this.ctx.graphics.drawPath(opts);
+  }
+  /** @param {any[]} args */
+  drawLine(...args) {
+    return this.ctx.graphics.drawLine(...args);
+  }
+  /** @param {any[]} args */
+  drawRect(...args) {
+    return this.ctx.graphics.drawRect(...args);
+  }
+  /**
+   * @param {number} r
+   * @param {any} attrs
+   */
+  drawCircle(r, attrs) {
+    return this.ctx.graphics.drawCircle(r, attrs);
+  }
+  /** @param {any} opts */
+  drawText(opts) {
+    return this.ctx.graphics.drawText(opts);
+  }
+  /**
+   * A series mark path (animation-aware). Faithful passthrough to Graphics.
+   * Note: the SVG emit path in the per-type draw() methods routes through
+   * `seriesEmitter`, which returns the caller's own `Graphics` in SVG mode: so
+   * this method is the interface contract surface (mirrored by the canvas
+   * renderer), not the hot path.
+   * @param {any} opts
+   */
+  renderPaths(opts) {
+    return this.ctx.graphics.renderPaths(opts);
+  }
+  /**
+   * @param {number} x
+   * @param {number} y
+   * @param {any} opts
+   */
+  drawMarker(x2, y, opts = {}) {
+    return this.ctx.graphics.drawMarker(x2, y, opts);
+  }
+  // ── capabilities: SVG supports everything the interface enumerates ──
+  /** @param {string} _feature */
+  supports(_feature) {
+    return true;
+  }
+  // ── interaction: the DOM does this natively in SVG mode ──
+  hitTest() {
+    return null;
+  }
+  restyle() {
+  }
+  // ── export: SVG serializes directly; no bitmap to composite ──
+  toBitmap() {
+    return null;
+  }
+  destroy() {
+  }
+}
+const OK_FILTER_TYPES = ["none", "lighten", "darken"];
+function computeMarkCount(w) {
+  const series = w.config.series || [];
+  const type = w.config.chart.type;
+  const scatterish = type === "scatter" || type === "bubble";
+  const markerSize = w.config.markers && w.config.markers.size;
+  const markersOn = Array.isArray(markerSize) ? markerSize.some((s) => s > 0) : (markerSize || 0) > 0;
+  const labelsOn = !!(w.config.dataLabels && w.config.dataLabels.enabled);
+  const isHeatmap = type === "heatmap";
+  let total = 0;
+  let maxLen = 0;
+  series.forEach((s) => {
+    const n = Array.isArray(s.data) ? s.data.length : 0;
+    if (n > maxLen) maxLen = n;
+    if (scatterish || markersOn || isHeatmap) total += n;
+    if (labelsOn) total += n;
+  });
+  const LARGE_D = 5e4;
+  if (maxLen >= LARGE_D) total = Math.max(total, maxLen);
+  return total;
+}
+function hasCanvasUnsupportedFeature(w) {
+  const cfg = w.config;
+  const po = cfg.plotOptions || {};
+  const sf = cfg.stroke && cfg.stroke.fill;
+  const fc = cfg.forecastDataPoints;
+  const lc = po.line && po.line.colors;
+  const states = cfg.states || {};
+  const badFill = (t) => [].concat(t).some((x2) => x2 === "pattern" || x2 === "image" || x2 === "gradient");
+  const badFilter = (st) => {
+    const t = st && st.filter && st.filter.type;
+    return t && !OK_FILTER_TYPES.includes(t);
+  };
+  const hasType = (re) => (cfg.series || []).some(
+    (s) => re.test(s && s.type || cfg.chart.type)
+  );
+  return !!(badFill(cfg.fill && cfg.fill.type) || // On a line-like series (line, area, rangeArea) an area outline takes its
+  // paint from stroke.fill, a url() the canvas skips, so only the body
+  // would paint. On a line or area (Line.js draws none for rangeArea) a
+  // forecast is the series drawn twice, split by clip-paths the canvas does
+  // not paint through, so the dashed copy would cover it all. Bars mark
+  // their forecast per bar, which the canvas paints.
+  sf && badFill(sf.type) && hasType(/line|area/i) || fc && fc.count > 0 && hasType(/^(line|area)$/) || // Multi-color line (colorAboveThreshold/BelowThreshold) is drawn via a
+  // gradient internally: same P2 gate as above.
+  lc && lc.colorAboveThreshold && lc.colorBelowThreshold || // Heatmap cell shapes other than the default rect render as SVG <path>
+  // cells: the canvas cell store is rect-only (drawRectCell), so decline
+  // canvas for them the same way image fills are declined, rather than
+  // inventing a columnar path store for shaped cells.
+  cfg.chart.type === "heatmap" && (po.heatmap && po.heatmap.shape || "rect") !== "rect" || badFilter(states.hover) || badFilter(states.active));
+}
+const RENDERER_REGISTRY_KEY = "__apexcharts_renderers__";
+function getRendererRegistry() {
+  const g = (
+    /** @type {any} */
+    globalThis
+  );
+  if (!g[RENDERER_REGISTRY_KEY]) g[RENDERER_REGISTRY_KEY] = /* @__PURE__ */ new Map();
+  return g[RENDERER_REGISTRY_KEY];
+}
+class RendererController {
+  /** Same Map as getRendererRegistry(); exposed for tests/tooling. */
+  static get _rendererRegistry() {
+    return getRendererRegistry();
+  }
+  /**
+   * @param {string} kind
+   * @param {(w: any, ctx: any) => any} factory
+   */
+  static registerRenderer(kind, factory) {
+    getRendererRegistry().set(kind, factory);
+  }
+  /**
+   * Remove a registered renderer backend (tests / hot-reload). Charts fall
+   * back to SVG on their next resolve().
+   * @param {string} kind
+   */
+  static unregisterRenderer(kind) {
+    getRendererRegistry().delete(kind);
+  }
+  /**
+   * @param {any} w
+   * @param {any} ctx
+   */
+  constructor(w, ctx) {
+    this.w = w;
+    this.ctx = ctx;
+    this.svg = new SvgRenderer(w, ctx);
+    this.active = this.svg;
+    this._activeKind = "svg";
+    this._instances = {};
+    this.w.globals.activeRenderer = this.active;
+  }
+  /**
+   * Make `renderer` the active one everywhere it is read: here, on ctx, and
+   * mirrored on globals so w-only modules (tooltip hit tests, Series
+   * hover/legend restyle) can reach it without threading ctx. The mirror is
+   * persistent state (see Globals.globalVars), so it holds until the next
+   * resolve() or teardown(), across any number of data-only updates.
+   * @param {import('../renderers/Renderer').RendererKind} kind
+   * @param {any} renderer
+   */
+  _activate(kind, renderer) {
+    this.active = renderer;
+    this._activeKind = kind;
+    this.ctx.renderer = renderer;
+    this.w.globals.activeRenderer = renderer;
+  }
+  /**
+   * The kind selection WANTS (before availability/fallback). Pure.
+   * @returns {import('../renderers/Renderer').RendererKind}
+   */
+  _desiredKind() {
+    const cfg = this.w.config.chart;
+    const mode = cfg.renderer || "svg";
+    if (!Environment.isBrowser()) return "svg";
+    if (mode === "svg") return "svg";
+    if (hasCanvasUnsupportedFeature(this.w)) return "svg";
+    if (mode === "canvas") return "canvas";
+    const marks = computeMarkCount(this.w);
+    const threshold = cfg.rendererThreshold || 8e3;
+    return marks >= threshold ? "canvas" : "svg";
+  }
+  /**
+   * Resolve + instantiate the active renderer and set `ctx.renderer`. Falls
+   * back to SVG (with a warning only when canvas was explicitly requested) if
+   * the desired backend is not registered.
+   * @returns {import('../renderers/Renderer').RendererKind}
+   */
+  resolve() {
+    const mode = this.w.config.chart.renderer || "svg";
+    const desired = this._desiredKind();
+    if (desired !== "svg") {
+      const factory = getRendererRegistry().get(desired);
+      if (factory) {
+        if (!this._instances[desired]) {
+          this._instances[desired] = factory(this.w, this.ctx);
+        }
+        this._activate(desired, this._instances[desired]);
+        return this._activeKind;
+      }
+      if (mode === desired && !this._warned) {
+        this._warned = 1;
+        warnMissingFeature(
+          `\`chart.renderer: '${desired}'\``,
+          `renderer-${desired}`,
+          {
+            tail: "Falling back to SVG."
+          }
+        );
+      }
+    } else if (mode === "canvas" && !this._warned && hasCanvasUnsupportedFeature(this.w)) {
+      this._warned = 1;
+      console.warn(
+        `[apexcharts] renderer:"canvas" requested but this chart uses a feature the canvas renderer does not render yet (gradient/pattern/image fill, a line forecast or a state color-matrix filter); falling back to SVG.`
+      );
+    }
+    const prev = this._instances[this._activeKind];
+    if (prev) {
+      prev.destroy();
+      delete this._instances[this._activeKind];
+    }
+    this._activate("svg", this.svg);
+    return this._activeKind;
+  }
+  /**
+   * The kind resolve() would select right now: the desired kind when its
+   * backend is registered, SVG otherwise. Pure (no instance, no warning), so
+   * the data-only fast update can ask whether a full render would switch
+   * backends before it repaints into the one on screen.
+   * @returns {import('../renderers/Renderer').RendererKind}
+   */
+  pendingKind() {
+    const desired = this._desiredKind();
+    return desired === "svg" || getRendererRegistry().has(desired) ? desired : "svg";
+  }
+  /** @returns {import('../renderers/Renderer').RendererKind} */
+  getActiveKind() {
+    return this._activeKind;
+  }
+  /** Destroy the owned non-SVG renderer instances (full chart destroy). */
+  teardown() {
+    for (const kind in this._instances) {
+      const r = this._instances[kind];
+      if (r && typeof r.destroy === "function") r.destroy();
+    }
+    this._instances = {};
+    this.active = this.svg;
+    this._activeKind = "svg";
+    this.w.globals.activeRenderer = null;
+  }
+}
+const CoreUtils = _core.__apex_CoreUtils;
+const InitCtxVariables = _core.__apex_helpers_InitCtxVariables;
+const PIVOT_FACET = Symbol("facet");
+const SERIES_FIELDS = ["name", "data", "type", "group", "color", "hidden"];
+function pivotRows(rows, spec = {}) {
+  const warnings = [];
+  const by = spec.by;
+  if (typeof by !== "string" || !by) {
+    return {
+      series: [],
+      warnings: [
+        "trellis: tidy-row input (trellis.data) needs a string `by` column name"
+      ]
+    };
+  }
+  const xKey2 = spec.x;
+  const yKey = spec.y;
+  if (!xKey2 || !yKey) {
+    return {
+      series: [],
+      warnings: [
+        "trellis: tidy-row input (trellis.data) needs `x` and `y` column names"
+      ]
+    };
+  }
+  const list = Array.isArray(rows) ? rows : [];
+  if (!list.length) {
+    return { series: [], warnings: ["trellis: trellis.data is empty"] };
+  }
+  const seriesBy = spec.seriesBy;
+  let skipped = 0;
+  let dupes = 0;
+  const acc = /* @__PURE__ */ new Map();
+  list.forEach((row) => {
+    if (!row || typeof row !== "object") {
+      skipped++;
+      return;
+    }
+    const facet = row[by];
+    const x2 = row[xKey2];
+    if (facet === void 0 || facet === null || x2 === void 0 || x2 === null) {
+      skipped++;
+      return;
+    }
+    const name = seriesBy && row[seriesBy] !== void 0 && row[seriesBy] !== null ? String(row[seriesBy]) : String(yKey);
+    let byName = acc.get(String(facet));
+    if (!byName) {
+      byName = /* @__PURE__ */ new Map();
+      acc.set(String(facet), byName);
+    }
+    let data = byName.get(name);
+    if (!data) {
+      data = /* @__PURE__ */ new Map();
+      byName.set(name, data);
+    }
+    const xk = x2 instanceof Date ? x2.getTime() : x2;
+    if (data.has(xk)) dupes++;
+    const y = row[yKey];
+    data.set(xk, y === void 0 ? null : y);
+  });
+  if (skipped) {
+    warnings.push(
+      `trellis: ${skipped} row(s) missing "${by}" or "${xKey2}" were skipped`
+    );
+  }
+  if (dupes) {
+    warnings.push(
+      `trellis: ${dupes} duplicate (panel, series, x) row(s); kept the last. Aggregate the rows first if you want sums or means.`
+    );
+  }
+  const series = [];
+  acc.forEach((byName, facet) => {
+    byName.forEach((data, name) => {
+      const s = { name, data: Array.from(data, ([x2, y]) => ({ x: x2, y })) };
+      if (SERIES_FIELDS.indexOf(by) === -1) s[by] = facet;
+      Object.defineProperty(s, PIVOT_FACET, { value: facet });
+      series.push(s);
+    });
+  });
+  return { series, warnings };
+}
+const DateTime = _core.__apex_DateTime;
+function xKey(x2, datetime) {
+  if (x2 instanceof Date) return x2.getTime();
+  if (datetime && typeof x2 === "string") {
+    const t = DateTime.prototype.parseDate(x2);
+    if (!isNaN(t)) return t;
+  }
+  return x2;
+}
+function detectForm(data) {
+  if (!Array.isArray(data) || data.length === 0) return "empty";
+  for (let i = 0; i < data.length; i++) {
+    const d = data[i];
+    if (d === null || d === void 0) continue;
+    if (Array.isArray(d)) return "paired";
+    if (typeof d === "object") return "object";
+    return "plain";
+  }
+  return "empty";
+}
+function xKeyOf(d, form, datetime) {
+  if (d === null || d === void 0) return void 0;
+  if (form === "paired") return xKey(d[0], !!datetime);
+  if (form === "object") return xKey(d.x, !!datetime);
+  return void 0;
+}
+function placeholderFor(x2, form) {
+  if (form === "paired") return [x2, null];
+  if (form === "object") return { x: x2, y: null };
+  return null;
+}
+function keyOf(s, i, by) {
+  const raw = typeof by === "function" ? by(s, i) : s ? s[by] : void 0;
+  if (raw === void 0 || raw === null || raw === "") return null;
+  return String(raw);
+}
+function orderKeys(keys, order) {
+  if (!order || order === "first-seen") return keys.slice();
+  if (order === "asc" || order === "desc") {
+    const sorted = keys.slice().sort((a, b) => {
+      const na = Number(a);
+      const nb = Number(b);
+      if (isFinite(na) && isFinite(nb)) return na - nb;
+      return a < b ? -1 : a > b ? 1 : 0;
+    });
+    return order === "desc" ? sorted.reverse() : sorted;
+  }
+  if (Array.isArray(order)) {
+    const explicit = order.map(String).filter((k2) => keys.indexOf(k2) !== -1);
+    const rest = keys.filter((k2) => explicit.indexOf(k2) === -1);
+    return explicit.concat(rest);
+  }
+  if (typeof order === "function") return keys.slice().sort(order);
+  return keys.slice();
+}
+function collectUnion(contributing, warnings, datetime) {
+  const unionX = [];
+  const seen = /* @__PURE__ */ new Set();
+  let sawKeyed = false;
+  let sawPlain = false;
+  let plainMaxLen = 0;
+  let xForm = "plain";
+  contributing.forEach((s) => {
+    const form = detectForm(s && s.data);
+    if (form === "empty") return;
+    if (form === "plain") {
+      sawPlain = true;
+      plainMaxLen = Math.max(plainMaxLen, s.data.length);
+      return;
+    }
+    sawKeyed = true;
+    xForm = form;
+    s.data.forEach((d) => {
+      const x2 = xKeyOf(d, form, datetime);
+      if (x2 === void 0) return;
+      const id = typeof x2 + ":" + String(x2);
+      if (!seen.has(id)) {
+        seen.add(id);
+        unionX.push(x2);
+      }
+    });
+  });
+  if (sawKeyed && sawPlain) {
+    warnings.push(
+      "trellis: mixing x-keyed data ([x,y] / {x,y}) with plain value arrays; plain series are padded by position, not by x"
+    );
+  }
+  const xIsNumeric = sawKeyed && unionX.every((x2) => typeof x2 === "number" && isFinite(x2));
+  if (xIsNumeric) unionX.sort((a, b) => Number(a) - Number(b));
+  return { unionX, sawKeyed, plainMaxLen, xForm, xIsNumeric, datetime };
+}
+const POINT_MARK_TYPES = ["scatter", "bubble"];
+function alignsToUnionX(chartType) {
+  return !POINT_MARK_TYPES.includes(chartType || "");
+}
+function makeAligner(u, warnings, alignToUnion, list) {
+  const seriesNames = [];
+  const nameSeen = /* @__PURE__ */ new Set();
+  const dupes = /* @__PURE__ */ new Map();
+  const counted = /* @__PURE__ */ new Set();
+  const align = (s) => {
+    const form = detectForm(s && s.data);
+    const name = s && s.name != null ? String(s.name) : `series-${list.indexOf(s) + 1}`;
+    if (!nameSeen.has(name)) {
+      nameSeen.add(name);
+      seriesNames.push(name);
+    }
+    const out = __spreadProps(__spreadValues({}, s), { name });
+    if (!alignToUnion) {
+      out.data = Array.isArray(s.data) ? s.data.slice() : [];
+      return out;
+    }
+    if (form === "plain" || form === "empty") {
+      const targetLen = u.sawKeyed ? u.unionX.length : u.plainMaxLen;
+      const data = Array.isArray(s.data) ? s.data.slice(0, targetLen) : [];
+      while (data.length < targetLen) data.push(null);
+      out.data = data;
+      if (Array.isArray(s.highlightData)) {
+        const hd2 = s.highlightData.slice(0, targetLen);
+        while (hd2.length < targetLen) hd2.push(null);
+        out.highlightData = hd2;
+      }
+      return out;
+    }
+    const map = /* @__PURE__ */ new Map();
+    const parts = /* @__PURE__ */ new Map();
+    const hd = Array.isArray(s.highlightData) ? s.highlightData : null;
+    let dup = 0;
+    s.data.forEach((d, idx) => {
+      const x2 = xKeyOf(d, form, u.datetime);
+      if (x2 === void 0) return;
+      if (map.has(x2)) dup++;
+      else {
+        map.set(x2, d);
+        if (hd) parts.set(x2, hd[idx]);
+      }
+    });
+    if (dup && !counted.has(s)) {
+      counted.add(s);
+      dupes.set(name, (dupes.get(name) || 0) + dup);
+    }
+    out.data = u.unionX.map(
+      (x2) => map.has(x2) ? map.get(x2) : placeholderFor(x2, form)
+    );
+    if (hd) {
+      out.highlightData = u.unionX.map(
+        (x2) => parts.has(x2) ? parts.get(x2) : null
+      );
+    }
+    return out;
+  };
+  const flush = () => dupes.forEach(
+    (n, name) => warnings.push(
+      `trellis: ${n} duplicate x value(s) in series "${name}"; keeping the first of each`
+    )
+  );
+  return { align, seriesNames, flush };
+}
+function placeholderSeries(splitResult, opts = {}) {
+  const form = splitResult.xForm;
+  const zeroByType = {
+    bar: 0,
+    column: 0,
+    rangeBar: [0, 0],
+    candlestick: [0, 0, 0, 0],
+    boxPlot: [0, 0, 0, 0, 0]
+  };
+  const fill = opts.chartType && opts.chartType in zeroByType ? zeroByType[opts.chartType] : null;
+  const datum = (x2) => {
+    if (fill === null) return placeholderFor(x2, form);
+    const y = Array.isArray(fill) ? fill.slice() : fill;
+    return form === "object" ? { x: x2, y } : [x2, y];
+  };
+  const data = form === "plain" ? splitResult.unionX.map(() => fill) : splitResult.unionX.map(datum);
+  return { name: opts.name || splitResult.seriesNames[0] || "series-1", data };
+}
+function split(series, cfg = {}, host = {}) {
+  const warnings = [];
+  const list = Array.isArray(series) ? series : [];
+  const alignToUnion = alignsToUnionX(host.chartType);
+  if (cfg.row || cfg.column) {
+    if (cfg.by) {
+      warnings.push(
+        "trellis: `by` is ignored when `row`/`column` are set (they are mutually exclusive)"
+      );
+    }
+    return split2d(list, cfg, warnings, alignToUnion, host.datetime);
+  }
+  const by = cfg.by || "facet";
+  const byKey = /* @__PURE__ */ new Map();
+  const repeated = [];
+  list.forEach((s, i) => {
+    const k2 = keyOf(s, i, s && s[PIVOT_FACET] !== void 0 ? PIVOT_FACET : by);
+    if (k2 === null) repeated.push(s);
+    else {
+      if (!byKey.has(k2)) byKey.set(k2, []);
+      const arr = byKey.get(k2);
+      if (arr) arr.push(s);
+    }
+  });
+  if (byKey.size === 0) {
+    return emptyResult([
+      "trellis: no series carries the facet key; nothing to split"
+    ]);
+  }
+  let keys = orderKeys(Array.from(byKey.keys()), cfg.order);
+  let dropped = 0;
+  if (typeof cfg.limit === "number" && cfg.limit > 0 && keys.length > cfg.limit) {
+    dropped = keys.length - cfg.limit;
+    keys = keys.slice(0, cfg.limit);
+  }
+  const contributing = keys.reduce((acc, k2) => acc.concat(byKey.get(k2) || []), []).concat(repeated);
+  const u = collectUnion(contributing, warnings, host.datetime);
+  const { align, seriesNames, flush } = makeAligner(
+    u,
+    warnings,
+    alignToUnion,
+    list
+  );
+  const panels = keys.map((key) => {
+    const own = (byKey.get(key) || []).map(align);
+    const rep = repeated.map(align);
+    const slice = own.concat(rep);
+    return {
+      key,
+      rowKey: null,
+      colKey: null,
+      series: slice,
+      seriesNames: slice.map((s) => s.name),
+      empty: slice.length === 0
+    };
+  });
+  flush();
+  return {
+    mode: (
+      /** @type {'1d'} */
+      "1d"
+    ),
+    panels,
+    rowKeys: null,
+    colKeys: null,
+    seriesNames,
+    xForm: u.sawKeyed ? u.xForm : "plain",
+    unionX: u.sawKeyed ? u.unionX : Array.from({ length: u.plainMaxLen }, (_, i) => i),
+    xIsNumeric: u.xIsNumeric,
+    dropped,
+    warnings
+  };
+}
+function emptyResult(warnings) {
+  return {
+    mode: "1d",
+    panels: [],
+    rowKeys: null,
+    colKeys: null,
+    seriesNames: [],
+    xForm: "plain",
+    unionX: [],
+    xIsNumeric: false,
+    dropped: 0,
+    warnings
+  };
+}
+function split2d(list, cfg, warnings, alignToUnion = true, datetime) {
+  const rowBy = cfg.row;
+  const colBy = cfg.column;
+  const cells = /* @__PURE__ */ new Map();
+  const rowRepeats = /* @__PURE__ */ new Map();
+  const colRepeats = /* @__PURE__ */ new Map();
+  const repeated = [];
+  const rowSeen = [];
+  const colSeen = [];
+  const note = (arr, k2) => {
+    if (arr.indexOf(k2) === -1) arr.push(k2);
+  };
+  list.forEach((s, i) => {
+    var _a, _b;
+    const rk = rowBy ? keyOf(s, i, rowBy) : "";
+    const ck = colBy ? keyOf(s, i, colBy) : "";
+    if (rk === null && ck === null) {
+      repeated.push(s);
+      return;
+    }
+    if (rk === null) {
+      note(
+        colSeen,
+        /** @type {string} */
+        ck
+      );
+      if (!colRepeats.has(
+        /** @type {string} */
+        ck
+      )) {
+        colRepeats.set(
+          /** @type {string} */
+          ck,
+          []
+        );
+      }
+      (_a = colRepeats.get(
+        /** @type {string} */
+        ck
+      )) == null ? void 0 : _a.push(s);
+      return;
+    }
+    if (ck === null) {
+      note(rowSeen, rk);
+      if (!rowRepeats.has(rk)) rowRepeats.set(rk, []);
+      (_b = rowRepeats.get(rk)) == null ? void 0 : _b.push(s);
+      return;
+    }
+    note(rowSeen, rk);
+    note(colSeen, ck);
+    let cols = cells.get(rk);
+    if (!cols) {
+      cols = /* @__PURE__ */ new Map();
+      cells.set(rk, cols);
+    }
+    let arr = cols.get(ck);
+    if (!arr) {
+      arr = [];
+      cols.set(ck, arr);
+    }
+    arr.push(s);
+  });
+  if (!rowSeen.length && !colSeen.length) {
+    return emptyResult([
+      "trellis: no series carries the row/column facet keys; nothing to split"
+    ]);
+  }
+  if (typeof cfg.limit === "number" && cfg.limit > 0) {
+    warnings.push("trellis: `limit` is not applied to a 2-D grid; ignoring it");
+  }
+  const rowKeys = orderKeys(rowSeen.length ? rowSeen : [""], cfg.order);
+  const colKeys = orderKeys(colSeen.length ? colSeen : [""], cfg.order);
+  const u = collectUnion(list, warnings, datetime);
+  const { align, seriesNames, flush } = makeAligner(
+    u,
+    warnings,
+    alignToUnion,
+    list
+  );
+  const panels = [];
+  rowKeys.forEach((rk) => {
+    colKeys.forEach((ck) => {
+      var _a;
+      const own = ((_a = cells.get(rk)) == null ? void 0 : _a.get(ck)) || [];
+      const slice = own.concat(rowRepeats.get(rk) || []).concat(colRepeats.get(ck) || []).concat(repeated).map(align);
+      panels.push({
+        key: [rk, ck].filter((k2) => k2 !== "").join(" / ") || "all",
+        rowKey: rk,
+        colKey: ck,
+        series: slice,
+        seriesNames: slice.map((s) => s.name),
+        empty: slice.length === 0
+      });
+    });
+  });
+  flush();
+  return {
+    mode: (
+      /** @type {'2d'} */
+      "2d"
+    ),
+    panels,
+    rowKeys,
+    colKeys,
+    seriesNames,
+    xForm: u.sawKeyed ? u.xForm : "plain",
+    unionX: u.sawKeyed ? u.unionX : Array.from({ length: u.plainMaxLen }, (_, i) => i),
+    xIsNumeric: u.xIsNumeric,
+    dropped: 0,
+    warnings
+  };
+}
+const M = 1e3;
+function A(e, t) {
+  const s = e.length;
+  if (0 === s) return NaN;
+  if (1 === s) return e[0];
+  const n = (s - 1) * t, i = Math.floor(n), r = Math.ceil(n);
+  return i === r ? e[i] : e[i] + (e[r] - e[i]) * (n - i);
+}
+function S(e, t, s) {
+  const n = e.length, i = (e2) => t / Math.max(1, Math.ceil(e2)), r = () => i(Math.log2(n) + 1);
+  switch (s) {
+    case "sqrt":
+      return { width: i(Math.sqrt(n)), rule: "sqrt" };
+    case "rice":
+      return { width: i(2 * Math.cbrt(n)), rule: "rice" };
+    case "scott": {
+      const t2 = (function(e2) {
+        const t3 = e2.length;
+        if (t3 < 2) return 0;
+        let s2 = 0;
+        for (let n3 = 0; n3 < t3; n3++) s2 += e2[n3];
+        const n2 = s2 / t3;
+        let i2 = 0;
+        for (let s3 = 0; s3 < t3; s3++) {
+          const t4 = e2[s3] - n2;
+          i2 += t4 * t4;
+        }
+        return Math.sqrt(i2 / t3);
+      })(e);
+      return t2 > 0 ? { width: 3.49 * t2 * Math.pow(n, -1 / 3), rule: "scott" } : { width: r(), rule: "sturges" };
+    }
+    case "fd": {
+      const t2 = A(e, 0.75) - A(e, 0.25);
+      return t2 > 0 ? { width: 2 * t2 * Math.pow(n, -1 / 3), rule: "fd" } : { width: r(), rule: "sturges" };
+    }
+    case "auto": {
+      const t2 = r(), s2 = A(e, 0.75) - A(e, 0.25);
+      if (s2 <= 0) return { width: t2, rule: "sturges" };
+      const i2 = 2 * s2 * Math.pow(n, -1 / 3);
+      return i2 < t2 ? { width: i2, rule: "fd" } : { width: t2, rule: "sturges" };
+    }
+    default:
+      return { width: r(), rule: "sturges" };
+  }
+}
+function x(e, t = {}) {
+  if (!Array.isArray(e) || 0 === e.length) return null;
+  const s = e.slice().sort(((e2, t2) => e2 - t2));
+  let n = s[0], i = s[s.length - 1];
+  const r = t.range;
+  if (Array.isArray(r) && 2 === r.length) {
+    const e2 = Number(r[0]), t2 = Number(r[1]);
+    Number.isFinite(e2) && Number.isFinite(t2) && t2 > e2 && (n = e2, i = t2);
+  }
+  if (!(i > n)) {
+    const e2 = Math.abs(n) > 0 ? 0.05 * Math.abs(n) : 0.5;
+    return { edges: [n - e2, n + e2], binWidth: 2 * e2, rule: "single", capped: false };
+  }
+  const a = i - n;
+  let o, l;
+  if ("number" == typeof t.binWidth && t.binWidth > 0) o = t.binWidth, l = "binWidth";
+  else if ("number" == typeof t.bins && t.bins >= 1) o = a / Math.floor(t.bins), l = "count";
+  else {
+    const e2 = S(s, a, "string" == typeof t.bins ? t.bins : "auto");
+    o = e2.width, l = e2.rule;
+  }
+  (!Number.isFinite(o) || o <= 0) && (o = a);
+  let c = Math.ceil(a / o);
+  (!Number.isFinite(c) || c < 1) && (c = 1);
+  let u = false;
+  c > M && (c = M, u = true), o = a / c;
+  const h = new Array(c + 1);
+  for (let e2 = 0; e2 <= c; e2++) h[e2] = n + e2 * o;
+  return h[c] = Math.max(h[c], i), { edges: h, binWidth: o, rule: l, capped: u };
+}
+function k(e, t) {
+  const s = t.length - 1;
+  if (!(e >= t[0]) || e > t[s]) return -1;
+  if (e === t[s]) return s - 1;
+  const n = (t[s] - t[0]) / s;
+  if (n > 0) {
+    let i2 = Math.floor((e - t[0]) / n);
+    return i2 < 0 && (i2 = 0), i2 > s - 1 && (i2 = s - 1), e < t[i2] ? i2-- : e >= t[i2 + 1] && i2++, i2 < 0 || i2 > s - 1 ? -1 : i2;
+  }
+  let i = 0, r = s - 1;
+  for (; i <= r; ) {
+    const s2 = i + r >> 1;
+    if (e < t[s2]) r = s2 - 1;
+    else {
+      if (!(e >= t[s2 + 1])) return s2;
+      i = s2 + 1;
+    }
+  }
+  return -1;
+}
+function L(e, t) {
+  const s = new Array(Math.max(0, t.length - 1)).fill(0);
+  for (let n = 0; n < e.length; n++) {
+    const i = k(e[n], t);
+    i >= 0 && s[i]++;
+  }
+  return s;
+}
+function stdDev(values) {
+  const n = values.length;
+  if (n < 2) return 0;
+  let sum = 0;
+  for (let i = 0; i < n; i++) sum += values[i];
+  const mean = sum / n;
+  let acc = 0;
+  for (let i = 0; i < n; i++) {
+    const d = values[i] - mean;
+    acc += d * d;
+  }
+  return Math.sqrt(acc / n);
+}
+function kernelDensity(values, opts = {}) {
+  if (!Array.isArray(values) || values.length === 0) return null;
+  const sorted = values.slice().sort((a, b) => a - b);
+  const n = sorted.length;
+  let h = opts.bandwidth;
+  if (!(typeof h === "number" && h > 0)) {
+    const sd = stdDev(sorted);
+    const iqr = A(sorted, 0.75) - A(sorted, 0.25);
+    const spread = iqr > 0 ? Math.min(sd, iqr / 1.349) : sd;
+    h = 0.9 * spread * Math.pow(n, -1 / 5);
+  }
+  if (!isFinite(h) || h <= 0) {
+    const v = sorted[0];
+    const eps = Math.abs(v) > 0 ? Math.abs(v) * 1e-3 : 1e-3;
+    return {
+      density: [
+        [v - eps, 0],
+        [v, 1],
+        [v + eps, 0]
+      ],
+      bandwidth: eps
+    };
+  }
+  const steps = Math.max(8, Math.floor(opts.resolution || 64));
+  const lo = sorted[0] - 2 * h;
+  const hi = sorted[n - 1] + 2 * h;
+  const step = (hi - lo) / (steps - 1);
+  const norm = 1 / (n * h * Math.sqrt(2 * Math.PI));
+  const density = [];
+  for (let g = 0; g < steps; g++) {
+    const x2 = lo + g * step;
+    let sum = 0;
+    for (let i = 0; i < n; i++) {
+      const z = (x2 - sorted[i]) / h;
+      sum += Math.exp(-0.5 * z * z);
+    }
+    density.push([x2, sum * norm]);
+  }
+  return { density, bandwidth: h };
+}
+function normalizeCounts(counts, opts = {}) {
+  let out = counts.slice();
+  if (opts.cumulative) {
+    let acc = 0;
+    out = out.map((c) => acc += c);
+  }
+  const total = counts.reduce((a, b) => a + b, 0);
+  if (total <= 0) return out;
+  if (opts.normalize === "relative") {
+    return out.map((c) => c / total * 100);
+  }
+  if (opts.normalize === "density") {
+    const w = opts.binWidth;
+    if (typeof w === "number" && w > 0) return out.map((c) => c / (total * w));
+  }
+  return out;
+}
+const VALUELESS_Y = ["heatmap", "pie", "donut", "polarArea", "radialBar"];
+const PIE_FAMILY = ["pie", "donut", "polarArea"];
+function observationValues(data) {
+  const out = [];
+  if (!Array.isArray(data)) return out;
+  for (let i = 0; i < data.length; i++) {
+    const d = data[i];
+    let raw = d;
+    if (Array.isArray(d)) raw = d.length === 1 ? d[0] : d[1];
+    else if (d && typeof d === "object") raw = d.y !== void 0 ? d.y : d.x;
+    const v = Number(raw);
+    if (raw !== null && raw !== void 0 && isFinite(v)) out.push(v);
+  }
+  return out;
+}
+function rawObservationArrays(data, out) {
+  if (!Array.isArray(data)) return out;
+  data.forEach((d) => {
+    const y = d && typeof d === "object" ? d.y : null;
+    if (!Array.isArray(y)) return;
+    y.forEach((v) => {
+      const n = Number(v);
+      if (v !== null && v !== void 0 && isFinite(n)) out.push(n);
+    });
+  });
+  return out;
+}
+function zValues(data) {
+  const out = [];
+  if (!Array.isArray(data)) return out;
+  data.forEach((d) => {
+    let raw = null;
+    if (Array.isArray(d) && d.length > 2) raw = d[2];
+    else if (d && typeof d === "object") raw = d.z;
+    const n = Number(raw);
+    if (raw !== null && raw !== void 0 && isFinite(n)) out.push(n);
+  });
+  return out;
+}
+function buildTypeFrames(splitResult, cfg, hostConfig, chartType) {
+  var _a, _b, _c, _d, _e, _f;
+  const frames = {
+    plotOptions: null,
+    yExtentOverride: null,
+    skipYaxisPush: VALUELESS_Y.includes(chartType),
+    forceSharedY: false,
+    pieScaleOf: null,
+    warnings: []
+  };
+  const panels = splitResult.panels;
+  const plot = (hostConfig == null ? void 0 : hostConfig.plotOptions) || {};
+  if (chartType === "histogram") {
+    const hcfg = plot.histogram || {};
+    const panelSeriesVals = panels.map(
+      (p) => p.series.map((s) => observationValues(s.data))
+    );
+    const union = panelSeriesVals.flat(2);
+    const binning = x(union, {
+      bins: hcfg.bins,
+      binWidth: hcfg.binWidth,
+      range: hcfg.range
+    });
+    if (binning && binning.edges.length > 1) {
+      const edges = binning.edges;
+      frames.plotOptions = {
+        histogram: {
+          range: [edges[0], edges[edges.length - 1]],
+          binWidth: binning.binWidth
+        }
+      };
+      let maxY = 0;
+      panelSeriesVals.forEach(
+        (seriesVals) => seriesVals.forEach((vals) => {
+          if (!vals.length) return;
+          const ys = normalizeCounts(L(vals, edges), {
+            normalize: hcfg.normalize,
+            cumulative: hcfg.cumulative,
+            binWidth: binning.binWidth
+          });
+          ys.forEach((v) => {
+            if (isFinite(v) && v > maxY) maxY = v;
+          });
+        })
+      );
+      if (maxY > 0) frames.yExtentOverride = { min: 0, max: maxY };
+      const yMode = ((_a = cfg.scales) == null ? void 0 : _a.y) || "shared";
+      if (yMode === "independent-row" || yMode === "independent-column") {
+        frames.forceSharedY = true;
+        frames.warnings.push(
+          "histogram trellis: group y scales would re-derive counts per group; using scales.y 'shared' (use 'independent' for per-panel count scales)."
+        );
+      }
+    }
+  }
+  if (chartType === "violin") {
+    const kde = ((_b = plot.violin) == null ? void 0 : _b.kde) || {};
+    if (!(typeof kde.bandwidth === "number" && kde.bandwidth > 0)) {
+      const union = [];
+      panels.forEach(
+        (p) => p.series.forEach(
+          (s) => rawObservationArrays(s.data, union)
+        )
+      );
+      const est = union.length ? kernelDensity(union, { resolution: 8 }) : null;
+      if (est && isFinite(est.bandwidth) && est.bandwidth > 0) {
+        frames.plotOptions = {
+          violin: { kde: { bandwidth: est.bandwidth } }
+        };
+      }
+    }
+  }
+  if (chartType === "heatmap") {
+    if (((_c = cfg.scales) == null ? void 0 : _c.color) === "independent") {
+      frames.warnings.push(
+        "a heatmap trellis must share its color scale (the same color meaning different values per panel is a silent lie); ignoring scales.color 'independent'."
+      );
+    }
+    const userRanges = (_e = (_d = plot.heatmap) == null ? void 0 : _d.colorScale) == null ? void 0 : _e.ranges;
+    if (!(Array.isArray(userRanges) && userRanges.length > 0)) {
+      let min = Infinity;
+      let max = -Infinity;
+      panels.forEach(
+        (p) => p.series.forEach((s) => {
+          observationValues(s.data).forEach((v) => {
+            if (v < min) min = v;
+            if (v > max) max = v;
+          });
+        })
+      );
+      if (isFinite(min) && isFinite(max)) {
+        frames.plotOptions = {
+          heatmap: { colorScale: { min, max } }
+        };
+      }
+    }
+  }
+  if (chartType === "bubble") {
+    if (((_f = cfg.scales) == null ? void 0 : _f.size) === "independent") {
+      frames.warnings.push(
+        "a bubble trellis must share its size scale; ignoring scales.size 'independent'."
+      );
+    }
+    let minZ = Infinity;
+    let maxZ = -Infinity;
+    panels.forEach(
+      (p) => p.series.forEach((s) => {
+        zValues(s.data).forEach((v) => {
+          if (v < minZ) minZ = v;
+          if (v > maxZ) maxZ = v;
+        });
+      })
+    );
+    if (isFinite(minZ) && isFinite(maxZ)) {
+      frames.plotOptions = {
+        bubble: { minZ, maxZ }
+      };
+    }
+  }
+  if (PIE_FAMILY.includes(chartType) && cfg.radiusByTotal) {
+    const totals = /* @__PURE__ */ new Map();
+    let maxTotal = 0;
+    panels.forEach((p) => {
+      let total = 0;
+      p.series.forEach((s) => {
+        observationValues(s.data).forEach((v) => {
+          total += Math.abs(v);
+        });
+      });
+      totals.set(p.key, total);
+      if (total > maxTotal) maxTotal = total;
+    });
+    if (maxTotal > 0) {
+      frames.pieScaleOf = (key) => {
+        const total = totals.get(key);
+        if (typeof total !== "number" || total <= 0) return null;
+        return Math.sqrt(total / maxTotal);
+      };
+    }
+  }
+  return frames;
+}
+const getThemePalettes = _core.__apex_ThemePalettes_getThemePalettes;
+const DEFAULT_TARGET_TICKS = 3;
+function niceBounds(min, max, targetTicks = DEFAULT_TARGET_TICKS) {
+  if (!isFinite(min) || !isFinite(max)) {
+    return { min: 0, max: 1, tickAmount: 1, decimals: 0 };
+  }
+  if (min === max) {
+    const pad = min === 0 ? 1 : Math.abs(min) * 0.1;
+    min -= pad;
+    max += pad;
+  }
+  const target = Math.max(1, targetTicks);
+  const rawStep = (max - min) / target;
+  const exp = Math.floor(Math.log10(rawStep));
+  const mag = Math.pow(10, exp);
+  const norms = mag >= 10 ? [1, 2, 2.5, 5, 10] : [1, 2, 5, 10];
+  let bestDist = Infinity;
+  let best = { min: 0, max: 1, tickAmount: 0, decimals: 0 };
+  norms.forEach((n) => {
+    const step = n * mag;
+    const decimals = Math.min(20, Math.max(0, (n === 10 ? -1 : 0) - exp));
+    const lo = +(Math.floor(min / step) * step).toFixed(decimals);
+    const hi = +(Math.ceil(max / step) * step).toFixed(decimals);
+    const ticks = Math.max(1, Math.round((hi - lo) / step));
+    const dist = Math.abs(ticks - target);
+    if (dist < bestDist || dist === bestDist && ticks < best.tickAmount) {
+      bestDist = dist;
+      best = { min: lo, max: hi, tickAmount: ticks, decimals };
+    }
+  });
+  return best;
+}
+const yOf = (d) => d === null || d === void 0 ? d : Array.isArray(d) ? d[1] : typeof d === "object" ? d.y : d;
+function extendByDatum(d, ext, pos) {
+  const y = yOf(d);
+  if (y === null || y === void 0) return;
+  (Array.isArray(y) ? y : [y]).forEach((n) => {
+    const v = Number(n);
+    if (isFinite(v) && !(pos && v <= 0)) {
+      if (v < ext.min) ext.min = v;
+      if (v > ext.max) ext.max = v;
+    }
+  });
+}
+function partOf(s, d, j) {
+  const p = d && typeof d === "object" && !Array.isArray(d) && "highlight" in d ? d.highlight : Array.isArray(s.highlightData) ? s.highlightData[j] : null;
+  return typeof p === "number" && isFinite(p) ? p : null;
+}
+function decimalCount(v) {
+  if (typeof v !== "number" || !isFinite(v) || v % 1 === 0) return 0;
+  const s = String(v);
+  if (s.indexOf("e") !== -1 || s.indexOf("E") !== -1) return 4;
+  return Math.min(4, (s.split(".")[1] || "").length);
+}
+function maxYDecimals(panels) {
+  let max = 0;
+  const count = (v) => {
+    const d = decimalCount(v);
+    if (d > max) max = d;
+  };
+  panels.forEach(
+    (p) => p.series.forEach((s) => {
+      if (!Array.isArray(s.data)) return;
+      s.data.forEach((d) => {
+        const y = yOf(d);
+        if (Array.isArray(y)) y.forEach(count);
+        else count(y);
+      });
+    })
+  );
+  return max;
+}
+function yExtent(panels, parts = false, pos = false) {
+  const ext = { min: Infinity, max: -Infinity };
+  panels.forEach(
+    (p) => p.series.forEach((s) => {
+      if (!Array.isArray(s.data)) return;
+      s.data.forEach((d, j) => {
+        extendByDatum(d, ext, pos);
+        const v = parts ? partOf(s, d, j) : null;
+        if (v !== null) extendByDatum(v, ext, pos);
+      });
+    })
+  );
+  if (!isFinite(ext.min) || !isFinite(ext.max)) return null;
+  return ext;
+}
+function stacksInto(s, opts) {
+  if (!opts.stackOnlyBar) return true;
+  const t = s && s.type;
+  return t === void 0 || t === null || t === "bar" || t === "column";
+}
+function stackedYExtent(panels, opts = {}) {
+  const ext = { min: Infinity, max: -Infinity };
+  const fold = (v) => {
+    if (!isFinite(v)) return;
+    if (v < ext.min) ext.min = v;
+    if (v > ext.max) ext.max = v;
+  };
+  const scalarY = (d) => {
+    const y = yOf(d);
+    if (y === null || y === void 0 || Array.isArray(y)) return null;
+    const v = Number(y);
+    return isFinite(v) ? v : null;
+  };
+  panels.forEach((p) => {
+    const groups = /* @__PURE__ */ new Map();
+    p.series.forEach((s) => {
+      var _a;
+      if (!Array.isArray(s.data)) return;
+      if (!stacksInto(s, opts)) {
+        s.data.forEach((d) => extendByDatum(d, ext));
+        return;
+      }
+      const key = String((_a = s.group) != null ? _a : "");
+      const pile = (k2) => {
+        const acc2 = groups.get(k2) || { pos: [], neg: [] };
+        groups.set(k2, acc2);
+        return acc2;
+      };
+      const acc = pile(key);
+      const parts = opts.parts ? pile("~" + key) : null;
+      s.data.forEach((d, j) => {
+        [acc, parts].forEach((a, k2) => {
+          if (!a) return;
+          if (a.pos[j] === void 0) {
+            a.pos[j] = 0;
+            a.neg[j] = 0;
+          }
+          const v = k2 ? partOf(s, d, j) : scalarY(d);
+          if (v === null) return;
+          if (v > 0) a.pos[j] += v;
+          else a.neg[j] += v;
+        });
+      });
+    });
+    groups.forEach((acc) => {
+      acc.pos.forEach(fold);
+      acc.neg.forEach(fold);
+    });
+  });
+  if (!isFinite(ext.min) || !isFinite(ext.max)) return null;
+  return ext;
+}
+function yExtentInWindow(panels, _xForm, xMin, xMax, parts = false) {
+  const ext = { min: Infinity, max: -Infinity };
+  panels.forEach(
+    (p) => p.series.forEach((s) => {
+      if (!Array.isArray(s.data)) return;
+      s.data.forEach((d, j) => {
+        if (d === null || typeof d !== "object") return;
+        const x2 = Number(xKey(Array.isArray(d) ? d[0] : d.x, true));
+        if (!isFinite(x2) || x2 < xMin || x2 > xMax) return;
+        extendByDatum(d, ext);
+        const v = parts ? partOf(s, d, j) : null;
+        if (v !== null) extendByDatum(v, ext);
+      });
+    })
+  );
+  if (!isFinite(ext.min) || !isFinite(ext.max)) return null;
+  return ext;
+}
+function resolve(splitResult, cfg = {}, host = {}) {
+  const scales = cfg.scales || {};
+  const xMode = scales.x || "shared";
+  const yMode = scales.y || "shared";
+  let x2 = null;
+  if (xMode === "shared" && splitResult.xIsNumeric && splitResult.unionX.length) {
+    const xs = (
+      /** @type {number[]} */
+      splitResult.unionX
+    );
+    x2 = { min: xs[0], max: xs[xs.length - 1] };
+  }
+  const barFamily = ["bar", "column", "histogram"].includes(host.chartType || "");
+  const yaxes = host.yaxis || [];
+  const axisNames = host.axisNames;
+  const axes = axisNames ? axisNames.map((_, ai) => ai) : [0];
+  const onAxis = (group, ai) => axisNames ? group.map((p) => __spreadProps(__spreadValues({}, p), {
+    series: p.series.filter((s) => axisNames[ai].includes(s.name))
+  })) : group;
+  const dataDecimals = axes.map(
+    (ai) => host.yExtentOverride ? 0 : maxYDecimals(onAxis(splitResult.panels, ai))
+  );
+  const toBounds = (ext, ai) => {
+    if (!ext) return null;
+    const ya = yaxes[ai] || {};
+    if (ya.logarithmic && ext.min > 0) {
+      const b = ya.logBase || 10;
+      const L2 = (v) => +(Math.log(v) / Math.log(b)).toFixed(9);
+      const lo = Math.floor(L2(ext.min));
+      const hi = Math.max(lo + 1, Math.ceil(L2(ext.max)));
+      return {
+        min: __pow(b, lo),
+        max: __pow(b, hi),
+        tickAmount: hi - lo,
+        decimals: Math.max(dataDecimals[ai], decimalCount(__pow(b, lo)))
+      };
+    }
+    if (barFamily && ext.min > 0) ext.min = 0;
+    const nb = niceBounds(ext.min, ext.max, cfg.targetTicks || DEFAULT_TARGET_TICKS);
+    nb.decimals = Math.max(nb.decimals, dataDecimals[ai]);
+    return nb;
+  };
+  const percent = !!host.stacked && host.stackType === "100%";
+  const stacked = !!host.stacked && !percent;
+  const extentOf = (group, ai) => {
+    var _a;
+    const sub = onAxis(group, ai);
+    return ((_a = yaxes[ai]) == null ? void 0 : _a.logarithmic) ? yExtent(sub, host.parts, true) : percent ? { min: 0, max: 100 } : stacked ? stackedYExtent(sub, {
+      stackOnlyBar: host.stackOnlyBar,
+      parts: host.parts
+    }) : yExtent(sub, host.parts);
+  };
+  const boundsOf = (group, override) => {
+    const out = axes.map((ai) => toBounds(override || extentOf(group, ai), ai));
+    return axisNames ? out : out[0];
+  };
+  let y = null;
+  if (yMode === "shared") {
+    y = boundsOf(splitResult.panels, axisNames ? null : host.yExtentOverride);
+  }
+  const byGroup = (dim) => {
+    const groups = /* @__PURE__ */ new Map();
+    splitResult.panels.forEach((p) => {
+      var _a;
+      const k2 = (_a = p[dim]) != null ? _a : "";
+      groups.set(k2, (groups.get(k2) || []).concat(p));
+    });
+    const out = /* @__PURE__ */ new Map();
+    groups.forEach((panels, k2) => {
+      const b = boundsOf(panels);
+      if (b) out.set(k2, b);
+    });
+    return out;
+  };
+  const rowY = yMode === "independent-row" ? byGroup("rowKey") : null;
+  const colY = yMode === "independent-column" ? byGroup("colKey") : null;
+  const palettes = (
+    /** @type {Record<string, string[]>} */
+    getThemePalettes()
+  );
+  const palette = Array.isArray(host.userColors) && host.userColors.length ? host.userColors : palettes[host.palette || ""] || palettes.palette1;
+  const names = splitResult.seriesNames;
+  const colorOf = (name) => palette[Math.max(0, names.indexOf(name)) % palette.length];
+  return { x: x2, y, rowY, colY, colorOf, palette };
+}
+const DEFAULT_MIN_PANEL_HEIGHT = 80;
+function lastRowFor(c, panelCount, cols, rows) {
+  const inLastRow = panelCount - (rows - 1) * cols;
+  return c < inLastRow ? rows - 1 : rows - 2;
+}
+function resolveColumns(containerWidth, panelCount, cfg = {}) {
+  var _a, _b;
+  const gap = (_a = cfg.gap) != null ? _a : 12;
+  if (typeof cfg.columns === "number" && cfg.columns > 0) {
+    return Math.max(1, Math.min(Math.floor(cfg.columns), panelCount));
+  }
+  const minW = (_b = cfg.minPanelWidth) != null ? _b : 220;
+  const fit = Math.floor((containerWidth + gap) / (minW + gap));
+  return Math.max(1, Math.min(fit, panelCount));
+}
+function compute({
+  panelCount,
+  containerWidth,
+  cfg,
+  hostHeight,
+  chromeHeight
+}) {
+  var _a, _b;
+  const gap = (_a = cfg.gap) != null ? _a : 12;
+  const cols = resolveColumns(containerWidth, panelCount, cfg);
+  const rows = Math.max(1, Math.ceil(panelCount / cols));
+  const headerShown = !cfg.header || cfg.header.show !== false;
+  const headerH = headerShown ? 22 : 0;
+  const chromeH = Math.max(0, chromeHeight || 0);
+  const nonPanelH = rows * headerH + gap * (rows - 1) + chromeH;
+  const availableH = typeof hostHeight === "number" && hostHeight > 0 ? hostHeight : 0;
+  const panelW = Math.max(0, (containerWidth - gap * (cols - 1)) / cols);
+  let panelH;
+  if (typeof cfg.panelHeight === "number" && cfg.panelHeight > 0) {
+    panelH = cfg.panelHeight;
+  } else if (availableH > 0) {
+    panelH = (availableH - nonPanelH) / rows;
+  } else {
+    panelH = panelW / ((_b = cfg.aspectRatio) != null ? _b : 1.6);
+  }
+  const minPanelH = typeof cfg.minPanelHeight === "number" && cfg.minPanelHeight > 0 ? cfg.minPanelHeight : DEFAULT_MIN_PANEL_HEIGHT;
+  panelH = Math.max(minPanelH, Math.round(panelH));
+  const gridH = rows * (panelH + headerH) + gap * (rows - 1);
+  const overflowH = availableH > 0 ? Math.max(0, gridH + chromeH - availableH) : 0;
+  const labelsMode = cfg.axes && cfg.axes.labels || "edges";
+  const scales = cfg.scales || {};
+  const single = cols === 1;
+  const cells = Array.from({ length: panelCount }, (_, i) => {
+    const r = Math.floor(i / cols);
+    const c = i % cols;
+    let showXLabels;
+    let showYLabels;
+    if (labelsMode === "none") {
+      showXLabels = false;
+      showYLabels = false;
+    } else if (labelsMode === "all" || single) {
+      showXLabels = true;
+      showYLabels = true;
+    } else {
+      showXLabels = scales.x === "independent" || r === lastRowFor(c, panelCount, cols, rows);
+      showYLabels = scales.y === "independent" || scales.y === "independent-column" || c === 0;
+    }
+    return { i, r, c, showXLabels, showYLabels };
+  });
+  return { cols, rows, panelW, panelH, headerH, gap, cells, gridH, overflowH };
+}
+const Series = _core.__apex_Series;
+const DEFAULT_DIVERGING = ["#cf4d3f", "#8f9499", "#26a75b"];
+const lerp = (a, b, t) => a + (b - a) * t;
+function toHexPair(n) {
+  const v = Math.max(0, Math.min(255, Math.round(n)));
+  return v.toString(16).padStart(2, "0");
+}
+function mixColors(c1, c2, t) {
+  const a = Utils.parseColor(normalizeHex(c1));
+  const b = Utils.parseColor(normalizeHex(c2));
+  if (!a || !b) return c1;
+  return toHex(a.map((v, k2) => lerp(v, b[k2], t)));
+}
+function toHex(c) {
+  return "#" + c.slice(0, 3).map(toHexPair).join("") + (c[3] < 1 ? toHexPair(c[3] * 255) : "");
+}
+function normalizeHex(c) {
+  const rgba = typeof c === "string" ? Utils.parseColor(c.trim()) : null;
+  return rgba ? toHex(rgba) : "#000000";
+}
+function colorValueOf(w, i, j) {
+  const series = (
+    /** @type {any} */
+    w.config.series[i]
+  );
+  const datum = series && Array.isArray(series.data) ? series.data[j] : null;
+  return colorValueOfDatum(w, datum, i, j);
+}
+function colorValueOfDatum(w, datum, i, j) {
+  var _a, _b, _c;
+  if (!datum || typeof datum !== "object") return null;
+  const accessor = (_c = (_b = (_a = w.config.plotOptions) == null ? void 0 : _a.treemap) == null ? void 0 : _b.colorScale) == null ? void 0 : _c.colorValue;
+  let raw;
+  if (typeof accessor === "function") {
+    raw = accessor(datum, { seriesIndex: i, dataPointIndex: j, w });
+  } else if (typeof accessor === "string") {
+    raw = datum[accessor];
+  } else {
+    raw = datum.colorValue;
+  }
+  if (raw == null) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+function resolveStops(cfg, min, max, midpoint, explicit, el) {
+  const hex = (c) => normalizeHex(Utils.getThemeColor(c, el));
+  if (explicit) {
+    return cfg.stops.filter((s) => s && Number.isFinite(Number(s.value))).map((s) => ({
+      value: Number(s.value),
+      color: hex(s.color)
+    })).sort((a, b) => a.value - b.value);
+  }
+  const colors = (Array.isArray(cfg.colors) && cfg.colors.length >= 2 ? cfg.colors : DEFAULT_DIVERGING).map(hex);
+  const n = colors.length;
+  if (midpoint != null && n >= 3) {
+    const mid = Math.floor((n - 1) / 2);
+    const out = [];
+    for (let k2 = 0; k2 <= mid; k2++) {
+      out.push({ value: lerp(min, midpoint, k2 / mid), color: colors[k2] });
+    }
+    for (let k2 = mid + 1; k2 < n; k2++) {
+      out.push({
+        value: lerp(midpoint, max, (k2 - mid) / (n - 1 - mid)),
+        color: colors[k2]
+      });
+    }
+    return out;
+  }
+  return colors.map((c, k2) => ({
+    value: lerp(min, max, k2 / (n - 1)),
+    color: c
+  }));
+}
+function buildContinuousScale(w) {
+  var _a, _b, _c, _d;
+  const cs = (_c = (_b = (_a = w.config) == null ? void 0 : _a.plotOptions) == null ? void 0 : _b.treemap) == null ? void 0 : _c.colorScale;
+  const cfg = cs && cs.gradient;
+  if (!cfg) return null;
+  if (cfg.enabled === false) return null;
+  const series = (
+    /** @type {any} */
+    w.config.series || []
+  );
+  let dataMin = Infinity;
+  let dataMax = -Infinity;
+  let found = false;
+  for (let i = 0; i < series.length; i++) {
+    const data = series[i] && series[i].data;
+    if (!Array.isArray(data)) continue;
+    for (let j = 0; j < data.length; j++) {
+      const v = colorValueOfDatum(w, data[j], i, j);
+      if (v == null) continue;
+      found = true;
+      if (v < dataMin) dataMin = v;
+      if (v > dataMax) dataMax = v;
+    }
+  }
+  if (!found && cfg.enabled !== true) return null;
+  if (!Number.isFinite(dataMin)) {
+    dataMin = 0;
+    dataMax = 0;
+  }
+  const pin = (v) => Number.isFinite(Number(v)) ? Number(v) : null;
+  const pinMin = pin(cfg.min);
+  const pinMax = pin(cfg.max);
+  let min = pinMin != null ? pinMin : dataMin;
+  let max = pinMax != null ? pinMax : dataMax;
+  let midpoint = null;
+  if (cfg.midpoint === null) {
+    midpoint = null;
+  } else if (Number.isFinite(Number(cfg.midpoint))) {
+    midpoint = Number(cfg.midpoint);
+  } else if (min < 0 && max > 0) {
+    midpoint = 0;
+  }
+  if (midpoint != null && cfg.symmetric !== false && pinMin == null && pinMax == null) {
+    const reach = Math.max(Math.abs(min - midpoint), Math.abs(max - midpoint));
+    min = midpoint - reach;
+    max = midpoint + reach;
+  }
+  if (max === min) {
+    min -= 0.5;
+    max += 0.5;
+  }
+  const explicit = Array.isArray(cfg.stops) && cfg.stops.length >= 2;
+  const stops = resolveStops(cfg, min, max, midpoint, explicit, (_d = w.dom) == null ? void 0 : _d.elWrap);
+  if (stops.length < 2) return null;
+  if (explicit) {
+    if (pinMin == null) min = Math.min(min, stops[0].value);
+    if (pinMax == null) max = Math.max(max, stops[stops.length - 1].value);
+  }
+  const at = (v) => {
+    if (!Number.isFinite(v)) return stops[Math.floor(stops.length / 2)].color;
+    if (v <= stops[0].value) return stops[0].color;
+    const last = stops[stops.length - 1];
+    if (v >= last.value) return last.color;
+    for (let k2 = 1; k2 < stops.length; k2++) {
+      const hi = stops[k2];
+      if (v <= hi.value) {
+        const lo = stops[k2 - 1];
+        const span2 = hi.value - lo.value;
+        const t = span2 === 0 ? 0 : (v - lo.value) / span2;
+        return mixColors(lo.color, hi.color, t);
+      }
+    }
+    return last.color;
+  };
+  const span = max - min;
+  const legendStops = stops.map((s) => {
+    const v = Math.min(max, Math.max(min, s.value));
+    return {
+      percent: span && (v - min) / span,
+      color: v === s.value ? s.color : at(v)
+    };
+  });
+  return { min, max, midpoint, stops, at, legendStops };
+}
+function shadePercent(w, chartType, p, negRange) {
+  const opts = w.config.plotOptions[chartType];
+  const shadeIntensity = opts.shadeIntensity;
+  const k2 = shadeIntensity * 1.25;
+  if (w.globals.hasNegs || negRange) {
+    return opts.reverseNegativeShade ? (p < 0 ? p : 1 - p) * k2 : p <= 0 ? 1 - (1 + p) * shadeIntensity : (1 - p) * shadeIntensity;
+  }
+  return chartType === "treemap" ? (1 - p) * k2 : 1 - p;
+}
+const TooltipUtils = _core.__apex_tooltip_Utils;
+const SVG_NS = "http://www.w3.org/2000/svg";
+class HeatmapGradientLegend {
+  /**
+   * @param {import('../../types/internal').ChartStateW} w
+   * @param {import('../../types/internal').ChartContext} ctx
+   */
+  constructor(w, ctx) {
+    this.w = w;
+    this.ctx = ctx;
+    this.svgEl = null;
+    this.arrowEl = null;
+    this.hoverValueEl = null;
+    this._min = 0;
+    this._max = 0;
+    this._geom = null;
+    this._grad = null;
+    this._bandHitEls = [];
+    this._activeBandIndex = -1;
+    this._targetEl = null;
+    this.panelsW = null;
+    this._onCellEnter = this._onCellEnter.bind(this);
+    this._onCellLeave = this._onCellLeave.bind(this);
+    this._onBandEnter = this._onBandEnter.bind(this);
+    this._onBandLeave = this._onBandLeave.bind(this);
+  }
+  /** Default value formatter for min/max labels and the hover tooltip. */
+  _getFormatter() {
+    const cfg = this._cfg();
+    if (typeof cfg.formatter === "function") return cfg.formatter;
+    return (v) => {
+      if (!Number.isFinite(v)) return String(v);
+      const abs = Math.abs(v);
+      if (abs >= 1e3) return v.toFixed(0);
+      if (abs >= 10) return v.toFixed(1);
+      return v.toFixed(2);
+    };
+  }
+  /**
+   * The colorScale of whichever chart type is being drawn. Every chart type
+   * that encodes a value as colour carries the same `colorScale` shape, so one
+   * strip serves them all rather than a near-copy per type.
+   * @param {any} w
+   */
+  static colorScaleOf(w) {
+    var _a, _b, _c, _d, _e;
+    const type = (_b = (_a = w == null ? void 0 : w.config) == null ? void 0 : _a.chart) == null ? void 0 : _b.type;
+    if (!type) return null;
+    return ((_e = (_d = (_c = w == null ? void 0 : w.config) == null ? void 0 : _c.plotOptions) == null ? void 0 : _d[type]) == null ? void 0 : _e.colorScale) || null;
+  }
+  /**
+   * @param {any} w
+   */
+  static configFor(w) {
+    const cs = HeatmapGradientLegend.colorScaleOf(w);
+    return cs && cs.gradientLegend || null;
+  }
+  /** This instance's gradient-legend config. */
+  _cfg() {
+    return HeatmapGradientLegend.configFor(this.w) || {};
+  }
+  /**
+   * True when the user has opted into the gradient legend variant.
+   * @param {any} w
+   */
+  static isEnabled(w) {
+    if (!HeatmapGradientLegend.supports(w)) return false;
+    const cfg = HeatmapGradientLegend.configFor(w);
+    return !!(cfg && cfg.enabled);
+  }
+  /**
+   * Chart types this legend can serve: those that encode a value as colour
+   * through a `colorScale`. Everything else gets the categorical legend.
+   * @param {any} w
+   */
+  static supports(w) {
+    var _a, _b;
+    const type = (_b = (_a = w == null ? void 0 : w.config) == null ? void 0 : _a.chart) == null ? void 0 : _b.type;
+    return type === "heatmap" || type === "treemap";
+  }
+  /**
+   * Build the gradient legend DOM into `elLegendWrap`.
+   * Caller is responsible for clearing the wrap first.
+   * @param {HTMLElement|null} [targetEl] detached mode: draw into this
+   *   element instead (a trellis's shared legend slot); the host owns layout,
+   *   so all plot-relative positioning is skipped.
+   */
+  draw(targetEl = null) {
+    var _a, _b, _c, _d, _e, _f, _g, _h;
+    const w = this.w;
+    this._targetEl = targetEl;
+    const elLegendWrap = (
+      /** @type {HTMLElement} */
+      targetEl || w.dom.elLegendWrap
+    );
+    if (!elLegendWrap) return;
+    const cfg = this._cfg();
+    const position = w.config.legend.position;
+    const isVertical = position === "left" || position === "right";
+    const arrowSize = (_b = (_a = cfg.arrow) == null ? void 0 : _a.size) != null ? _b : 8;
+    const arrowGutter = arrowSize + 4;
+    const labelPadAlongStrip = cfg.showLabels ? 28 : 4;
+    const labelPadAcrossStrip = cfg.showLabels ? 20 : 4;
+    const minLabelWidth = cfg.showLabels ? 44 : 0;
+    const stripLength = this._resolveStripLength(isVertical ? cfg.height : cfg.width, isVertical);
+    const stripThickness = cfg.thickness;
+    const svgWidth = isVertical ? Math.max(stripThickness + arrowGutter + 4, minLabelWidth) : stripLength + labelPadAlongStrip * 2;
+    const svgHeight = isVertical ? stripLength + labelPadAcrossStrip * 2 : stripThickness + arrowGutter + 4;
+    const verticalGroupWidth = stripThickness + arrowGutter;
+    const verticalGroupLeftPad = (svgWidth - verticalGroupWidth) / 2;
+    const stripX = isVertical ? position === "left" ? verticalGroupLeftPad : verticalGroupLeftPad + arrowGutter : labelPadAlongStrip;
+    const stripY = isVertical ? labelPadAcrossStrip : position === "top" ? arrowGutter : 4;
+    const svg = BrowserAPIs.createElementNS(SVG_NS, "svg");
+    svg.setAttribute(
+      "class",
+      "apexcharts-heatmap-gradient-legend apexcharts-gradient-legend"
+    );
+    svg.setAttribute("width", String(svgWidth));
+    svg.setAttribute("height", String(svgHeight));
+    svg.setAttribute("overflow", "visible");
+    const defs = BrowserAPIs.createElementNS(SVG_NS, "defs");
+    const gradId = `apexcharts-heatmap-gradient-${w.globals.cuid}`;
+    const linearGrad = BrowserAPIs.createElementNS(SVG_NS, "linearGradient");
+    linearGrad.setAttribute("id", gradId);
+    if (isVertical) {
+      linearGrad.setAttribute("x1", "0");
+      linearGrad.setAttribute("y1", "1");
+      linearGrad.setAttribute("x2", "0");
+      linearGrad.setAttribute("y2", "0");
+    } else {
+      linearGrad.setAttribute("x1", "0");
+      linearGrad.setAttribute("y1", "0");
+      linearGrad.setAttribute("x2", "1");
+      linearGrad.setAttribute("y2", "0");
+    }
+    this._grad = linearGrad;
+    const { min, max, bands } = this._paintStops();
+    defs.appendChild(linearGrad);
+    svg.appendChild(defs);
+    const rect = BrowserAPIs.createElementNS(SVG_NS, "rect");
+    rect.setAttribute("x", String(stripX));
+    rect.setAttribute("y", String(stripY));
+    rect.setAttribute("width", String(isVertical ? stripThickness : stripLength));
+    rect.setAttribute("height", String(isVertical ? stripLength : stripThickness));
+    rect.setAttribute("rx", "2");
+    rect.setAttribute("fill", `url(#${gradId})`);
+    svg.appendChild(rect);
+    if (cfg.showLabels) {
+      const labelColor = ((_c = cfg.labelStyle) == null ? void 0 : _c.colors) || (Array.isArray(w.config.legend.labels.colors) ? w.config.legend.labels.colors[0] : w.config.legend.labels.colors) || w.config.chart.foreColor;
+      const labelFontSize = ((_d = cfg.labelStyle) == null ? void 0 : _d.fontSize) || "11px";
+      const labelFontFamily = ((_e = cfg.labelStyle) == null ? void 0 : _e.fontFamily) || w.config.chart.fontFamily;
+      const fmt = this._getFormatter();
+      const makeLabel = (text, x2, y, anchor) => {
+        const t = BrowserAPIs.createElementNS(SVG_NS, "text");
+        t.setAttribute("x", String(x2));
+        t.setAttribute("y", String(y));
+        t.setAttribute("text-anchor", anchor);
+        t.setAttribute("dominant-baseline", "middle");
+        t.setAttribute("fill", labelColor);
+        t.setAttribute("font-size", labelFontSize);
+        if (labelFontFamily) t.setAttribute("font-family", labelFontFamily);
+        t.textContent = String(text);
+        return t;
+      };
+      if (isVertical) {
+        const midX = stripX + stripThickness / 2;
+        svg.appendChild(makeLabel(fmt(min), midX, stripY + stripLength + 10, "middle"));
+        svg.appendChild(makeLabel(fmt(max), midX, stripY - 10, "middle"));
+      } else {
+        const midY = stripY + stripThickness / 2;
+        svg.appendChild(makeLabel(fmt(min), stripX - 6, midY, "end"));
+        svg.appendChild(makeLabel(fmt(max), stripX + stripLength + 6, midY, "start"));
+      }
+    }
+    const arrowColor = ((_f = cfg.arrow) == null ? void 0 : _f.color) || w.config.chart.foreColor;
+    const arrow = this._buildArrow(arrowColor);
+    svg.appendChild(arrow);
+    this.arrowEl = arrow;
+    this._bandHitEls = [];
+    if (w.config.legend.onItemHover.highlightDataSeries && bands.length > 0) {
+      bands.forEach((b) => {
+        const hit = BrowserAPIs.createElementNS(SVG_NS, "rect");
+        if (isVertical) {
+          const yTop = stripY + stripLength - b.p2 * stripLength;
+          const yBot = stripY + stripLength - b.p1 * stripLength;
+          hit.setAttribute("x", String(stripX));
+          hit.setAttribute("y", String(yTop));
+          hit.setAttribute("width", String(stripThickness));
+          hit.setAttribute("height", String(Math.max(0, yBot - yTop)));
+        } else {
+          hit.setAttribute("x", String(stripX + b.p1 * stripLength));
+          hit.setAttribute("y", String(stripY));
+          hit.setAttribute(
+            "width",
+            String(Math.max(0, (b.p2 - b.p1) * stripLength))
+          );
+          hit.setAttribute("height", String(stripThickness));
+        }
+        hit.setAttribute("fill", "transparent");
+        hit.setAttribute("class", "apexcharts-heatmap-gradient-band");
+        hit.setAttribute("data:range-index", String(b.index));
+        hit.style.cursor = "pointer";
+        svg.appendChild(hit);
+        this._bandHitEls.push(hit);
+      });
+    }
+    this._geom = {
+      isVertical,
+      position,
+      stripX,
+      stripY,
+      stripLength,
+      stripThickness,
+      arrowSize,
+      svgWidth,
+      svgHeight
+    };
+    if (cfg.showHoverValue) {
+      const tt = BrowserAPIs.createElement("div");
+      tt.classList.add("apexcharts-heatmap-gradient-legend-value");
+      tt.style.position = "absolute";
+      tt.style.fontSize = ((_g = cfg.labelStyle) == null ? void 0 : _g.fontSize) || "11px";
+      tt.style.fontFamily = ((_h = cfg.labelStyle) == null ? void 0 : _h.fontFamily) || w.config.chart.fontFamily || "";
+      tt.style.background = "rgba(0,0,0,0.65)";
+      tt.style.color = "#fff";
+      tt.style.padding = "2px 6px";
+      tt.style.borderRadius = "3px";
+      tt.style.pointerEvents = "none";
+      tt.style.whiteSpace = "nowrap";
+      tt.style.opacity = "0";
+      tt.style.transition = "opacity 120ms ease";
+      this.hoverValueEl = tt;
+    }
+    elLegendWrap.classList.add("apexcharts-heatmap-gradient-legend-wrap");
+    elLegendWrap.classList.add(
+      "apx-legend-position-" + position
+    );
+    elLegendWrap.appendChild(svg);
+    if (this.hoverValueEl) elLegendWrap.appendChild(this.hoverValueEl);
+    this.svgEl = svg;
+    if (targetEl) {
+      elLegendWrap.style.width = svgWidth + "px";
+      elLegendWrap.style.height = svgHeight + "px";
+      elLegendWrap.style.position = "relative";
+      elLegendWrap.style.overflow = "visible";
+    } else {
+      this._applyWrapAlignment(elLegendWrap, position, isVertical, svgWidth, svgHeight);
+    }
+    this._attachHoverListeners();
+    this._attachBandHoverListeners();
+  }
+  /**
+   * Resolve a configured length (number = px, string ending in '%' =
+   * percentage of the chart's SVG width/height) to a pixel length.
+   * @param {number|string} value
+   * @param {boolean} isVertical
+   * @returns {number}
+   */
+  _resolveStripLength(value, isVertical) {
+    const w = this.w;
+    const basis = isVertical ? w.globals.svgHeight || w.config.chart.height || 300 : w.globals.svgWidth || w.config.chart.width || 600;
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (trimmed.endsWith("%")) {
+        const pct = parseFloat(trimmed) || 0;
+        return Math.max(20, basis * pct / 100);
+      }
+      const n = parseFloat(trimmed);
+      return Number.isFinite(n) ? n : 200;
+    }
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    return 200;
+  }
+  /**
+   * Position the legend wrap and align the gradient strip within it. The
+   * wrap spans the chart's long axis (full width for top/bottom; full
+   * height for left/right) and uses flexbox to honor the `align` config.
+   * Bypasses the standard `setLegendWrapXY` which sizes the wrap to its
+   * content.
+   * @param {HTMLElement} elLegendWrap
+   * @param {'top'|'right'|'bottom'|'left'} position
+   * @param {boolean} isVertical
+   * @param {number} svgWidth
+   * @param {number} svgHeight
+   */
+  _applyWrapAlignment(elLegendWrap, position, isVertical, svgWidth, svgHeight) {
+    const w = this.w;
+    const cfg = this._cfg();
+    const align = cfg.align || "center";
+    const edgePad = 12;
+    const chartWidth = w.globals.svgWidth || w.config.chart.width || 600;
+    const chartHeight = w.globals.svgHeight || w.config.chart.height || 300;
+    const userOffsetX = w.config.legend.offsetX || 0;
+    const userOffsetY = w.config.legend.offsetY || 0;
+    elLegendWrap.style.position = "absolute";
+    elLegendWrap.style.display = "block";
+    elLegendWrap.style.overflow = "visible";
+    elLegendWrap.style.padding = "0";
+    elLegendWrap.style.width = svgWidth + "px";
+    elLegendWrap.style.height = svgHeight + "px";
+    elLegendWrap.style.right = "auto";
+    elLegendWrap.style.bottom = "auto";
+    if (isVertical) {
+      const availableHeight = chartHeight - svgHeight - edgePad * 2;
+      let y;
+      if (align === "start") y = edgePad;
+      else if (align === "end") y = edgePad + Math.max(0, availableHeight);
+      else y = edgePad + Math.max(0, availableHeight) / 2;
+      elLegendWrap.style.top = y + userOffsetY + "px";
+      if (position === "left") {
+        elLegendWrap.style.left = edgePad + userOffsetX + "px";
+      } else {
+        elLegendWrap.style.left = chartWidth - svgWidth - edgePad + userOffsetX + "px";
+      }
+    } else {
+      const availableWidth = chartWidth - svgWidth - edgePad * 2;
+      let x2;
+      if (align === "start") x2 = edgePad;
+      else if (align === "end") x2 = edgePad + Math.max(0, availableWidth);
+      else x2 = edgePad + Math.max(0, availableWidth) / 2;
+      elLegendWrap.style.left = x2 + userOffsetX + "px";
+      if (position === "top") {
+        elLegendWrap.style.top = edgePad + userOffsetY + "px";
+      } else {
+        elLegendWrap.style.top = chartHeight - svgHeight - edgePad + userOffsetY + "px";
+      }
+    }
+  }
+  /**
+   * Re-position the strip once the final layout is known.
+   *
+   * `_applyWrapAlignment` (called during `draw()`, before `plotCoords()`) can
+   * only pin to the chart's outer edge. This runs after layout — when
+   * `translateX/Y`, `gridWidth/Height` and `xAxisHeight` are populated — and:
+   *   - centers the strip within its reserved band on the perpendicular axis
+   *     (between the title and the plot for `top`; the x-axis and the chart
+   *     bottom for `bottom`; the chart edge and the plot for `left`/`right`),
+   *     so the slack is split evenly instead of dumped on one side, and
+   *   - aligns it along the plot's own extent (so `align: 'center'` centers
+   *     over the heatmap, not the whole canvas).
+   * Honors `legend.offsetX/offsetY` for user nudging. Safe to call repeatedly.
+   */
+  repositionToPlot() {
+    var _a, _b;
+    if (this._grad) this._paintStops();
+    if (!Environment.isBrowser()) return;
+    if (this._targetEl) return;
+    const w = this.w;
+    const g = w.globals;
+    const wrap = (
+      /** @type {HTMLElement} */
+      w.dom.elLegendWrap
+    );
+    if (!wrap || !this._geom) return;
+    if (!Number.isFinite(g.gridWidth) || !Number.isFinite(g.gridHeight)) return;
+    const { isVertical, position, svgWidth, svgHeight, stripX, stripY, stripThickness } = this._geom;
+    const align = this._cfg().align || "center";
+    const ox = w.config.legend.offsetX || 0;
+    const oy = w.config.legend.offsetY || 0;
+    const dimHelpers = (_b = (_a = this.ctx) == null ? void 0 : _a.dimensions) == null ? void 0 : _b.dimHelpers;
+    const titleArea = dimHelpers ? dimHelpers.getTitleSubtitleCoords("title").height + dimHelpers.getTitleSubtitleCoords("subtitle").height : 0;
+    const xAxisArea = w.layout.xAxisHeight || 0;
+    const alongOffset = (extent, size) => {
+      const avail = Math.max(0, extent - size);
+      if (align === "start") return 0;
+      if (align === "end") return avail;
+      return avail / 2;
+    };
+    if (isVertical) {
+      wrap.style.top = g.translateY + alongOffset(g.gridHeight, svgHeight) + oy + "px";
+      const bandStart = position === "left" ? 0 : g.translateX + g.gridWidth;
+      const bandEnd = position === "left" ? g.translateX : g.svgWidth;
+      const stripCenter = (bandStart + bandEnd) / 2;
+      wrap.style.left = stripCenter - stripX - stripThickness / 2 + ox + "px";
+    } else {
+      wrap.style.left = g.translateX + alongOffset(g.gridWidth, svgWidth) + ox + "px";
+      const bandStart = position === "top" ? titleArea : g.translateY + g.gridHeight + xAxisArea;
+      const bandEnd = position === "top" ? g.translateY : g.svgHeight;
+      const stripCenter = (bandStart + bandEnd) / 2;
+      wrap.style.top = stripCenter - stripY - stripThickness / 2 + oy + "px";
+    }
+    BrowserAPIs.requestAnimationFrame(() => this._enforceMinPlotGap());
+  }
+  /**
+   * Guarantee a minimum gap between the strip's chart-facing edge and the plot.
+   * Measured in viewport space (immune to the wrap↔SVG coordinate offset) and
+   * applied as a *relative* shift to the wrap's current position, so it only
+   * nudges a strip that ended up too close — placements with ample room are
+   * left exactly where centering put them. Runs post-paint (see caller).
+   */
+  _enforceMinPlotGap() {
+    const w = this.w;
+    const wrap = (
+      /** @type {HTMLElement} */
+      w.dom.elLegendWrap
+    );
+    const strip = this.svgEl && this.svgEl.querySelector("rect");
+    if (!wrap || !strip || !this._geom) return;
+    if (!w.dom.baseEl || !w.dom.baseEl.querySelector(".apexcharts-svg")) return;
+    const s = strip.getBoundingClientRect();
+    const plot = TooltipUtils.plotRect(w);
+    if (!s.width || !s.height || !plot.width || !plot.height) return;
+    const gr = {
+      left: plot.left,
+      right: plot.left + plot.width,
+      top: plot.top,
+      bottom: plot.top + plot.height
+    };
+    const zoom = plot.zoom;
+    const MIN_GAP = 16;
+    const { isVertical, position } = this._geom;
+    if (isVertical) {
+      const gap = (position === "left" ? gr.left - s.right : s.left - gr.right) / zoom;
+      if (gap < MIN_GAP) {
+        const curLeft = parseFloat(wrap.style.left) || 0;
+        const shift = MIN_GAP - gap;
+        wrap.style.left = curLeft + (position === "left" ? -shift : shift) + "px";
+      }
+    } else {
+      const gap = (position === "top" ? gr.top - s.bottom : s.top - gr.bottom) / zoom;
+      if (gap < MIN_GAP) {
+        const curTop = parseFloat(wrap.style.top) || 0;
+        const shift = MIN_GAP - gap;
+        wrap.style.top = curTop + (position === "top" ? -shift : shift) + "px";
+      }
+    }
+  }
+  /**
+   * Tear down listeners (called before re-render).
+   */
+  destroy() {
+    var _a, _b, _c, _d, _e, _f, _g;
+    for (let i = 0; i < this._bandHitEls.length; i++) {
+      const el = this._bandHitEls[i];
+      (_a = el.removeEventListener) == null ? void 0 : _a.call(el, "mousemove", this._onBandEnter);
+      (_b = el.removeEventListener) == null ? void 0 : _b.call(el, "mouseout", this._onBandLeave);
+    }
+    this._bandHitEls = [];
+    this._activeBandIndex = -1;
+    if (!((_c = this.ctx) == null ? void 0 : _c.events)) return;
+    try {
+      (_e = (_d = this.ctx.events).removeEventListener) == null ? void 0 : _e.call(
+        _d,
+        "dataPointMouseEnter",
+        this._onCellEnter
+      );
+      (_g = (_f = this.ctx.events).removeEventListener) == null ? void 0 : _g.call(
+        _f,
+        "dataPointMouseLeave",
+        this._onCellLeave
+      );
+    } catch (_) {
+    }
+  }
+  /** Wire mousemove/mouseout on each per-band hit-region (ranges mode). */
+  _attachBandHoverListeners() {
+    if (!Environment.isBrowser()) return;
+    for (let i = 0; i < this._bandHitEls.length; i++) {
+      const el = this._bandHitEls[i];
+      el.addEventListener("mousemove", this._onBandEnter);
+      el.addEventListener("mouseout", this._onBandLeave);
+    }
+  }
+  /**
+   * Hovering a gradient band highlights its cells and dims the rest. Guarded
+   * so the repeated mousemove stream only re-applies on an actual band change.
+   * @param {Event} e
+   */
+  _onBandEnter(e) {
+    var _a, _b, _c, _d;
+    const w = this.w;
+    const target = (
+      /** @type {Element} */
+      e.currentTarget
+    );
+    const idx = parseInt((_a = target.getAttribute("data:range-index")) != null ? _a : "-1", 10);
+    if (idx < 0 || idx === this._activeBandIndex) return;
+    this._activeBandIndex = idx;
+    (_d = (_c = (_b = this.ctx) == null ? void 0 : _b.events) == null ? void 0 : _c.fireEvent) == null ? void 0 : _d.call(_c, "legendHover", [this.ctx, idx, w]);
+    this._highlightRange(idx, "highlight");
+  }
+  /** Leaving a band clears the highlight. */
+  _onBandLeave() {
+    if (this._activeBandIndex < 0) return;
+    const idx = this._activeBandIndex;
+    this._activeBandIndex = -1;
+    this._highlightRange(idx, "reset");
+  }
+  /**
+   * A shared trellis strip sets `panelsW` so a band reaches every panel.
+   * @param {number} idx
+   * @param {'highlight'|'reset'} action
+   */
+  _highlightRange(idx, action) {
+    var _a;
+    (((_a = this.panelsW) == null ? void 0 : _a.call(this)) || [this.w]).forEach(
+      (w) => new Series(w).highlightRangeInSeries(idx, action)
+    );
+  }
+  _attachHoverListeners() {
+    var _a, _b;
+    if (!Environment.isBrowser()) return;
+    if (!((_b = (_a = this.ctx) == null ? void 0 : _a.events) == null ? void 0 : _b.addEventListener)) return;
+    this.ctx.events.addEventListener(
+      "dataPointMouseEnter",
+      this._onCellEnter
+    );
+    this.ctx.events.addEventListener(
+      "dataPointMouseLeave",
+      this._onCellLeave
+    );
+  }
+  /**
+   * dataPointMouseEnter fires as `(e, ctx, { seriesIndex, dataPointIndex, w })`.
+   * Graphics._fireEvent forwards listener args in the same shape.
+   * @param {...any} args
+   */
+  _onCellEnter(...args) {
+    var _a, _b, _c;
+    if (!this.arrowEl) return;
+    const opts = args[args.length - 1];
+    if (!opts || typeof opts !== "object") return;
+    const w = opts.w || this.w;
+    const i = opts.seriesIndex;
+    const j = opts.dataPointIndex;
+    if (typeof i !== "number" || typeof j !== "number") return;
+    if (!HeatmapGradientLegend.supports(w)) return;
+    let val;
+    if (this._continuous) {
+      val = colorValueOf(w, i, j);
+    } else {
+      val = (_c = (_b = (_a = w.seriesData) == null ? void 0 : _a.series) == null ? void 0 : _b[i]) == null ? void 0 : _c[j];
+    }
+    if (val == null || Number.isNaN(val)) return;
+    this._positionArrow(val);
+  }
+  _onCellLeave() {
+    if (!this.arrowEl) return;
+    this.arrowEl.setAttribute("opacity", "0");
+    if (this.hoverValueEl) {
+      this.hoverValueEl.style.opacity = "0";
+    }
+  }
+  /**
+   * Move the arrow to the position corresponding to `val` along the strip.
+   * @param {number} val
+   */
+  _positionArrow(val) {
+    if (!this.arrowEl || !this._geom) return;
+    const { isVertical, position, stripX, stripY, stripLength, stripThickness, arrowSize } = this._geom;
+    const min = this._min;
+    const max = this._max;
+    const span = max - min;
+    let pct;
+    if (span === 0) {
+      pct = 0.5;
+    } else {
+      pct = (val - min) / span;
+    }
+    if (pct < 0) pct = 0;
+    if (pct > 1) pct = 1;
+    if (isVertical) {
+      const yCenter = stripY + stripLength - pct * stripLength;
+      let tipX, baseX;
+      if (position === "left") {
+        tipX = stripX + stripThickness;
+        baseX = tipX + arrowSize;
+      } else {
+        tipX = stripX;
+        baseX = tipX - arrowSize;
+      }
+      const points = [
+        `${tipX},${yCenter}`,
+        `${baseX},${yCenter - arrowSize / 2}`,
+        `${baseX},${yCenter + arrowSize / 2}`
+      ].join(" ");
+      this.arrowEl.setAttribute("points", points);
+    } else {
+      const xCenter = stripX + pct * stripLength;
+      let tipY, baseY;
+      if (position === "top") {
+        tipY = stripY + stripThickness;
+        baseY = tipY + arrowSize;
+      } else {
+        tipY = stripY;
+        baseY = tipY - arrowSize;
+      }
+      const points = [
+        `${xCenter},${tipY}`,
+        `${xCenter - arrowSize / 2},${baseY}`,
+        `${xCenter + arrowSize / 2},${baseY}`
+      ].join(" ");
+      this.arrowEl.setAttribute("points", points);
+    }
+    this.arrowEl.setAttribute("opacity", "1");
+    if (this.hoverValueEl) {
+      const fmt = this._getFormatter();
+      this.hoverValueEl.textContent = fmt(val);
+      if (isVertical) {
+        const yCenter = stripY + stripLength - pct * stripLength;
+        if (position === "left") {
+          this.hoverValueEl.style.left = `${stripX + stripThickness + arrowSize + 8}px`;
+        } else {
+          this.hoverValueEl.style.left = `${stripX - arrowSize - 8}px`;
+          this.hoverValueEl.style.transform = "translateX(-100%)";
+        }
+        this.hoverValueEl.style.top = `${yCenter - 9}px`;
+      } else {
+        const xCenter = stripX + pct * stripLength;
+        this.hoverValueEl.style.left = `${xCenter}px`;
+        this.hoverValueEl.style.transform = "translateX(-50%)";
+        if (position === "top") {
+          this.hoverValueEl.style.top = `${stripY + stripThickness + arrowSize + 8}px`;
+        } else {
+          this.hoverValueEl.style.top = `${stripY - arrowSize - 18}px`;
+        }
+      }
+      this.hoverValueEl.style.opacity = "1";
+    }
+  }
+  /**
+   * @param {string} color
+   */
+  _buildArrow(color) {
+    const polygon = BrowserAPIs.createElementNS(SVG_NS, "polygon");
+    polygon.setAttribute("fill", color);
+    polygon.setAttribute("opacity", "0");
+    polygon.setAttribute("class", "apexcharts-heatmap-gradient-arrow");
+    polygon.setAttribute("points", "0,0 0,0 0,0");
+    polygon.setAttribute("pointer-events", "none");
+    return polygon;
+  }
+  /** (Re)write the strip's stops; returns `_computeStops()`. */
+  _paintStops() {
+    const r = this._computeStops();
+    const grad = this._grad;
+    this._min = r.min;
+    this._max = r.max;
+    grad.innerHTML = "";
+    r.stops.forEach((s) => {
+      const stopEl = BrowserAPIs.createElementNS(SVG_NS, "stop");
+      stopEl.setAttribute("offset", `${(s.percent * 100).toFixed(2)}%`);
+      stopEl.setAttribute("stop-color", s.color);
+      grad.appendChild(stopEl);
+    });
+    return r;
+  }
+  /**
+   * Build gradient stops + return effective min/max.
+   * - If `colorScale.ranges` is set, stops are placed at each range boundary
+   *   so the gradient reflects the user's discrete palette.
+   * - Otherwise, samples N stops from the same shadeColor function the cells
+   *   use, so the strip visually matches the heatmap.
+   * @returns {{ min: number, max: number, stops: Array<{percent:number,color:string}>, bands: Array<{index:number,p1:number,p2:number}> }}
+   */
+  _computeStops() {
+    var _a;
+    const w = this.w;
+    const cs = HeatmapGradientLegend.colorScaleOf(w) || {};
+    const cfg = this._cfg();
+    const continuous = buildContinuousScale(w);
+    if (continuous) {
+      this._continuous = true;
+      return {
+        min: continuous.min,
+        max: continuous.max,
+        stops: continuous.legendStops,
+        bands: []
+      };
+    }
+    this._continuous = false;
+    let dataMin = Infinity;
+    let dataMax = -Infinity;
+    const rows = ((_a = w.seriesData) == null ? void 0 : _a.series) || [];
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      if (!row) continue;
+      for (let j = 0; j < row.length; j++) {
+        const v = row[j];
+        if (v == null || Number.isNaN(v)) continue;
+        if (v < dataMin) dataMin = v;
+        if (v > dataMax) dataMax = v;
+      }
+    }
+    if (!Number.isFinite(dataMin)) dataMin = 0;
+    if (!Number.isFinite(dataMax)) dataMax = 0;
+    let min = dataMin;
+    let max = dataMax;
+    const csWindow = typeof cs.min !== "undefined" && typeof cs.max !== "undefined" && cs.max > cs.min;
+    if (csWindow) {
+      min = cs.min;
+      max = cs.max;
+    } else {
+      if (typeof cs.min !== "undefined") {
+        min = cs.min < dataMin ? cs.min : dataMin;
+      }
+      if (typeof cs.max !== "undefined") {
+        max = cs.max > dataMax ? cs.max : dataMax;
+      }
+    }
+    const stops = [];
+    const bands = [];
+    if (cs.ranges && cs.ranges.length > 0) {
+      const ranges = cs.ranges.map((r, originalIndex) => __spreadProps(__spreadValues({}, r), {
+        _originalIndex: originalIndex
+      })).sort((a, b) => a.from - b.from);
+      const lo = ranges[0].from;
+      const hi = ranges[ranges.length - 1].to;
+      min = lo;
+      max = hi;
+      const span = hi - lo || 1;
+      ranges.forEach((r) => {
+        const p1 = (r.from - lo) / span;
+        const p2 = (r.to - lo) / span;
+        stops.push({ percent: (p1 + p2) / 2, color: r.color });
+        bands.push({ index: r._originalIndex, p1, p2 });
+      });
+    } else {
+      const baseColor = w.globals.colors[0] || "#008FFB";
+      const utils = new Utils();
+      const type = w.config.chart.type;
+      const plot = w.config.plotOptions[type] || {};
+      const g = (
+        /** @type {any} */
+        w.globals
+      );
+      const yExt = type === "heatmap" && !plot.distributed && !csWindow && g.maxY >= g.minY;
+      const hi = yExt ? g.maxY : max;
+      const total = Math.abs(hi) + Math.abs(yExt ? cs.min < g.minY ? cs.min : g.minY : min);
+      const n = Math.max(2, cfg.stops || 16);
+      for (let s = 0; s < n; s++) {
+        const t = s / (n - 1);
+        const p = total === 0 ? 0 : Math.min(min + t * (max - min), hi) / total;
+        const c = Math.max(-1, Math.min(1, shadePercent(w, type, p, false)));
+        const shaded = plot.enableShades ? utils.shadeColor(w.config.theme.mode === "dark" ? -c : c, baseColor) : baseColor;
+        stops.push({ percent: t, color: shaded });
+      }
+    }
+    return { min, max, stops, bands };
+  }
+}
+const ICONS = {
+  zoom: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/><path d="M8 10.5h5M10.5 8v5"/></svg>',
+  pan: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v18M3 12h18"/><path d="M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3"/></svg>',
+  reset: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 10a8 8 0 1 1 2 6"/><path d="M4 4v6h6"/></svg>',
+  download: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 4v11"/><path d="M7 11l5 5 5-5"/><path d="M4 20h16"/></svg>'
+};
+function paintItem(t, item, name, i) {
+  var _a;
+  const hidden = t.sync.isHidden(name);
+  const color = t.scales ? t.scales.colorOf(name) : "#008FFB";
+  item.firstChild.style.background = color;
+  const text = item.querySelector(".apexcharts-legend-text");
+  if (text) {
+    const labels = ((_a = t.w.config.legend) == null ? void 0 : _a.labels) || {};
+    const textColor = labels.useSeriesColors ? color : Array.isArray(labels.colors) ? labels.colors[i] : labels.colors;
+    text.style.color = textColor || "";
+  }
+  item.classList.toggle("apexcharts-inactive-legend", hidden);
+  item.setAttribute("data:collapsed", String(hidden));
+}
+class TrellisChrome {
+  /**
+   * @param {import('./Trellis').default} trellis
+   */
+  constructor(trellis) {
+    this.trellis = trellis;
+    this.elLegend = null;
+    this.elToolbar = null;
+    this.elTitle = null;
+    this.elSubtitle = null;
+    this.elBreadcrumb = null;
+    this.gradientLegend = null;
+    this._gradPending = null;
+    this._gradWire = null;
+  }
+  /**
+   * The per-cell facet header. Built with the cell, before the panel mounts,
+   * so a virtualized cell still names itself.
+   * @param {HTMLElement} cell
+   * @param {string} key
+   * @param {{ index: number, count: number }} meta
+   */
+  buildHeader(cell, key, meta) {
+    const t = this.trellis;
+    const hcfg = t.cfg.header || {};
+    if (hcfg.show === false) return;
+    const el = BrowserAPIs.createElement("div");
+    el.className = "apexcharts-trellis-header";
+    let text = key;
+    if (typeof hcfg.formatter === "function") {
+      text = hcfg.formatter(key, {
+        dimension: typeof t.cfg.by === "string" ? t.cfg.by : void 0,
+        index: meta.index,
+        count: meta.count
+      });
+    }
+    el.textContent = text == null ? "" : String(text);
+    const style = hcfg.style || {};
+    if (style.fontSize) el.style.fontSize = style.fontSize;
+    if (style.fontWeight) el.style.fontWeight = String(style.fontWeight);
+    if (style.color) el.style.color = style.color;
+    if (t.cfg.promote !== false) {
+      el.classList.add("apexcharts-trellis-header-clickable");
+      el.setAttribute("role", "button");
+      el.setAttribute("tabindex", "0");
+      el.setAttribute("title", "Expand this panel");
+      const toggle = () => {
+        if (t._promotedKey === key) t.restorePromotion();
+        else t.promote(key);
+      };
+      el.addEventListener("click", toggle);
+      el.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          toggle();
+        }
+      });
+    }
+    cell.appendChild(el);
+  }
+  /**
+   * One 2-D strip label (P4): column labels once across the top, row labels
+   * once down the left, instead of a header per cell. The header formatter
+   * applies with the dimension named.
+   * @param {'row'|'column'} dimension
+   * @param {string} key
+   * @param {{ index: number, count: number }} meta
+   * @returns {HTMLElement}
+   */
+  stripEl(dimension, key, meta) {
+    const t = this.trellis;
+    const hcfg = t.cfg.header || {};
+    const el = BrowserAPIs.createElement("div");
+    el.className = `apexcharts-trellis-strip apexcharts-trellis-strip-${dimension}`;
+    let text = key;
+    if (typeof hcfg.formatter === "function") {
+      text = hcfg.formatter(key, {
+        dimension,
+        index: meta.index,
+        count: meta.count
+      });
+    }
+    el.textContent = text == null ? "" : String(text);
+    const style = hcfg.style || {};
+    if (style.fontSize) el.style.fontSize = style.fontSize;
+    if (style.fontWeight) el.style.fontWeight = String(style.fontWeight);
+    if (style.color) el.style.color = style.color;
+    return el;
+  }
+  /**
+   * The promotion breadcrumb: "All panels / KEY", where "All panels" is the
+   * way back. Lives in the chrome-top strip so the grid's own layout is
+   * untouched.
+   * @param {HTMLElement} host
+   * @param {string} key
+   * @param {() => void} onBack
+   */
+  buildBreadcrumb(host, key, onBack) {
+    this.removeBreadcrumb();
+    const el = BrowserAPIs.createElement("div");
+    el.className = "apexcharts-trellis-breadcrumb";
+    const back = BrowserAPIs.createElement("button");
+    back.setAttribute("type", "button");
+    back.className = "apexcharts-trellis-breadcrumb-back";
+    back.textContent = "All panels";
+    back.addEventListener("click", onBack);
+    const sep = BrowserAPIs.createElement("span");
+    sep.className = "apexcharts-trellis-breadcrumb-sep";
+    sep.textContent = "/";
+    const current = BrowserAPIs.createElement("span");
+    current.className = "apexcharts-trellis-breadcrumb-current";
+    current.textContent = key;
+    el.appendChild(back);
+    el.appendChild(sep);
+    el.appendChild(current);
+    host.appendChild(el);
+    this.elBreadcrumb = el;
+  }
+  removeBreadcrumb() {
+    if (this.elBreadcrumb && this.elBreadcrumb.parentNode) {
+      this.elBreadcrumb.parentNode.removeChild(this.elBreadcrumb);
+    }
+    this.elBreadcrumb = null;
+  }
+  /**
+   * The trellis-level title and subtitle, from the host's own `title` and
+   * `subtitle` config (panels have theirs suppressed). The title keeps the
+   * stylesheet's lighter weight unless the page set `title.style.fontWeight`
+   * itself (the merged core default, 900, is heavier than the grid chrome).
+   * @param {HTMLElement} host
+   */
+  buildTitle(host) {
+    const config = this.trellis.w.config;
+    const make = (k2) => {
+      var _a, _b, _c;
+      const cfg = config[k2];
+      if (!cfg || !cfg.text) return null;
+      const el = BrowserAPIs.createElement("div");
+      el.className = "apexcharts-trellis-" + k2;
+      el.textContent = cfg.text;
+      const { fontSize, fontWeight, fontFamily, color } = cfg.style || {};
+      const s = el.style;
+      if (fontSize) s.fontSize = fontSize;
+      const fw = k2 === "title" ? (_c = (_b = (_a = this.trellis.ctx.opts) == null ? void 0 : _a.title) == null ? void 0 : _b.style) == null ? void 0 : _c.fontWeight : fontWeight;
+      if (fw) s.fontWeight = String(fw);
+      if (fontFamily) s.fontFamily = fontFamily;
+      if (color || k2 !== "title") {
+        s.color = color || "var(--apx-fore, var(--apx-trellis-fore, #373d3f))";
+      }
+      if (k2 !== "title") s.padding = "0 0 6px";
+      if (cfg.align && cfg.align !== "left") s.textAlign = cfg.align;
+      host.appendChild(el);
+      return el;
+    };
+    this.elTitle = make("title");
+    this.elSubtitle = make("subtitle");
+  }
+  /**
+   * One legend for the grid. Clicking an item toggles that series name in
+   * every panel (TrellisSync owns the fan-out and the hidden set).
+   * @param {HTMLElement} host
+   */
+  buildLegend(host) {
+    const t = this.trellis;
+    this._names = null;
+    if ((t.cfg.legend || "shared") !== "shared") return;
+    if (t.w.config.chart.type === "heatmap") {
+      this.buildGradientLegend(host);
+      return;
+    }
+    const names = t.split ? t.split.seriesNames : [];
+    if (names.length < 2) return;
+    const wrap = BrowserAPIs.createElement("div");
+    wrap.className = "apexcharts-trellis-legend apexcharts-legend";
+    wrap.setAttribute("role", "list");
+    const legendFont = t.w.config.legend.fontFamily;
+    if (legendFont) wrap.style.fontFamily = legendFont;
+    names.forEach((name, i) => {
+      const item = BrowserAPIs.createElement("div");
+      item.className = "apexcharts-legend-series apexcharts-trellis-legend-item";
+      item.setAttribute("role", "listitem");
+      item.setAttribute("tabindex", "0");
+      const marker = BrowserAPIs.createElement("span");
+      marker.className = "apexcharts-legend-marker";
+      const text = BrowserAPIs.createElement("span");
+      text.className = "apexcharts-legend-text";
+      text.textContent = name;
+      item.appendChild(marker);
+      item.appendChild(text);
+      paintItem(t, item, name, i);
+      const toggle = () => {
+        t.sync.toggleSeries(name);
+        paintItem(t, item, name, i);
+      };
+      item.addEventListener("click", toggle);
+      item.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          toggle();
+        }
+      });
+      wrap.appendChild(item);
+    });
+    host.appendChild(wrap);
+    this.elLegend = wrap;
+    this._names = JSON.stringify(names);
+  }
+  /**
+   * Bring the shared legend up to date after an in-place update: new data
+   * may add or drop names (and a heatmap strip has to span the new colour
+   * range); a `colors` change moves the markers. The same names repaint in
+   * place, so a streaming grid neither churns the DOM nor takes keyboard
+   * focus off an item. Otherwise the legend is rebuilt where it stood.
+   */
+  rebuildLegend() {
+    const t = this.trellis;
+    const old = this.elLegend;
+    const names = t.split ? t.split.seriesNames : [];
+    if (old && this._names === JSON.stringify(names)) {
+      names.forEach((n, i) => paintItem(t, old.children[i], n, i));
+      return;
+    }
+    this.destroyGradientLegend();
+    this.elLegend = null;
+    if (t.elWrap) this.buildLegend(t.elWrap);
+    const el = (
+      /** @type {HTMLElement|null} */
+      this.elLegend
+    );
+    if (old) el ? old.replaceWith(el) : old.remove();
+  }
+  /**
+   * One shared gradient strip for a heatmap grid (P5). Every panel carries
+   * the same pushed colorScale min/max (TrellisFrames), so any ONE mounted
+   * panel's strip is THE grid's scale; it draws detached into a trellis-owned
+   * slot under the grid. Hover (the value arrow) is wired through every
+   * mounted panel's events, so sweeping any panel moves the one arrow.
+   * On a virtualized grid with nothing mounted yet, the build defers to the
+   * first panelMounted.
+   * @param {HTMLElement} host
+   */
+  buildGradientLegend(host) {
+    const t = this.trellis;
+    const mounted = t.panels.find((p) => p.chart);
+    if (!mounted) {
+      if (this._gradPending) return;
+      const once = () => {
+        var _a, _b;
+        this._gradPending = null;
+        (_b = (_a = t.ctx.events).removeEventListener) == null ? void 0 : _b.call(_a, "panelMounted", once);
+        this.buildGradientLegend(host);
+      };
+      this._gradPending = once;
+      t.ctx.events.addEventListener("panelMounted", once);
+      return;
+    }
+    const slot = BrowserAPIs.createElement("div");
+    slot.className = "apexcharts-trellis-legend apexcharts-trellis-gradient-legend";
+    host.appendChild(slot);
+    this.elLegend = slot;
+    const chart = (
+      /** @type {any} */
+      mounted.chart
+    );
+    const legend = new HeatmapGradientLegend(chart.w, chart.ctx);
+    legend.draw(slot);
+    this.gradientLegend = legend;
+    legend.panelsW = () => t.panels.filter((p) => p.chart).map((p) => (
+      /** @type {any} */
+      p.chart.w
+    ));
+    const wire = (_, p) => {
+      var _a;
+      const ev = p.chart !== chart && ((_a = p.chart) == null ? void 0 : _a.ctx.events);
+      if (!ev) return;
+      ev.addEventListener("dataPointMouseEnter", legend._onCellEnter);
+      ev.addEventListener("dataPointMouseLeave", legend._onCellLeave);
+    };
+    t.panels.forEach((p) => wire(0, p));
+    t.ctx.events.addEventListener("panelMounted", wire);
+    this._gradWire = wire;
+  }
+  /** Tear down the shared gradient strip (P5). */
+  destroyGradientLegend() {
+    var _a, _b;
+    const t = this.trellis;
+    if (this._gradPending) {
+      (_b = (_a = t.ctx.events).removeEventListener) == null ? void 0 : _b.call(_a, "panelMounted", this._gradPending);
+      this._gradPending = null;
+    }
+    t.ctx.events.removeEventListener("panelMounted", this._gradWire);
+    this._gradWire = null;
+    const legend = this.gradientLegend;
+    if (legend) {
+      t.panels.forEach((p) => {
+        var _a2;
+        const ev = (
+          /** @type {any} */
+          (_a2 = p.chart) == null ? void 0 : _a2.ctx.events
+        );
+        ev == null ? void 0 : ev.removeEventListener("dataPointMouseEnter", legend._onCellEnter);
+        ev == null ? void 0 : ev.removeEventListener("dataPointMouseLeave", legend._onCellLeave);
+      });
+      try {
+        legend.destroy();
+      } catch (e) {
+      }
+      this.gradientLegend = null;
+    }
+  }
+  /**
+   * One toolbar for the grid: zoom / pan / reset only (P1). Zoom and pan arm
+   * the tool by setting every panel's interact flags, which is exactly what
+   * the per-chart toolbar does for its group; reset restores the trellis's
+   * own domains via TrellisSync.
+   * @param {HTMLElement} host
+   */
+  buildToolbar(host) {
+    var _a, _b, _c;
+    const t = this.trellis;
+    if ((t.cfg.toolbar || "shared") !== "shared") return;
+    const bar = BrowserAPIs.createElement("div");
+    bar.className = "apexcharts-trellis-toolbar";
+    const buttons = {};
+    const arm = (tool) => {
+      t._tool = tool;
+      t.panels.forEach((p) => {
+        if (!p.chart) return;
+        const it = p.chart.w.interact;
+        it.zoomEnabled = tool === "zoom" && p.chart.w.config.chart.zoom.enabled;
+        it.panEnabled = tool === "pan";
+        it.selectionEnabled = false;
+      });
+      buttons.zoom.classList.toggle("apexcharts-selected", tool === "zoom");
+      buttons.pan.classList.toggle("apexcharts-selected", tool === "pan");
+      buttons.zoom.setAttribute("aria-pressed", String(tool === "zoom"));
+      buttons.pan.setAttribute("aria-pressed", String(tool === "pan"));
+    };
+    const makeButton = (kind, label, onClick) => {
+      const b = BrowserAPIs.createElement("button");
+      b.className = `apexcharts-trellis-tool apexcharts-trellis-tool-${kind}`;
+      b.setAttribute("type", "button");
+      b.setAttribute("aria-label", label);
+      b.setAttribute("title", label);
+      b.innerHTML = /** @type {Record<string, string>} */
+      ICONS[kind];
+      b.addEventListener("click", onClick);
+      buttons[kind] = b;
+      bar.appendChild(b);
+      return b;
+    };
+    const zoom = t.cfg.zoom !== "none" && ((_c = (_b = (_a = t.ctx.opts) == null ? void 0 : _a.chart) == null ? void 0 : _b.zoom) == null ? void 0 : _c.enabled) !== false;
+    if (zoom) {
+      makeButton("zoom", "Selection zoom", () => arm("zoom"));
+      makeButton("pan", "Pan", () => arm("pan"));
+      makeButton("reset", "Reset zoom", () => {
+        t.sync.resetAll();
+      });
+    }
+    if (t.ctx.exports) {
+      const menu = BrowserAPIs.createElement("div");
+      menu.className = "apexcharts-trellis-menu";
+      [
+        ["png", "Download PNG"],
+        ["svg", "Download SVG"],
+        ["csv", "Download CSV"]
+      ].forEach(([kind, label]) => {
+        const item = BrowserAPIs.createElement("button");
+        item.setAttribute("type", "button");
+        item.className = "apexcharts-trellis-menu-item";
+        item.textContent = label;
+        item.addEventListener("click", () => {
+          menu.classList.remove("apexcharts-trellis-menu-open");
+          t.exports.download(kind);
+        });
+        menu.appendChild(item);
+      });
+      makeButton("download", "Download", () => {
+        menu.classList.toggle("apexcharts-trellis-menu-open");
+      });
+      bar.appendChild(menu);
+    }
+    if (!bar.firstChild) return;
+    if (zoom) {
+      buttons.zoom.classList.add("apexcharts-selected");
+      buttons.zoom.setAttribute("aria-pressed", "true");
+      buttons.pan.setAttribute("aria-pressed", "false");
+    }
+    host.appendChild(bar);
+    this.elToolbar = bar;
+    host.classList.add("apexcharts-trellis-has-toolbar");
+  }
+}
+function yaxisPayload(chart, patch) {
+  const current = Utils.clone(chart.w.config.yaxis);
+  const arr = Array.isArray(current) ? current : [current];
+  return arr.map((entry) => Utils.extend(entry, patch));
+}
+class TrellisSync {
+  /**
+   * @param {import('./Trellis').default} trellis
+   */
+  constructor(trellis) {
+    this.trellis = trellis;
+    this._syncing = false;
+    this._hidden = /* @__PURE__ */ new Set();
+    this.currentWindow = null;
+  }
+  /**
+   * Record the x window a zoom gesture produced. An empty window (zoom-out
+   * past the full range) clears the record back to the trellis domains.
+   * @param {any} payload the zoomed/scrolled event payload
+   * @param {boolean} zoomed
+   */
+  _noteWindow(payload, zoomed) {
+    const xw = payload && payload.xaxis;
+    if (xw && xw.min != null && xw.max != null) {
+      this.currentWindow = {
+        x: { min: xw.min, max: xw.max },
+        y: this.currentWindow && this.currentWindow.y || null,
+        zoomed: zoomed || !!(this.currentWindow && this.currentWindow.zoomed)
+      };
+    } else if (zoomed) {
+      this.currentWindow = null;
+    }
+  }
+  /**
+   * The `zoomed` handler injected into every panel's config (wrapping the
+   * user's own handler, which is called first with the panel's ctx). Drag,
+   * wheel and toolbar zooms all funnel through this one config event.
+   * @param {Function|undefined} userZoomed
+   * @returns {(chartCtx: any, payload: any) => void}
+   */
+  makeZoomedHandler(userZoomed) {
+    return (chartCtx, payload) => {
+      if (typeof userZoomed === "function") userZoomed(chartCtx, payload);
+      this._noteWindow(payload, true);
+      this.onZoomed(payload);
+    };
+  }
+  /**
+   * The `scrolled` handler injected into every panel's config: panning moves
+   * the x window without a zoomed event, and virtualized mounts must still
+   * see the panned window when no live sibling exists.
+   * @param {Function|undefined} userScrolled
+   * @returns {(chartCtx: any, payload: any) => void}
+   */
+  makeScrolledHandler(userScrolled) {
+    return (chartCtx, payload) => {
+      if (typeof userScrolled === "function") userScrolled(chartCtx, payload);
+      this._noteWindow(payload, false);
+    };
+  }
+  /**
+   * Shared-scale autoscale: recompute the union VISIBLE y over all panels in
+   * the new x window and push it everywhere. Only meaningful when the y scale
+   * is shared, the user asked for autoscale, and x is numeric (a category
+   * window has no reliable data-space mapping to filter by).
+   * @param {any} payload the zoomed event payload ({ xaxis: { min, max } })
+   */
+  onZoomed(payload) {
+    const t = this.trellis;
+    if (this._syncing) return;
+    const cfg = t.cfg;
+    if (!cfg || (cfg.scales.y || "shared") !== "shared") return;
+    if (!t.autoScaleYaxis) return;
+    const xw = payload && payload.xaxis;
+    if (!xw || xw.min == null || xw.max == null) return;
+    if (!t.split || !t.split.xIsNumeric) return;
+    const ext = yExtentInWindow(
+      t.split.panels,
+      t.split.xForm,
+      xw.min,
+      xw.max,
+      t._stackingHost().parts
+    );
+    if (!ext) return;
+    const y = niceBounds(ext.min, ext.max, cfg.targetTicks || DEFAULT_TARGET_TICKS);
+    if (this.currentWindow) {
+      this.currentWindow.y = {
+        min: y.min,
+        max: y.max,
+        tickAmount: y.tickAmount
+      };
+    }
+    this._syncing = true;
+    const pushes = t.panels.map(
+      (p) => p.chart ? p.chart.updateOptions(
+        {
+          yaxis: yaxisPayload(p.chart, {
+            min: y.min,
+            max: y.max,
+            tickAmount: y.tickAmount
+          })
+        },
+        false,
+        false,
+        false
+      ).catch(() => {
+      }) : Promise.resolve()
+    );
+    Promise.all(pushes).finally(() => {
+      this._syncing = false;
+    });
+  }
+  /**
+   * One reset for the whole grid: restore the trellis's own domains (which,
+   * for a shared y drifted by autoscale, is the stored union) and clear the
+   * zoomed flag. Deliberately NOT resetSeries(): that would also undo the
+   * legend's collapsed set, which is user state, not zoom state.
+   * @returns {Promise<any>}
+   */
+  resetAll() {
+    const t = this.trellis;
+    this.currentWindow = null;
+    const xaxis = t.scales && t.scales.x ? { min: t.scales.x.min, max: t.scales.x.max } : { min: void 0, max: void 0 };
+    this._syncing = true;
+    const pushes = t.panels.map((p) => {
+      if (!p.chart) return Promise.resolve();
+      p.chart.w.interact.zoomed = false;
+      const options = { xaxis };
+      const yBounds = t.split ? t._yBoundsFor(t.split.panels[p.index]) : null;
+      if (yBounds) {
+        options.yaxis = yaxisPayload(p.chart, {
+          min: yBounds.min,
+          max: yBounds.max,
+          tickAmount: yBounds.tickAmount
+        });
+      }
+      return p.chart.updateOptions(options, false, false, false).catch(() => {
+      });
+    });
+    return Promise.all(pushes).finally(() => {
+      this._syncing = false;
+    });
+  }
+  /**
+   * Toggle one series name across every panel. Panels missing the name are
+   * skipped (a panel-local slice may not carry a repeated series).
+   * @param {string} name
+   * @returns {boolean} the new hidden state
+   */
+  toggleSeries(name) {
+    const hide = !this._hidden.has(name);
+    if (hide) this._hidden.add(name);
+    else this._hidden.delete(name);
+    this.trellis.panels.forEach((p) => {
+      const chart = p.chart;
+      if (!chart) return;
+      const names = chart.w.seriesData.seriesNames || [];
+      if (names.indexOf(name) === -1) return;
+      try {
+        hide ? chart.hideSeries(name) : chart.showSeries(name);
+      } catch (e) {
+      }
+    });
+    return hide;
+  }
+  /** @param {string} name */
+  isHidden(name) {
+    return this._hidden.has(name);
+  }
+  /**
+   * Forget hidden names the data no longer carries, so a name that comes
+   * back later starts visible (as a plain chart's legend does).
+   * @param {string[]} names the current split's series names
+   */
+  prune(names) {
+    this._hidden.forEach((n) => {
+      if (!names.includes(n)) this._hidden.delete(n);
+    });
+  }
+  /**
+   * Bring one freshly mounted panel in line with the shared legend's hidden
+   * set (virtualized remounts miss the toggles that happened while they were
+   * unmounted; the trellis-wide `_hidden` set is the truth).
+   * @param {any} chart a panel instance
+   */
+  applyHiddenTo(chart) {
+    if (!this._hidden.size || !chart) return;
+    const names = chart.w.seriesData && chart.w.seriesData.seriesNames || [];
+    this._hidden.forEach((name) => {
+      if (names.indexOf(name) === -1) return;
+      try {
+        chart.hideSeries(name);
+      } catch (e) {
+      }
+    });
+  }
+  /**
+   * Cross-panel crosshair sweep.
+   *
+   * The group's own crosshair fan-out assumes vertically STACKED charts: the
+   * sibling path maps the pointer's clientX into the sibling's own plot
+   * (Utils.getNearestValues -> screenXToPlotPx), which lands out of bounds
+   * the moment a sibling sits beside rather than below the hovered chart, so
+   * the sibling bails before ever moving its crosshair (measured; the shipped
+   * stacked sample works, a side-by-side group does not).
+   *
+   * The trellis mirrors instead, and the alignment invariant is what makes
+   * the naive mirror CORRECT: every panel has the identical translateX and
+   * gridWidth and the identical x domain, so the hovered panel's
+   * crosshair-x in plot px means the same data x in every panel.
+   *
+   * The mirror is a CONTINUOUS rAF loop bounded by grid hover, not a one-shot
+   * per mousemove: the group's tooltip pipeline clears sibling crosshairs
+   * asynchronously AFTER the event (measured: a one-shot mirror wins the
+   * frame, then the native clear lands and the sweep collapses back to the
+   * hovered column at rest). Re-asserting every frame while the pointer is
+   * inside the grid makes the settled state the mirrored one; the loop stops
+   * on mouseleave, so an idle page costs nothing.
+   *
+   * A resting pointer must not cost a full rewrite per frame either: each
+   * cell's crosshair element is cached (re-found once the panel re-renders
+   * or remounts, which detaches the old one), and a target is written only
+   * where it differs from the source. Comparing against the target's live
+   * attributes rather than the last write keeps the re-assert above intact.
+   *
+   * @param {HTMLElement} elGrid the trellis grid element
+   */
+  wireCrosshairs(elGrid) {
+    let raf2 = 0;
+    let hoverTarget = null;
+    const cache = /* @__PURE__ */ new WeakMap();
+    const crosshair = (cell) => {
+      let x2 = cache.get(cell);
+      if (!x2 || !cell.contains(x2)) {
+        cache.set(cell, x2 = cell.querySelector(".apexcharts-xcrosshairs"));
+      }
+      return x2;
+    };
+    const ATTRS = ["x", "x1", "x2"];
+    const apply = () => {
+      const cell = hoverTarget && hoverTarget.closest ? hoverTarget.closest(".apexcharts-trellis-cell") : null;
+      const source = cell ? crosshair(cell) : null;
+      const vals = source && source.classList.contains("apexcharts-active") && ATTRS.map((a) => source.getAttribute(a) || "0");
+      this.trellis.panels.forEach((p) => {
+        if (!p.cellEl || p.cellEl === cell) return;
+        const x2 = crosshair(p.cellEl);
+        if (!x2) return;
+        if (vals) {
+          ATTRS.forEach((a, i) => {
+            if (x2.getAttribute(a) !== vals[i]) x2.setAttribute(a, vals[i]);
+          });
+        }
+        x2.classList.toggle("apexcharts-active", !!vals);
+      });
+    };
+    const loop = () => {
+      if (elGrid !== this.trellis.elGrid) return raf2 = 0;
+      apply();
+      raf2 = hoverTarget ? requestAnimationFrame(loop) : 0;
+    };
+    const move = (e) => {
+      hoverTarget = e.target;
+      if (!raf2) raf2 = requestAnimationFrame(loop);
+    };
+    const clear = () => {
+      hoverTarget = null;
+      if (raf2) {
+        cancelAnimationFrame(raf2);
+        raf2 = 0;
+      }
+      this.trellis.panels.forEach((p) => {
+        const x2 = p.cellEl && crosshair(p.cellEl);
+        if (x2) x2.classList.remove("apexcharts-active");
+      });
+    };
+    elGrid.addEventListener("mousemove", move, { passive: true });
+    elGrid.addEventListener("mouseleave", clear, { passive: true });
+  }
+}
+const VIEWSTATE_VERSION = 1;
+function axisWindow(min, max) {
+  const hasMin = min !== void 0 && min !== null;
+  const hasMax = max !== void 0 && max !== null;
+  if (!hasMin && !hasMax) return null;
+  return { min: hasMin ? min : null, max: hasMax ? max : null };
+}
+function cloneSelection(sel) {
+  if (!Array.isArray(sel)) return [];
+  return sel.map((a) => Array.isArray(a) ? a.slice() : a);
+}
+function annotationKind(method, ctx) {
+  if (typeof method !== "function" || !ctx) return null;
+  if (method === ctx.addXaxisAnnotation) return "xaxis";
+  if (method === ctx.addYaxisAnnotation) return "yaxis";
+  if (method === ctx.addPointAnnotation) return "point";
+  return null;
+}
+function captureAnnotations(w, ctx) {
+  const staticAnno = w.config.annotations ? Utils.clone(w.config.annotations) : null;
+  const dynamic = [];
+  const mem = w.globals.memory && w.globals.memory.methodsToExec || [];
+  for (const entry of mem) {
+    if (!entry || entry.label !== "addAnnotation") continue;
+    const kind = annotationKind(entry.method, ctx);
+    if (!kind) continue;
+    dynamic.push({ kind, params: Utils.clone(entry.params) });
+  }
+  return { static: staticAnno, dynamic };
+}
+function captureMeasure(ctx) {
+  const m = ctx && ctx.measure;
+  if (!m || typeof m.getPins !== "function") return null;
+  const pins = m.getPins();
+  return Array.isArray(pins) && pins.length ? { pins } : null;
+}
+function captureViewState(w, ctx) {
+  var _a, _b;
+  const cfgX = w.config.xaxis || {};
+  const cfgYArr = Array.isArray(w.config.yaxis) ? w.config.yaxis : w.config.yaxis ? [w.config.yaxis] : [];
+  const yWindows = cfgYArr.map(
+    (y) => axisWindow(y && y.min, y && y.max)
+  );
+  const anyY = yWindows.some((yw) => yw !== null);
+  const theme = w.config.theme;
+  const drilldown = ctx && ctx.drilldown;
+  return {
+    v: VIEWSTATE_VERSION,
+    window: {
+      xaxis: axisWindow(cfgX.min, cfgX.max),
+      yaxis: anyY ? yWindows : null
+    },
+    zoomed: !!w.interact.zoomed,
+    collapsed: (w.globals.collapsedSeriesIndices || []).slice(),
+    ancillaryCollapsed: (w.globals.ancillaryCollapsedSeriesIndices || []).slice(),
+    selectedDataPoints: cloneSelection(w.interact.selectedDataPoints),
+    theme: theme ? {
+      mode: (_a = theme.mode) != null ? _a : null,
+      palette: (_b = theme.palette) != null ? _b : null,
+      // A palette the chart only defaulted to keeps following the mode
+      // once restored; without this the restore would name it.
+      paletteExplicit: !!w.globals.themePaletteExplicit
+    } : null,
+    locale: w.config.chart && w.config.chart.defaultLocale || null,
+    annotations: captureAnnotations(w, ctx),
+    drill: drilldown && drilldown.depth > 0 ? { path: drilldown.path.slice() } : null,
+    measure: captureMeasure(ctx)
+  };
+}
+const MOUNTS_PER_FRAME = 2;
+const OPS_PER_FRAME = 6;
+const GUTTER_EPSILON = 0.5;
+function raf(cb) {
+  if (typeof requestAnimationFrame === "function") {
+    return { kind: "raf", id: requestAnimationFrame(cb) };
+  }
+  return { kind: "timeout", id: setTimeout(() => cb(0), 16) };
+}
+function cancelRaf(handle) {
+  if (!handle) return;
+  if (handle.kind === "raf") cancelAnimationFrame(handle.id);
+  else clearTimeout(handle.id);
+}
+class TrellisVirtual {
+  /**
+   * @param {import('./Trellis').default} trellis
+   */
+  constructor(trellis) {
+    this.trellis = trellis;
+    this.active = false;
+    this._io = null;
+    this._byCell = /* @__PURE__ */ new Map();
+    this._dirty = /* @__PURE__ */ new Set();
+    this._raf = null;
+    this._draining = false;
+    this._gutterFloor = 0;
+  }
+  static supported() {
+    return typeof IntersectionObserver !== "undefined";
+  }
+  /** One grid row (panel + header + gap): the observer's look-ahead margin. */
+  _rootMargin() {
+    const ly = this.trellis.layout;
+    const m = ly ? Math.max(0, Math.round(ly.panelH + ly.headerH + ly.gap)) : 300;
+    return `${m}px 0px ${m}px 0px`;
+  }
+  /** Begin observing every cell. Panels start unmounted; the observer's
+   *  initial callback mounts the visible ones. */
+  start() {
+    if (!TrellisVirtual.supported()) return;
+    this.active = true;
+    this._io = new IntersectionObserver(
+      (entries) => this._onEntries(entries),
+      { root: null, rootMargin: this._rootMargin(), threshold: 0 }
+    );
+    this.trellis.panels.forEach((p) => {
+      var _a;
+      p.wantMounted = false;
+      if (p.cellEl) {
+        this._byCell.set(p.cellEl, p);
+        (_a = this._io) == null ? void 0 : _a.observe(p.cellEl);
+      }
+    });
+  }
+  /**
+   * Recreate the observer after a relayout: rootMargin is immutable on a live
+   * observer and it tracks the (possibly changed) panel height. Re-observing
+   * re-fires initial entries, which reconciles to a no-op for unchanged cells.
+   */
+  refresh() {
+    if (!this.active || !this._io) return;
+    this._io.disconnect();
+    this._io = new IntersectionObserver(
+      (entries) => this._onEntries(entries),
+      { root: null, rootMargin: this._rootMargin(), threshold: 0 }
+    );
+    this._byCell.forEach((_p, cell) => {
+      var _a;
+      return (_a = this._io) == null ? void 0 : _a.observe(cell);
+    });
+  }
+  /** @param {IntersectionObserverEntry[]} entries */
+  _onEntries(entries) {
+    if (!this.active) return;
+    for (const entry of entries) {
+      const panel = this._byCell.get(entry.target);
+      if (!panel) continue;
+      panel.wantMounted = entry.isIntersecting;
+      this._dirty.add(panel);
+    }
+    this._schedule();
+  }
+  _schedule() {
+    if (this._raf || this._draining || !this.active) return;
+    this._raf = raf(() => {
+      this._raf = null;
+      this._drain();
+    });
+  }
+  /** Reconcile wanted-vs-actual for a bounded batch of panels, then yield. */
+  _drain() {
+    return __async(this, null, function* () {
+      if (this._draining || !this.active) return;
+      this._draining = true;
+      try {
+        let mounts = 0;
+        let ops = 0;
+        while (this.active && this._dirty.size && mounts < MOUNTS_PER_FRAME && ops < OPS_PER_FRAME) {
+          const panel = this._dirty.values().next().value;
+          this._dirty.delete(panel);
+          const want = !!panel.wantMounted;
+          if (want === !!panel.chart) continue;
+          ops++;
+          if (want) {
+            mounts++;
+            yield this._mount(panel);
+          } else {
+            this._unmount(panel);
+          }
+        }
+      } finally {
+        this._draining = false;
+        if (this.active && this._dirty.size) {
+          this._schedule();
+        } else if (this.active) {
+          this.trellis.w.globals.animationEnded = true;
+        }
+      }
+    });
+  }
+  /**
+   * The freshest cross-panel window: any mounted sibling's current config.
+   * Group pushes (drag/wheel zoom, pan, shared-y autoscale) reach only
+   * mounted panels, so this beats a stash captured before those pushes.
+   * @param {any} skip the panel being mounted
+   */
+  _liveWindow(skip) {
+    const sibling = this.trellis.panels.find((p) => p !== skip && p.chart);
+    if (!sibling || !sibling.chart) return null;
+    const w = sibling.chart.w;
+    const x2 = w.config.xaxis || {};
+    const y0 = Array.isArray(w.config.yaxis) ? w.config.yaxis[0] : w.config.yaxis;
+    return {
+      zoomed: !!w.interact.zoomed,
+      x: x2.min != null || x2.max != null ? { min: x2.min, max: x2.max } : null,
+      y: y0 && (y0.min != null || y0.max != null) ? { min: y0.min, max: y0.max, tickAmount: y0.tickAmount } : null
+    };
+  }
+  /**
+   * Merge an axis-window patch into the assembled options' yaxis without
+   * losing the user's own entries (D8: yaxis pushes replace wholesale, so the
+   * patch is applied onto the already-assembled array in place).
+   * @param {Record<string, any>} opts
+   * @param {Record<string, any>} patch
+   */
+  _patchYaxis(opts, patch) {
+    const arr = Array.isArray(opts.yaxis) ? opts.yaxis : opts.yaxis ? [opts.yaxis] : [{}];
+    arr.forEach((entry) => {
+      Object.keys(patch).forEach((k2) => {
+        if (k2 === "labels") {
+          entry.labels = __spreadValues(__spreadValues({}, entry.labels || {}), patch.labels);
+        } else {
+          entry[k2] = patch[k2];
+        }
+      });
+    });
+    opts.yaxis = arr;
+  }
+  /** @param {any} panel */
+  _mount(panel) {
+    return __async(this, null, function* () {
+      var _a, _b, _c, _d, _e, _f, _g, _h;
+      const t = this.trellis;
+      if (!panel.el || panel.chart || panel.noMount) return;
+      const stash = panel.viewStash;
+      const sharedY = t._yMode() === "shared";
+      const independentY = !sharedY;
+      const opts = t._assemblePanelOptions(panel.index, {
+        noAnimation: !!stash
+      });
+      const sw = stash && stash.window;
+      if (sw && sw.xaxis) {
+        opts.xaxis = __spreadProps(__spreadValues({}, opts.xaxis || {}), {
+          min: (_a = sw.xaxis.min) != null ? _a : void 0,
+          max: (_b = sw.xaxis.max) != null ? _b : void 0
+        });
+      }
+      if (independentY && sw && Array.isArray(sw.yaxis) && sw.yaxis[0]) {
+        this._patchYaxis(opts, {
+          min: (_c = sw.yaxis[0].min) != null ? _c : void 0,
+          max: (_d = sw.yaxis[0].max) != null ? _d : void 0
+        });
+      }
+      const live = this._liveWindow(panel);
+      if (live && live.x) {
+        opts.xaxis = __spreadProps(__spreadValues({}, opts.xaxis || {}), { min: live.x.min, max: live.x.max });
+      }
+      if (live && live.y && sharedY) {
+        this._patchYaxis(opts, __spreadValues({
+          min: live.y.min,
+          max: live.y.max
+        }, live.y.tickAmount != null ? { tickAmount: live.y.tickAmount } : {}));
+      }
+      const cw = t.sync.currentWindow;
+      if (cw && cw.x) {
+        opts.xaxis = __spreadProps(__spreadValues({}, opts.xaxis || {}), { min: cw.x.min, max: cw.x.max });
+      }
+      if (cw && cw.y && sharedY) {
+        this._patchYaxis(opts, __spreadValues({
+          min: cw.y.min,
+          max: cw.y.max
+        }, cw.y.tickAmount != null ? { tickAmount: cw.y.tickAmount } : {}));
+      }
+      if (independentY && this._gutterFloor > 0) {
+        this._patchYaxis(opts, { labels: { minWidth: this._gutterFloor } });
+      }
+      panel.el.classList.remove("apexcharts-trellis-skeleton");
+      const chart = t._createPanelChart(panel.el, opts);
+      panel.chart = chart;
+      try {
+        yield chart.render();
+      } catch (e) {
+        panel.chart = null;
+        panel.el.classList.add("apexcharts-trellis-skeleton");
+        return;
+      }
+      if (!this.active) return;
+      chart.w.interact.zoomed = cw ? !!cw.zoomed : live ? live.zoomed : !!(stash && stash.zoomed);
+      t.sync.applyHiddenTo(chart);
+      if (stash && stash.annotations && Array.isArray(stash.annotations.dynamic)) {
+        const methodOf = {
+          xaxis: "addXaxisAnnotation",
+          yaxis: "addYaxisAnnotation",
+          point: "addPointAnnotation"
+        };
+        const target = (
+          /** @type {any} */
+          chart
+        );
+        stash.annotations.dynamic.forEach((a) => {
+          const m = (
+            /** @type {any} */
+            methodOf[a.kind]
+          );
+          if (m && typeof target[m] === "function") target[m](a.params, true);
+        });
+      }
+      panel.viewStash = null;
+      if (independentY) {
+        const wpx = (_h = (_g = (_f = (_e = chart.w) == null ? void 0 : _e.globals) == null ? void 0 : _f.yLabelsCoords) == null ? void 0 : _g[0]) == null ? void 0 : _h.width;
+        if (typeof wpx === "number" && isFinite(wpx)) {
+          const pad = chart.w.globals.isBarHorizontal ? 0 : t._yLabelPad();
+          const tight = Math.max(0, wpx - pad);
+          if (tight > this._gutterFloor + GUTTER_EPSILON) {
+            this._gutterFloor = tight;
+            yield t._pushGutterFloor(this._gutterFloor);
+          }
+        }
+      }
+      t._fire("panelMounted", {
+        key: panel.key,
+        index: panel.index,
+        chart,
+        remounted: !!stash
+      });
+    });
+  }
+  /** @param {any} panel */
+  _unmount(panel) {
+    if (!panel.chart) return;
+    try {
+      panel.viewStash = captureViewState(panel.chart.w, panel.chart);
+    } catch (e) {
+      panel.viewStash = null;
+    }
+    try {
+      panel.chart.destroy();
+    } catch (e) {
+    }
+    panel.chart = null;
+    if (panel.el) {
+      panel.el.classList.add("apexcharts-trellis-skeleton");
+      const ly = this.trellis.layout;
+      if (ly) panel.el.style.minHeight = `${ly.panelH}px`;
+    }
+  }
+  /** Disconnect and drop all virtualization state (trellis teardown). */
+  stop() {
+    this.active = false;
+    if (this._io) {
+      this._io.disconnect();
+      this._io = null;
+    }
+    this._byCell.clear();
+    this._dirty.clear();
+    cancelRaf(this._raf);
+    this._raf = null;
+    this._gutterFloor = 0;
+  }
+}
+class AxisMapping {
+  /**
+   * Pixels per data-unit on the x-axis. Derived from `minX..maxX` so it is the
+   * exact inverse used by both {@link dataXToPx} and {@link pxToDataX}.
+   * @param {import('../types/internal').ChartStateW} w
+   * @returns {number}
+   */
+  static xRatio(w) {
+    const gw = w.layout.gridWidth || 1;
+    return (w.globals.maxX - w.globals.minX) / gw;
+  }
+  /**
+   * Data-x -> pixels from the plot origin (usable as an SVG `x` attribute).
+   * @param {import('../types/internal').ChartStateW} w
+   * @param {number} dataX
+   * @returns {number}
+   */
+  static dataXToPx(w, dataX) {
+    return (dataX - w.globals.minX) / AxisMapping.xRatio(w);
+  }
+  /**
+   * Pixels from the plot origin -> data-x. Feed it `screenX - svgLeft - translateX`.
+   * @param {import('../types/internal').ChartStateW} w
+   * @param {number} px
+   * @returns {number}
+   */
+  static pxToDataX(w, px) {
+    return w.globals.minX + px * AxisMapping.xRatio(w);
+  }
+  /**
+   * The plot area on screen, in client px: its corner is where the plot's
+   * group is translated to (translateX, translateY into the svg), and it is
+   * gridWidth by gridHeight. The one screen-to-plot measurement: the tooltip,
+   * zoom, selection and every other pointer reader map through it, so x and y
+   * cannot disagree under CSS zoom.
+   *
+   * Never the `.apexcharts-grid` group's box: a group measures to the union
+   * of what it happens to draw (fact 2 above). The plot's outline starts a
+   * pixel down (`Grid.drawGridArea`), so unless gridlines or row bands reach
+   * the top edge the box starts a pixel below the plot, and on a numeric-x bar
+   * chart the horizontal gridlines run `barPadForNumericAxis` out past both
+   * sides.
+   *
+   * `zoom` is the CSS zoom of any container the chart sits in (screen px per
+   * plot px): the measured svg width over `svgWidth`, the unscaled width it
+   * was drawn at. A distance measured on screen from this corner is divided
+   * by it to land in plot px, the space the series are laid out and painted in.
+   * With nothing mounted to measure, screen px are taken as svg px.
+   *
+   * @param {import('../types/internal').ChartStateW} w
+   * @returns {{ left: number, top: number, width: number, height: number, zoom: number }}
+   */
+  static plotRect(w) {
+    var _a, _b, _c;
+    const svg = ((_a = w.dom.Paper) == null ? void 0 : _a.node) || ((_b = w.dom.baseEl) == null ? void 0 : _b.querySelector(".apexcharts-svg"));
+    const box = ((_c = svg || w.dom.elWrap) == null ? void 0 : _c.getBoundingClientRect()) || {
+      left: 0,
+      top: 0,
+      width: 0
+    };
+    const zoom = (svg && w.globals.svgWidth ? box.width / w.globals.svgWidth : 1) || 1;
+    return {
+      left: box.left + w.layout.translateX * zoom,
+      top: box.top + w.layout.translateY * zoom,
+      width: w.layout.gridWidth * zoom,
+      height: w.layout.gridHeight * zoom,
+      zoom
+    };
+  }
+  /**
+   * Client (screen) x -> pixels from the plot origin of {@link plotRect}.
+   * Pass the rect when the caller has already measured it.
+   * @param {import('../types/internal').ChartStateW} w
+   * @param {number} screenX
+   * @param {{ left: number, zoom: number }} [plot]
+   * @returns {number}
+   */
+  static screenXToPlotPx(w, screenX, plot = AxisMapping.plotRect(w)) {
+    return (screenX - plot.left) / plot.zoom;
+  }
+}
+Object.setPrototypeOf(
+  {
+    funnel: "bar",
+    pyramid: "bar",
+    gauge: "radialBar",
+    waffle: "unit",
+    histogram: "bar",
+    waterfall: "rangeBar",
+    dumbbell: "rangeBar",
+    streamgraph: "rangeArea",
+    raincloud: "violin",
+    // `column` is the name half the world uses for a vertical bar chart, and the
+    // combo path has always accepted it on `series[].type`. On `chart.type` it
+    // used to fall through every dispatch and die inside the renderer (#5325),
+    // so it is spelled out here as what it has always meant.
+    column: "bar"
+  },
+  null
+);
+const BAR_PATHWAY_TYPES = [
+  "bar",
+  "rangeBar",
+  "candlestick",
+  "boxPlot",
+  "violin"
+];
+const CURSOR_PAD = 14;
+class TrellisTooltip {
+  /**
+   * @param {import('./Trellis').default} trellis
+   */
+  constructor(trellis) {
+    this.trellis = trellis;
+    this.el = null;
+    this._raf = 0;
+    this._lastEvent = null;
+    this._key = null;
+    this._split = null;
+    this._scales = null;
+  }
+  /**
+   * Build the card element and start the hover loop.
+   * @param {HTMLElement} elGrid
+   * @param {HTMLElement} elWrap
+   */
+  wire(elGrid, elWrap) {
+    const card = BrowserAPIs.createElement("div");
+    card.className = "apexcharts-trellis-tooltip apexcharts-theme-light";
+    card.setAttribute("role", "status");
+    elWrap.appendChild(card);
+    this.el = card;
+    const loop = () => {
+      this._update(elWrap);
+      this._raf = this._lastEvent ? requestAnimationFrame(loop) : 0;
+    };
+    const move = (e) => {
+      this._lastEvent = e;
+      if (!this._raf) this._raf = requestAnimationFrame(loop);
+    };
+    const leave = () => {
+      this._lastEvent = null;
+      this._key = null;
+      if (this._raf) {
+        cancelAnimationFrame(this._raf);
+        this._raf = 0;
+      }
+      card.classList.remove("apexcharts-trellis-tooltip-active");
+    };
+    elGrid.addEventListener("mousemove", move, { passive: true });
+    elGrid.addEventListener("mouseleave", leave, { passive: true });
+  }
+  /**
+   * The hovered data-point index in the union x space, or -1 when the
+   * pointer is outside the hovered panel's plot. Mirrors
+   * tooltip/Utils.getNearestValues (trellis panels are never combos):
+   * horizontal bars take the row under the pointer, numeric and datetime x
+   * the point nearest the data x under it (a zoomed window or irregular
+   * spacing does not spread evenly), category x the divisor rules.
+   * @param {any} chart the hovered panel's instance
+   * @param {number} clientX
+   * @param {number} clientY
+   */
+  _hoverIndex(chart, clientX, clientY) {
+    const w = chart.w;
+    const gl = w.globals;
+    const n = gl.dataPoints;
+    if (!n || n < 1) return -1;
+    const gridWidth = w.layout.gridWidth;
+    if (!gridWidth) return -1;
+    const plot = TooltipUtils.plotRect(w);
+    this._zoom = plot.zoom;
+    const hoverX = AxisMapping.screenXToPlotPx(w, clientX, plot);
+    const edgePad = gl.barPadForNumericAxis || 0;
+    if (hoverX < -edgePad || hoverX > gridWidth + edgePad) return -1;
+    const baseEl = w.dom && w.dom.baseEl;
+    if (baseEl && baseEl.querySelector(".apexcharts-svg") && plot.height && (clientY < plot.top || clientY > plot.top + plot.height)) {
+      return -1;
+    }
+    let j;
+    if (gl.isBarHorizontal) {
+      j = Math.floor(
+        (clientY - plot.top) / plot.zoom / (w.layout.gridHeight / n)
+      );
+    } else if (w.axisFlags && w.axisFlags.isXNumeric) {
+      const xs = gl.seriesX.find((a) => a.length) || [];
+      const x2 = AxisMapping.pxToDataX(w, hoverX);
+      j = 0;
+      for (let i = 1; i < xs.length; i++) {
+        if (Math.abs(xs[i] - x2) < Math.abs(xs[j] - x2)) j = i;
+      }
+    } else {
+      j = (BAR_PATHWAY_TYPES.includes(w.config.chart.type) || w.config.xaxis.tickPlacement === "between") && !w.config.xaxis.convertedCatToNumeric ? Math.ceil(hoverX / (gridWidth / n)) - 1 : Math.round(hoverX / (gridWidth / Math.max(1, n - 1)));
+    }
+    return Math.max(0, Math.min(n - 1, j));
+  }
+  /**
+   * One series' formatted value in one panel at index j, or null when there
+   * is nothing to show. Formatter chain: tooltip.y formatter, then the yaxis
+   * labels formatter, then the raw value.
+   * @param {import('./TrellisSplit').TrellisSlice} slice
+   * @param {string} name
+   * @param {number} nameIdx trellis-wide series index (formatter arg)
+   * @param {number} j
+   */
+  _valueAt(slice, name, nameIdx, j) {
+    var _a, _b;
+    const s = slice.series.find((sr) => sr.name === name);
+    if (!s || !Array.isArray(s.data)) return null;
+    const d = s.data[j];
+    if (d === null || d === void 0) return null;
+    let y = d;
+    if (Array.isArray(d)) y = d[1];
+    else if (typeof d === "object") y = d.y;
+    if (y === null || y === void 0) return null;
+    const cfg = this.trellis.w.config;
+    const ttY = Array.isArray((_a = cfg.tooltip) == null ? void 0 : _a.y) ? cfg.tooltip.y[nameIdx] : (_b = cfg.tooltip) == null ? void 0 : _b.y;
+    const yaxis0 = Array.isArray(cfg.yaxis) ? cfg.yaxis[0] : cfg.yaxis;
+    const formatter = ttY && typeof ttY.formatter === "function" && ttY.formatter || yaxis0 && yaxis0.labels && typeof yaxis0.labels.formatter === "function" && yaxis0.labels.formatter || null;
+    const fmt = (v) => {
+      if (formatter) {
+        try {
+          return String(
+            formatter(v, { seriesIndex: nameIdx, dataPointIndex: j, w: null })
+          );
+        } catch (e) {
+          return String(v);
+        }
+      }
+      return String(v);
+    };
+    return Array.isArray(y) ? y.map(fmt).join(" / ") : fmt(y);
+  }
+  /**
+   * One reconcile pass: resolve the hovered panel and index, then one row
+   * per panel from the split. It runs every frame while the pointer is over
+   * the grid (D9): the index is resolved every frame (a wheel zoom moves the
+   * points under a still pointer), but the card is rebuilt (markup,
+   * formatters, a forced layout) only when its panel, index, title or split
+   * changed, and only a new pointer event moves it.
+   * @param {HTMLElement} elWrap
+   */
+  _update(elWrap) {
+    const t = this.trellis;
+    const card = this.el;
+    const e = this._lastEvent;
+    const split2 = t.split;
+    if (!card || !e || !split2) return;
+    const moved = e !== this._e;
+    this._e = e;
+    const cell = e.target && e.target.closest ? e.target.closest(".apexcharts-trellis-cell") : null;
+    const hovered = cell ? t.panels.find((p) => p.cellEl === cell) : void 0;
+    const j = hovered && hovered.chart ? this._hoverIndex(hovered.chart, e.clientX, e.clientY) : -1;
+    if (!hovered || j === -1) {
+      card.classList.remove("apexcharts-trellis-tooltip-active");
+      this._key = null;
+      return;
+    }
+    let titleEl = this._titleEl;
+    if (!titleEl || !cell.contains(titleEl)) {
+      titleEl = this._titleEl = cell.querySelector(".apexcharts-tooltip-title");
+    }
+    const title = titleEl && titleEl.textContent || "";
+    const key = hovered.key + "\n" + j + "\n" + title;
+    if (key !== this._key || split2 !== this._split || t.scales !== this._scales) {
+      this._key = key;
+      this._split = split2;
+      this._scales = t.scales;
+      let html = title ? `<div class="apexcharts-tooltip-title">${escapeHtml(title)}</div>` : "";
+      split2.panels.forEach((slice) => {
+        let vals = "";
+        split2.seriesNames.forEach((name, ni) => {
+          const v = this._valueAt(slice, name, ni, j);
+          if (v === null) return;
+          const color = t.scales ? t.scales.colorOf(name) : "#008FFB";
+          vals += `<span class="apexcharts-trellis-tooltip-val"><span class="apexcharts-trellis-tooltip-marker" style="background:${escapeAttr$1(
+            color
+          )}"></span>${escapeHtml(v)}</span>`;
+        });
+        html += `<div class="apexcharts-trellis-tooltip-row${slice.key === hovered.key ? " apexcharts-trellis-tooltip-row-active" : ""}" data-key="${escapeAttr$1(slice.key)}"><span class="apexcharts-trellis-tooltip-key">${escapeHtml(
+          slice.key
+        )}</span><span class="apexcharts-trellis-tooltip-vals">${vals}</span></div>`;
+      });
+      card.innerHTML = html;
+      card.classList.add("apexcharts-trellis-tooltip-active");
+    } else if (!moved) return;
+    const wrapRect = elWrap.getBoundingClientRect();
+    const zoom = this._zoom || 1;
+    let x2 = (e.clientX - wrapRect.left) / zoom + CURSOR_PAD;
+    let y = (e.clientY - wrapRect.top) / zoom + CURSOR_PAD;
+    const cw = card.offsetWidth;
+    const ch = card.offsetHeight;
+    const wrapWidth = wrapRect.width / zoom;
+    const wrapHeight = wrapRect.height / zoom;
+    if (x2 + cw > wrapWidth - 4) x2 = Math.max(4, x2 - cw - CURSOR_PAD * 2);
+    if (y + ch > wrapHeight - 4) y = Math.max(4, y - ch - CURSOR_PAD * 2);
+    card.style.left = `${Math.round(x2)}px`;
+    card.style.top = `${Math.round(y)}px`;
+  }
+  destroy() {
+    if (this._raf) {
+      cancelAnimationFrame(this._raf);
+      this._raf = 0;
+    }
+    this._lastEvent = null;
+    if (this.el && this.el.parentNode) this.el.parentNode.removeChild(this.el);
+    this.el = null;
+  }
+}
+function escapeHtml(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+function escapeAttr$1(s) {
+  return String(s).replace(/"/g, "&quot;");
+}
+class TrellisExports {
+  /**
+   * @param {import('./Trellis').default} trellis
+   */
+  constructor(trellis) {
+    this.trellis = trellis;
+  }
+  /** Whether panel-level export machinery is available. */
+  supported() {
+    return !!this.trellis.ctx.exports;
+  }
+  /**
+   * The wrap-relative rect of an element.
+   * @param {Element} el
+   */
+  _rectIn(el) {
+    const wrap = (
+      /** @type {HTMLElement} */
+      this.trellis.elWrap
+    );
+    const w = wrap.getBoundingClientRect();
+    const r = el.getBoundingClientRect();
+    return {
+      x: r.left - w.left,
+      y: r.top - w.top,
+      w: r.width,
+      h: r.height
+    };
+  }
+  /**
+   * Panels on screen. A promotion parks the rest as display:none, whose
+   * rects collapse onto the wrap origin; the export is what the user sees,
+   * so a promoted grid exports the promoted panel alone.
+   */
+  _shown() {
+    return this.trellis.panels.filter(
+      (p) => {
+        var _a;
+        return !((_a = p.cellEl) == null ? void 0 : _a.classList.contains("apexcharts-trellis-cell-parked"));
+      }
+    );
+  }
+  /** Export surface size = the wrap's own box. */
+  _size() {
+    const wrap = (
+      /** @type {HTMLElement} */
+      this.trellis.elWrap
+    );
+    const r = wrap.getBoundingClientRect();
+    return { w: Math.ceil(r.width), h: Math.ceil(r.height) };
+  }
+  /** The opaque base color, from any mounted panel's own resolver. */
+  _background() {
+    const mounted = this.trellis.panels.find((p) => p.chart);
+    const ex = mounted && mounted.chart.exports;
+    if (ex && typeof ex.resolveExportBackground === "function") {
+      const bg = ex.resolveExportBackground();
+      if (bg && bg !== "transparent") return bg;
+    }
+    return "#fff";
+  }
+  /**
+   * Text pieces to compose: title + subtitle + one header per cell (+ legend
+   * items). An inline `text-align` (the title's `align`) wins over the
+   * piece's default anchor.
+   */
+  _chromeTexts() {
+    const t = this.trellis;
+    const texts = [];
+    const push = (el, fallback) => {
+      if (!el || !el.textContent) return;
+      const rect = this._rectIn(el);
+      const cs = getComputedStyle(
+        /** @type {HTMLElement} */
+        el
+      );
+      const align = (
+        /** @type {'left'|'center'|'right'} */
+        /** @type {HTMLElement} */
+        el.style.textAlign || fallback
+      );
+      texts.push({
+        text: el.textContent,
+        x: rect.x + (align === "left" ? 0 : align === "right" ? rect.w : rect.w / 2),
+        y: rect.y + rect.h / 2,
+        font: `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`,
+        fontSize: parseFloat(cs.fontSize) || 12,
+        color: cs.color || "#373d3f",
+        align
+      });
+    };
+    push(t.chrome.elTitle, "left");
+    push(t.chrome.elSubtitle, "left");
+    this._shown().forEach((p) => {
+      if (!p.cellEl) return;
+      push(p.cellEl.querySelector(".apexcharts-trellis-header"), "center");
+    });
+    if (t.chrome.elLegend) {
+      t.chrome.elLegend.querySelectorAll(".apexcharts-legend-text").forEach((el) => push(el, "left"));
+    }
+    return texts;
+  }
+  /** Legend marker dots (color + rect), for both compose targets. */
+  _legendMarkers() {
+    const legend = this.trellis.chrome.elLegend;
+    if (!legend) return [];
+    return Array.from(
+      legend.querySelectorAll(".apexcharts-legend-marker"),
+      (el) => ({
+        rect: this._rectIn(el),
+        color: (
+          /** @type {HTMLElement} */
+          el.style.background || /** @type {HTMLElement} */
+          el.style.backgroundColor || "#008FFB"
+        )
+      })
+    );
+  }
+  /**
+   * One PNG of the whole grid.
+   * @param {{ scale?: number }} [options]
+   * @returns {Promise<{ imgURI: string }>}
+   */
+  dataURI() {
+    return __async(this, arguments, function* (options = {}) {
+      const scale = options.scale || 1;
+      const size = this._size();
+      const canvas = document.createElement("canvas");
+      canvas.width = size.w * scale;
+      canvas.height = size.h * scale;
+      const ctx2d = canvas.getContext("2d");
+      if (!ctx2d) return { imgURI: "" };
+      const ctx = (
+        /** @type {CanvasRenderingContext2D} */
+        ctx2d
+      );
+      ctx.scale(scale, scale);
+      ctx.fillStyle = this._background();
+      ctx.fillRect(0, 0, size.w, size.h);
+      for (const p of this._shown()) {
+        if (!p.el) continue;
+        const rect = this._rectIn(p.el);
+        if (!p.chart) {
+          ctx.fillStyle = "rgba(120, 120, 120, 0.06)";
+          ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+          continue;
+        }
+        const { imgURI } = yield p.chart.dataURI({ scale });
+        if (!imgURI) continue;
+        const img = yield loadImage(imgURI);
+        ctx.drawImage(img, rect.x, rect.y, rect.w, rect.h);
+      }
+      for (const piece of this._chromeTexts()) {
+        ctx.font = piece.font;
+        ctx.fillStyle = piece.color;
+        ctx.textAlign = piece.align;
+        ctx.textBaseline = "middle";
+        ctx.fillText(piece.text, piece.x, piece.y);
+      }
+      for (const m of this._legendMarkers()) {
+        ctx.fillStyle = m.color;
+        ctx.beginPath();
+        ctx.arc(
+          m.rect.x + m.rect.w / 2,
+          m.rect.y + m.rect.h / 2,
+          Math.max(2, m.rect.w / 2),
+          0,
+          Math.PI * 2
+        );
+        ctx.fill();
+      }
+      return { imgURI: canvas.toDataURL("image/png") };
+    });
+  }
+  /**
+   * One SVG of the whole grid: nested per-panel SVGs (fonts already inlined
+   * by each panel's own getSvgString) plus text chrome.
+   * @param {number} [scale] output size multiplier; the viewBox stays put
+   * @returns {Promise<string>}
+   */
+  svgString(scale = 1) {
+    return __async(this, null, function* () {
+      const size = this._size();
+      const parts = [];
+      parts.push(
+        `<svg xmlns="http://www.w3.org/2000/svg" width="${size.w * scale}" height="${size.h * scale}" viewBox="0 0 ${size.w} ${size.h}">`
+      );
+      parts.push(
+        `<rect width="${size.w}" height="${size.h}" fill="${this._background()}"/>`
+      );
+      for (const p of this._shown()) {
+        if (!p.el) continue;
+        const rect = this._rectIn(p.el);
+        if (!p.chart) {
+          parts.push(
+            `<rect x="${rect.x}" y="${rect.y}" width="${rect.w}" height="${rect.h}" fill="rgba(120,120,120,0.06)" rx="4"/>`
+          );
+          continue;
+        }
+        const svg = yield p.chart.getSvgString();
+        parts.push(
+          `<g transform="translate(${rect.x}, ${rect.y})">${svg}</g>`
+        );
+      }
+      for (const piece of this._chromeTexts()) {
+        const anchor = piece.align === "left" ? "start" : piece.align === "right" ? "end" : "middle";
+        parts.push(
+          `<text x="${piece.x}" y="${piece.y}" text-anchor="${anchor}" dominant-baseline="central" style="font:${escapeAttr(
+            piece.font
+          )};fill:${escapeAttr(piece.color)}">${escapeXml(piece.text)}</text>`
+        );
+      }
+      for (const m of this._legendMarkers()) {
+        parts.push(
+          `<circle cx="${m.rect.x + m.rect.w / 2}" cy="${m.rect.y + m.rect.h / 2}" r="${Math.max(2, m.rect.w / 2)}" fill="${escapeAttr(m.color)}"/>`
+        );
+      }
+      parts.push("</svg>");
+      return parts.join("");
+    });
+  }
+  /**
+   * One CSV for the whole grid, wide form: x, facet, then one column per
+   * series name. Rows are (panel x union-x), aligned by the split, so ragged
+   * panels emit explicit blanks.
+   * @param {{ columnDelimiter?: string, lineDelimiter?: string }} [options]
+   * @returns {string}
+   */
+  csv(options = {}) {
+    var _a, _b, _c, _d;
+    const t = this.trellis;
+    const split2 = t.split;
+    if (!split2) return "";
+    const w = t.w;
+    const delimiter = options.columnDelimiter || ((_c = (_b = (_a = w.config.chart.toolbar) == null ? void 0 : _a.export) == null ? void 0 : _b.csv) == null ? void 0 : _c.columnDelimiter) || ",";
+    const isDatetime = w.config.xaxis && w.config.xaxis.type === "datetime";
+    const cell = (v) => {
+      if (v === null || v === void 0) return "";
+      const s = String(v);
+      return /[",\n]/.test(s) || s.indexOf(delimiter) !== -1 ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const cats = split2.xForm === "plain" && (((_d = w.config.xaxis.categories) == null ? void 0 : _d.length) ? w.config.xaxis.categories : w.config.labels || []);
+    const xOut = (x2) => {
+      var _a2;
+      if (cats) x2 = (_a2 = cats[x2]) != null ? _a2 : x2 + 1;
+      if (Array.isArray(x2)) x2 = x2.join(" ");
+      return isDatetime && typeof x2 === "number" ? new Date(x2).toISOString() : x2;
+    };
+    const names = split2.seriesNames;
+    const lines = [
+      ["x", "facet", ...names].map(cell).join(delimiter)
+    ];
+    split2.panels.forEach((slice) => {
+      split2.unionX.forEach((x2, i) => {
+        const row = [xOut(x2), slice.key];
+        names.forEach((name) => {
+          const s = slice.series.find((sr) => sr.name === name);
+          if (!s || !Array.isArray(s.data)) {
+            row.push("");
+            return;
+          }
+          const d = s.data[i];
+          let y = d;
+          if (Array.isArray(d)) y = d[1];
+          else if (d && typeof d === "object") y = d.y;
+          row.push(Array.isArray(y) ? y.join("|") : y);
+        });
+        lines.push(row.map(cell).join(delimiter));
+      });
+    });
+    return lines.join(options.lineDelimiter || "\n");
+  }
+  /**
+   * @param {'png'|'svg'|'csv'} kind
+   * @param {{ fileName?: string, columnDelimiter?: string, lineDelimiter?: string }} [options]
+   *   the CSV options exportToCSV takes
+   */
+  download(_0) {
+    return __async(this, arguments, function* (kind, options = {}) {
+      var _a;
+      const t = this.trellis;
+      const exportCfg = ((_a = t.w.config.chart.toolbar) == null ? void 0 : _a.export) || {};
+      const fallback = String(t.w.globals.chartID || "trellis");
+      if (kind === "png") {
+        const { imgURI } = yield this.dataURI();
+        triggerDownload(imgURI, exportCfg.png && exportCfg.png.filename || fallback, ".png");
+      } else if (kind === "svg") {
+        const svg = yield this.svgString();
+        const uri = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+        triggerDownload(uri, exportCfg.svg && exportCfg.svg.filename || fallback, ".svg");
+      } else {
+        const uri = "data:text/csv;charset=utf-8," + encodeURIComponent("\uFEFF" + this.csv(options));
+        triggerDownload(
+          uri,
+          options.fileName || exportCfg.csv && exportCfg.csv.filename || fallback,
+          ".csv"
+        );
+      }
+    });
+  }
+}
+function loadImage(src) {
+  return new Promise((resolve2, reject) => {
+    const img = new Image();
+    img.onload = () => resolve2(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+function triggerDownload(href, filename, ext) {
+  const a = document.createElement("a");
+  a.href = href;
+  a.download = filename + ext;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+function escapeXml(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+function escapeAttr(s) {
+  return String(s).replace(/"/g, "&quot;");
+}
+const Graphics = _core.__apex_Graphics;
+const PLOT_TOP_OFFSET = 10;
+function dropPanelTopBand(dims) {
+  const w = dims.w;
+  if (!w.globals.axisCharts) return;
+  const gutter = dims.titleBlockPad || 0;
+  if (w.config.xaxis.position === "top") {
+    dims.gridPad.top -= gutter;
+    return;
+  }
+  const plotH = w.layout.gridHeight - dims.gridPad.top - dims.gridPad.bottom + gutter + PLOT_TOP_OFFSET;
+  dims.gridPad.top += topInkClearance(dims, plotH) - PLOT_TOP_OFFSET - gutter;
+}
+function topInkClearance(dims, plotH) {
+  const w = dims.w;
+  const cnf = w.config;
+  const gl = w.globals;
+  const graphics = new Graphics(w);
+  const measure = (style) => {
+    const r = (
+      /** @type {{height: number, centerOffset?: number}} */
+      graphics.getTextRects(
+        "0",
+        style.fontSize,
+        style.fontFamily,
+        void 0,
+        true,
+        style.fontWeight
+      )
+    );
+    const ascent = r.height / 2 - (r.centerOffset || 0);
+    return {
+      ascent: ascent >= 0 && ascent <= r.height ? ascent : r.height,
+      height: r.height
+    };
+  };
+  const num = (v) => typeof v === "number" && isFinite(v) ? v : 0;
+  const largest = (v) => Math.max(0, ...[].concat(v).map(num));
+  let need = 0;
+  cnf.yaxis.forEach((yaxe) => {
+    if (!yaxe.show || !yaxe.labels.show) return;
+    const fs = parseFloat(yaxe.labels.style.fontSize) || 0;
+    const ascent = measure(yaxe.labels.style).ascent;
+    const offY = num(yaxe.labels.offsetY);
+    if (!gl.isBarHorizontal) {
+      need = Math.max(need, ascent - fs / 3 - offY);
+      return;
+    }
+    const labels = w.labelData.labels || [];
+    const n = Math.max(1, labels.length);
+    const lines = Math.max(
+      0,
+      ...labels.map(
+        (l) => Array.isArray(l) ? l.length : 0
+      )
+    );
+    const rise = ascent + (lines ? lines / 2 * fs : 0) - offY;
+    const K = 1 - 1 / 2.2;
+    need = Math.max(need, (rise - K * plotH / n) / (1 - K / n));
+  });
+  if (cnf.stroke.show) need = Math.max(need, largest(cnf.stroke.width) / 2);
+  const types = [cnf.chart.type].concat(
+    cnf.series.map((s) => s && s.type).filter(Boolean)
+  );
+  const pointTypes = ["line", "area", "scatter", "bubble", "rangeArea"];
+  if (types.some((t) => pointTypes.includes(t))) {
+    const m = cnf.markers;
+    const size = Math.max(
+      largest(m.size),
+      ...(m.discrete || []).map((d) => num(d.size))
+    );
+    if (size > 0) need = Math.max(need, size + largest(m.strokeWidth) / 2);
+    if (cnf.dataLabels.enabled) {
+      const offY = num(cnf.dataLabels.offsetY);
+      const baseline = Math.max(0, offY + 2) + offY;
+      need = Math.max(need, measure(cnf.dataLabels.style).ascent - baseline);
+    }
+  }
+  const total = cnf.plotOptions.bar.dataLabels.total;
+  if (cnf.chart.stacked && total.enabled && !gl.isBarHorizontal && types.some((t) => BAR_PATHWAY_TYPES.includes(t))) {
+    const m = measure(total.style);
+    need = Math.max(
+      need,
+      m.ascent + 0.3 * m.height - num(cnf.dataLabels.offsetY) - num(total.offsetY)
+    );
+  }
+  return Math.ceil(Math.max(0, need));
+}
+const EAGER_PANEL_BUDGET = 64;
+const HARD_PANEL_WARN = 256;
+const ANIMATION_PANEL_BUDGET = 16;
+const GRIDLESS_TYPES = [
+  "pie",
+  "donut",
+  "polarArea",
+  "radialBar",
+  "radar",
+  "treemap"
+];
+const Y_LABEL_PAD = 10;
+const PANEL_PAD_RECLAIM_BOTTOM = 7;
+const PANEL_PAD_RECLAIM_BOTTOM_DATETIME = 2;
+const PANEL_ONLY_OPTIONS = [
+  "annotations",
+  "colors",
+  "dataLabels",
+  "fill",
+  "forecastDataPoints",
+  "grid",
+  "markers",
+  "noData",
+  "states",
+  "stroke",
+  "tooltip"
+];
+const COMPACT_TOOLTIP_PANEL_H = 120;
+const TYPE_VETO = {
+  treemap: "trellis does not support treemap: area encoding needs room a panel cannot give. Rendering a single chart.",
+  sunburst: "trellis does not support sunburst: its labels are illegible at panel size. Rendering a single chart.",
+  unit: "the unit type has its own small-multiples mode (plotOptions.unit.grid.split), which beats a trellis of unit charts. Rendering a single chart."
+};
+function choosePanelRenderer(split2, hostConfig, userOpts, canvasRegistered) {
+  if (userOpts && userOpts.chart && userOpts.chart.renderer) return null;
+  if (!canvasRegistered) return null;
+  const shim = {
+    config: {
+      series: split2.panels.reduce(
+        (acc, p) => acc.concat(p.series),
+        []
+      ),
+      chart: { type: hostConfig.chart.type },
+      markers: hostConfig.markers,
+      dataLabels: hostConfig.dataLabels,
+      fill: hostConfig.fill,
+      plotOptions: hostConfig.plotOptions,
+      states: hostConfig.states
+    }
+  };
+  if (hasCanvasUnsupportedFeature(shim)) return null;
+  const threshold = hostConfig.chart.rendererThreshold || 8e3;
+  return computeMarkCount(shim) >= threshold ? "canvas" : null;
+}
+function scopeAnnotations(annotations, key) {
+  if (!annotations || typeof annotations !== "object") return annotations;
+  const out = __spreadValues({}, annotations);
+  for (const kind of ["yaxis", "xaxis", "points", "texts", "images"]) {
+    const list = out[kind];
+    if (!Array.isArray(list)) continue;
+    out[kind] = list.filter((item) => {
+      if (!item || item.scope === void 0 || item.scope === null) {
+        return true;
+      }
+      if (item.scope === "trellis") return true;
+      if (Array.isArray(item.scope)) {
+        return item.scope.map(String).indexOf(key) !== -1;
+      }
+      return String(item.scope) === key;
+    }).map((item) => {
+      if (!item || item.scope === void 0) return item;
+      const copy = __spreadValues({}, item);
+      delete copy.scope;
+      return copy;
+    });
+  }
+  return out;
+}
+class Trellis {
+  /**
+   * @param {import('../../types/internal').ChartStateW} w
+   * @param {import('../../types/internal').ChartContext} ctx
+   */
+  constructor(w, ctx) {
+    this.w = w;
+    this.ctx = ctx;
+    this.panels = [];
+    this._stripEls = [];
+    this.split = null;
+    this.scales = null;
+    this.layout = null;
+    this.cfg = {};
+    this.sync = new TrellisSync(this);
+    this.chrome = new TrellisChrome(this);
+    this.virtual = new TrellisVirtual(this);
+    this.exports = new TrellisExports(this);
+    this.gridTooltip = null;
+    this._promotedKey = null;
+    this._ApexCharts = _core__default;
+    this._virtualActive = false;
+    this._panelRenderer = null;
+    this.elWrap = null;
+    this.elGrid = null;
+    this._mounted = false;
+    this._rendering = false;
+    this._renderPromise = null;
+    this._raf = 0;
+    this._lastWidth = 0;
+    this._lastHeight = 0;
+    this._chromeH = 0;
+    this._overflowWarned = false;
+    this._resizeHandler = this._onContainerResize.bind(this);
+    this.autoScaleYaxis = false;
+    this._elChromeTop = null;
+    this._vetoWarned = false;
+    this._noKeyWarned = false;
+    this._frames = null;
+    this._gen = 0;
+    this._tool = null;
+  }
+  /** Whether this chart is a trellis host: `by` (1-D) or `row`/`column`
+   *  (2-D, P4) is the switch. A vetoed chart type (P5) returns false, which
+   *  makes EVERY host seam (render delegation, update branches, exports,
+   *  promotion) fall back to the single-chart pipeline at once. */
+  isActive() {
+    var _a;
+    const t = this.w.config.trellis;
+    if (!(t && (t.by || t.row || t.column))) return false;
+    const type = (_a = this.w.config.chart) == null ? void 0 : _a.type;
+    if (type && TYPE_VETO[type]) {
+      if (!this._vetoWarned) {
+        this._vetoWarned = true;
+        console.warn(`ApexCharts: ${TYPE_VETO[type]}`);
+      }
+      return false;
+    }
+    if (t.by && !t.row && !t.column && !Array.isArray(t.data)) {
+      const list = this.w.config.series || [];
+      const anyKeyed = list.some(
+        (s, i) => keyOf(s, i, t.by) !== null
+      );
+      if (!anyKeyed) {
+        if (!this._noKeyWarned) {
+          this._noKeyWarned = true;
+          const named = typeof t.by === "function" ? "the `trellis.by` function returned no key for any series" : `no series carries the \`trellis.by\` key '${t.by}'`;
+          console.warn(
+            `ApexCharts: ${named}; there is nothing to split. Rendering as a single chart.`
+          );
+        }
+        return false;
+      }
+    }
+    return true;
+  }
+  /** The layout-facing config: a 2-D grid has a FIXED column count (one per
+   *  column key; responsive recolumning would break the row/column
+   *  semantics), so panels shrink instead of wrapping. */
+  _layoutCfg() {
+    const cfg = this._effectiveCfg();
+    if (this.split && this.split.mode === "2d" && this.split.colKeys) {
+      return __spreadProps(__spreadValues({}, cfg), { columns: this.split.colKeys.length });
+    }
+    return cfg;
+  }
+  /** The trellis config with the EFFECTIVE y mode, so the scale resolver
+   *  and the edge-label policy agree when a type frame forced 'shared'. */
+  _effectiveCfg() {
+    var _a;
+    const y = this._yMode();
+    return y !== (((_a = this.cfg.scales) == null ? void 0 : _a.y) || "shared") ? __spreadProps(__spreadValues({}, this.cfg), { scales: __spreadProps(__spreadValues({}, this.cfg.scales || {}), { y }) }) : this.cfg;
+  }
+  /**
+   * Re-derive everything the panels share from the data: the type frames,
+   * the uniform label decimals and the shared scales. One place, so the
+   * first render and every update see the same derivation.
+   * @param {import('./TrellisSplit').TrellisSplitResult} split
+   * @param {boolean} [frames] false keeps the current type frames (the data
+   *   did not change, only the colours may have)
+   */
+  _deriveShared(split2, frames = true) {
+    var _a, _b;
+    const w = this.w;
+    const c = w.config.chart;
+    if (frames || !this._frames) {
+      this._frames = buildTypeFrames(
+        split2,
+        this.cfg,
+        w.config,
+        c.requestedType === "histogram" ? "histogram" : c.type
+      );
+    }
+    const yaxis = this._multiY();
+    let axisNames = null;
+    if (yaxis) {
+      const names = split2.seriesNames;
+      const cu = new CoreUtils(
+        /** @type {any} */
+        {
+          config: { series: names.map((name) => ({ name })), yaxis },
+          globals: {}
+        }
+      );
+      cu.setSeriesYAxisMappings();
+      axisNames = cu.w.globals.seriesYAxisMap.map(
+        (m) => m.map((i) => names[i]).filter((n) => n != null)
+      );
+    }
+    this._axisNames = axisNames;
+    const theme = w.config.theme;
+    const scales = this.scales = resolve(
+      split2,
+      this._effectiveCfg(),
+      __spreadValues({
+        chartType: c.type,
+        userColors: this.ctx.opts && this.ctx.opts.colors,
+        palette: theme.palette,
+        // The page's own axes when there are several (see _multiY).
+        yaxis: yaxis || w.config.yaxis,
+        axisNames,
+        yExtentOverride: this._frames.yExtentOverride
+      }, this._stackingHost())
+    );
+    if (((_a = theme.monochrome) == null ? void 0 : _a.enabled) || ((_b = theme.accessibility) == null ? void 0 : _b.colorBlindMode) || scales.palette.some((c2) => typeof c2 === "function")) {
+      const colorOf = scales.colorOf;
+      scales.colorOf = (name, raw) => {
+        if (!raw) {
+          for (const p of this.panels) {
+            const pw = p.chart && p.chart.w;
+            const i = pw ? pw.seriesData.seriesNames.indexOf(name) : -1;
+            const c2 = i > -1 && pw.globals.colors[i];
+            if (typeof c2 === "function") {
+              return c2({
+                value: pw.seriesData.series[i][0] || 0,
+                seriesIndex: i,
+                dataPointIndex: 0,
+                w: pw
+              });
+            }
+            if (c2) return c2;
+          }
+        }
+        return colorOf(name);
+      };
+    }
+  }
+  /** @returns {{ chartType: string, datetime: boolean }} the split's host facts */
+  _splitHost() {
+    const cnf = this.w.config;
+    return { chartType: cnf.chart.type, datetime: cnf.xaxis.type === "datetime" };
+  }
+  /**
+   * The page's y axes when there are several, else null (also for a
+   * horizontal bar trellis, whose value axis is `xaxis`). The page's own
+   * list: the merged config holds one log axis per HOST series, which says
+   * nothing about the panels' axes.
+   * @returns {any[] | null}
+   */
+  _multiY() {
+    var _a;
+    const yaxis = (_a = this.ctx.opts) == null ? void 0 : _a.yaxis;
+    return Array.isArray(yaxis) && yaxis.length > 1 && !this._valueAxisIsX() ? yaxis : null;
+  }
+  /**
+   * The stacking facts the shared-scale resolver needs. A stacked panel is as
+   * tall as its tallest PILE, so the shared y domain has to come from the
+   * stack totals; without this every panel got a domain sized by the largest
+   * single value and the taller stacks drew straight off the top of the plot.
+   * `parts` says highlight-filter parts reach the axis as well: the feature
+   * is loaded and extends the axis for a type it draws parts on, so a part
+   * past its whole is not clipped by the shared bound.
+   * @returns {{ stacked: boolean, stackType: string|undefined, stackOnlyBar: boolean, parts: boolean }}
+   */
+  _stackingHost() {
+    var _a, _b;
+    const cnf = this.w.config;
+    const chart = cnf.chart || {};
+    const hf = (
+      /** @type {any} */
+      cnf.highlightFilter || {}
+    );
+    return {
+      stacked: !!chart.stacked,
+      stackType: chart.stackType,
+      stackOnlyBar: !!chart.stackOnlyBar,
+      parts: !!InitCtxVariables._featureRegistry.get("highlightFilter") && hf.enabled !== false && hf.axis !== "clamp" && ["bar", "line", "area"].includes(chart.type) && !((_b = (_a = cnf.plotOptions) == null ? void 0 : _a.bar) == null ? void 0 : _b.isFunnel)
+    };
+  }
+  /**
+   * The EFFECTIVE y scale mode: the user's, unless a type frame (P5) forced
+   * 'shared' because group modes are meaningless for the chart type.
+   * @returns {string}
+   */
+  _yMode() {
+    var _a;
+    if (this._frames && this._frames.forceSharedY) return "shared";
+    return ((_a = this.cfg.scales) == null ? void 0 : _a.y) || "shared";
+  }
+  /**
+   * The y bounds one panel should carry, per the scales mode: the shared
+   * union, its row's union ('independent-row'), its column's union
+   * ('independent-column'), or none ('independent'). Types whose y axis does
+   * not carry the data values (heatmap rows, the radial family) never get a
+   * yaxis push at all (P5): the frame's own channel is the shared one.
+   *
+   * With several y axes the bounds are one per axis, handed out only when
+   * `all` asks for them: a caller that pushes one domain onto every axis
+   * (the grid reset) gets null and leaves the axes alone.
+   * @param {import('./TrellisSplit').TrellisSlice} slice
+   * @param {boolean} [all]
+   * @returns {any} TrellisBounds, an array of them (`all`), or null
+   */
+  _yBoundsFor(slice, all) {
+    var _a, _b;
+    const scales = this.scales;
+    if (!scales) return null;
+    if (this._frames && this._frames.skipYaxisPush) return null;
+    const yMode = this._yMode();
+    const b = yMode === "shared" ? scales.y : yMode === "independent-row" && scales.rowY ? scales.rowY.get((_a = slice.rowKey) != null ? _a : "") : yMode === "independent-column" && scales.colY ? scales.colY.get((_b = slice.colKey) != null ? _b : "") : null;
+    return b && (all || !Array.isArray(b)) ? b : null;
+  }
+  /**
+   * Horizontal bars measure along x, and the library reads that value axis
+   * from `xaxis` (Scales.setYScaleForIndex switches on `isBarHorizontal`),
+   * so the shared bounds have to be pushed THERE as well: `yaxis` alone
+   * seeds the domain but the panel then re-nices it from its own data, which
+   * silently discards the trellis's tick target.
+   *
+   * rangeBar is excluded on purpose: its horizontal value axis carries dates,
+   * and a nice-number domain is meaningless on a timeline.
+   * @returns {boolean}
+   */
+  _valueAxisIsX() {
+    var _a, _b;
+    const cnf = this.w.config;
+    return ["bar", "boxPlot", "violin"].includes(cnf.chart.type) && !!((_b = (_a = cnf.plotOptions) == null ? void 0 : _a.bar) == null ? void 0 : _b.horizontal);
+  }
+  /**
+   * The value-axis patch for a horizontal panel. An explicit user
+   * `xaxis.tickAmount` wins: the count is theirs to set, and the panels
+   * still agree because they all re-nice from the SAME pushed bounds.
+   * @param {{ min: number, max: number, tickAmount: number }} bounds
+   * @returns {Record<string, any>}
+   */
+  _valueAxisXPatch(bounds) {
+    var _a, _b;
+    const patch = { min: bounds.min, max: bounds.max };
+    if (typeof ((_b = (_a = this.ctx.opts) == null ? void 0 : _a.xaxis) == null ? void 0 : _b.tickAmount) !== "number") {
+      patch.tickAmount = bounds.tickAmount;
+    }
+    return patch;
+  }
+  /** @returns {string} namespaced panel group id */
+  _groupId() {
+    return `${this.w.globals.chartID}-tg`;
+  }
+  /**
+   * Fire a trellis event through BOTH channels, the way every other chart
+   * event reaches its caller: the `chart.events.<name>` config callback and
+   * the `addEventListener` registry. `Events.fireEvent` only walks the
+   * registry, so the four trellis events used to be invisible to anyone who
+   * wired them up the ordinary way, in `chart.events`.
+   *
+   * Argument order matches what the registry has always been handed
+   * (`ctx` first, then the payload), so existing listeners are unaffected.
+   *
+   * @param {string} name
+   * @param {Record<string, any>} payload
+   */
+  _fire(name, payload) {
+    var _a, _b;
+    const cb = (_b = (_a = this.w.config.chart) == null ? void 0 : _a.events) == null ? void 0 : _b[name];
+    if (typeof cb === "function") cb(this.ctx, payload);
+    this.ctx.events.fireEvent(name, [this.ctx, payload]);
+  }
+  /**
+   * Render the whole trellis into the host element. Called by the host's
+   * render() INSTEAD of the normal create()/mount() pipeline.
+   *
+   * The returned promise is also kept as `_renderPromise` so the host's
+   * update seams can WAIT for an in-flight mount instead of racing it (an
+   * update that arrived mid-mount used to fall through to the single-chart
+   * pipeline and draw a stray plain chart beside the grid).
+   *
+   * @returns {Promise<void>}
+   */
+  render() {
+    if (this._rendering && this._renderPromise) return this._renderPromise;
+    const p = this._render();
+    this._renderPromise = p;
+    return p;
+  }
+  /**
+   * Resolves when nothing is mounting. Safe to call at any time: it is the
+   * in-flight render's own promise, or an already-resolved one.
+   * @returns {Promise<void>}
+   */
+  whenSettled() {
+    return this._rendering && this._renderPromise ? this._renderPromise.catch(() => {
+    }) : Promise.resolve();
+  }
+  /** @returns {Promise<void>} */
+  _render() {
+    return __async(this, null, function* () {
+      var _a, _b, _c;
+      const w = this.w;
+      if (this._mounted || this._rendering) return;
+      if (!Environment.isBrowser()) {
+        console.warn(
+          "ApexCharts: trellis rendering is browser-only in this version; SSR hosts render nothing."
+        );
+        return;
+      }
+      this._rendering = true;
+      const gen = this._gen;
+      try {
+        this.cfg = w.config.trellis || {};
+        this.autoScaleYaxis = !!((_b = (_a = w.config.chart) == null ? void 0 : _a.zoom) == null ? void 0 : _b.autoScaleYaxis) && !this._multiY();
+        let inputSeries = w.config.series || [];
+        if (Array.isArray(this.cfg.data)) {
+          const pivoted = pivotRows(this.cfg.data, this.cfg);
+          pivoted.warnings.forEach((msg) => console.warn(`ApexCharts: ${msg}`));
+          if (pivoted.series.length) {
+            if (inputSeries.length) {
+              console.warn(
+                "ApexCharts: trellis received both `series` and `trellis.data`; using trellis.data."
+              );
+            }
+            inputSeries = pivoted.series;
+          }
+        }
+        const split$1 = split(inputSeries, this.cfg, this._splitHost());
+        this.split = split$1;
+        split$1.warnings.forEach((msg) => console.warn(`ApexCharts: ${msg}`));
+        if (!split$1.panels.length) return;
+        if (split$1.dropped > 0) {
+          console.warn(
+            `ApexCharts: trellis rendered ${split$1.panels.length} panels; ${split$1.dropped} more hidden by trellis.limit.`
+          );
+        }
+        const vMode = (_c = this.cfg.virtualize) != null ? _c : "auto";
+        let useVirtual = vMode === true || vMode === "auto" && split$1.panels.length > EAGER_PANEL_BUDGET;
+        if (useVirtual && !TrellisVirtual.supported()) {
+          console.warn(
+            "ApexCharts: trellis virtualization needs IntersectionObserver; rendering eagerly."
+          );
+          useVirtual = false;
+        }
+        this._virtualActive = useVirtual;
+        if (!useVirtual && split$1.panels.length > EAGER_PANEL_BUDGET) {
+          console.warn(
+            `ApexCharts: trellis with ${split$1.panels.length} panels renders eagerly; set trellis.virtualize (or trellis.limit).`
+          );
+        }
+        if (split$1.panels.length > HARD_PANEL_WARN) {
+          console.warn(
+            `ApexCharts: ${split$1.panels.length} trellis panels is a lot to read at once; consider trellis.limit.`
+          );
+        }
+        this._deriveShared(split$1);
+        const frames = (
+          /** @type {import('./TrellisFrames').TypeFrames} */
+          this._frames
+        );
+        frames.warnings.forEach((msg) => console.warn(`ApexCharts: ${msg}`));
+        if (!this._seeded) {
+          this._seeded = true;
+          split$1.panels.forEach(
+            (p) => p.series.forEach(
+              (s) => s.hidden && this.sync._hidden.add(s.name)
+            )
+          );
+        }
+        this.sync.prune(split$1.seriesNames);
+        this._panelRenderer = choosePanelRenderer(
+          split$1,
+          w.config,
+          this.ctx.opts,
+          RendererController._rendererRegistry.has("canvas")
+        );
+        this._buildSkeleton();
+        const width = this._containerWidth();
+        this._lastWidth = width;
+        this._lastHeight = this._hostHeight() || 0;
+        this._chromeH = 0;
+        this.layout = compute({
+          panelCount: split$1.panels.length,
+          containerWidth: width,
+          cfg: this._layoutCfg(),
+          hostHeight: this._hostHeight(),
+          chromeHeight: this._chromeH
+        });
+        this._applyGridStyle();
+        this._buildCells();
+        const independentY = this._yMode() !== "shared";
+        const wrap = (
+          /** @type {HTMLElement} */
+          this.elWrap
+        );
+        if (useVirtual) {
+          this.virtual.start();
+        } else {
+          if (independentY) wrap.style.visibility = "hidden";
+          for (let i = 0; i < this.panels.length; i++) {
+            const panel = this.panels[i];
+            if (panel.noMount) continue;
+            const opts = this._assemblePanelOptions(panel.index);
+            const chart = this._createPanelChart(
+              /** @type {HTMLElement} */
+              panel.el,
+              opts
+            );
+            panel.chart = chart;
+            yield chart.render();
+            if (gen !== this._gen) return;
+            this._fire("panelMounted", {
+              key: panel.key,
+              index: panel.index,
+              chart
+            });
+          }
+          if (independentY) {
+            yield this._alignGutters();
+            if (gen !== this._gen) return;
+            wrap.style.visibility = "";
+          }
+        }
+        this.chrome.buildTitle(
+          /** @type {HTMLElement} */
+          this._elChromeTop
+        );
+        this.chrome.buildToolbar(wrap);
+        this.chrome.buildLegend(wrap);
+        this.sync.wireCrosshairs(
+          /** @type {HTMLElement} */
+          this.elGrid
+        );
+        if ((this.cfg.tooltip || "panel") === "grid") {
+          this.gridTooltip = new TrellisTooltip(this);
+          this.gridTooltip.wire(
+            /** @type {HTMLElement} */
+            this.elGrid,
+            wrap
+          );
+        }
+        this._mounted = true;
+        this._refitForChrome();
+        addResizeListener(
+          /** @type {HTMLElement} */
+          this.ctx.el,
+          this._resizeHandler
+        );
+        if (!useVirtual) w.globals.animationEnded = true;
+        this._fire("trellisMounted", { panels: this.getPanels() });
+      } finally {
+        if (gen === this._gen) this._rendering = false;
+      }
+    });
+  }
+  /** Container width the grid may use. */
+  _containerWidth() {
+    const el = (
+      /** @type {HTMLElement} */
+      this.ctx.el
+    );
+    const rect = el.getBoundingClientRect();
+    return rect.width || el.clientWidth || 800;
+  }
+  /**
+   * The height the trellis has to lay out in, in px, or undefined when the
+   * host has not asked for one (then the grid sizes itself by aspect ratio).
+   *
+   * A PERCENTAGE height is a percentage of the container's parent, the same
+   * contract `Core.setSVGDimensions` gives a standalone chart. Running it
+   * through a bare `parseFloat` instead read `'100%'` as 100 PIXELS, so a
+   * full-height trellis laid itself out for a 100px box and every panel came
+   * out at the minimum-height floor.
+   *
+   * @returns {number|undefined}
+   */
+  _hostHeight() {
+    var _a;
+    const h = this.w.config.chart && this.w.config.chart.height;
+    if (h === void 0 || h === null || h === "" || h === "auto") {
+      return void 0;
+    }
+    const str = String(h).trim();
+    if (str.endsWith("%")) {
+      const pct = parseFloat(str);
+      if (!isFinite(pct) || pct <= 0) return void 0;
+      const parent = (
+        /** @type {any} */
+        (_a = this.ctx.el) == null ? void 0 : _a.parentNode
+      );
+      if (!parent || typeof parent.getBoundingClientRect !== "function") {
+        return void 0;
+      }
+      const box = parent.getBoundingClientRect().height || parent.clientHeight;
+      const resolved = (box || 0) * pct / 100;
+      return resolved > 0 ? resolved : void 0;
+    }
+    const n = parseFloat(str);
+    return isFinite(n) && n > 0 ? n : void 0;
+  }
+  /**
+   * Height taken by the shared chrome — the title above, the toolbar band, the
+   * legend below — i.e. everything inside the wrapper that is not the grid.
+   * Measured rather than modelled: the pieces are optional, wrap at narrow
+   * widths, and a heatmap's gradient legend is a different height again.
+   *
+   * Zero before the chrome exists (the first layout runs before it is built);
+   * `_refitForChrome` runs one more layout once it does.
+   *
+   * @returns {number}
+   */
+  _chromeHeight() {
+    const wrap = this.elWrap;
+    const grid = this.elGrid;
+    if (!wrap || !grid || typeof wrap.getBoundingClientRect !== "function") {
+      return 0;
+    }
+    const h = wrap.getBoundingClientRect().height - grid.getBoundingClientRect().height;
+    return isFinite(h) && h > 0 ? h : 0;
+  }
+  _buildSkeleton() {
+    var _a, _b;
+    const el = (
+      /** @type {HTMLElement} */
+      this.ctx.el
+    );
+    const wrap = BrowserAPIs.createElementNS(
+      "http://www.w3.org/1999/xhtml",
+      "div"
+    );
+    wrap.className = "apexcharts-trellis";
+    if (this.split && this.split.mode === "2d") {
+      wrap.classList.add("apexcharts-trellis-2d");
+    }
+    wrap.id = `apexcharts-trellis${this.w.globals.chartID}`;
+    wrap.setAttribute("data-tooltip-mode", this.cfg.tooltip || "panel");
+    const foreColor = (_a = this.w.config.chart) == null ? void 0 : _a.foreColor;
+    if (foreColor) wrap.style.setProperty("--apx-trellis-fore", foreColor);
+    const fontFamily = (_b = this.w.config.chart) == null ? void 0 : _b.fontFamily;
+    if (fontFamily) wrap.style.fontFamily = fontFamily;
+    const chromeTop = BrowserAPIs.createElement("div");
+    chromeTop.className = "apexcharts-trellis-chrome";
+    wrap.appendChild(chromeTop);
+    this._elChromeTop = chromeTop;
+    const grid = BrowserAPIs.createElement("div");
+    grid.className = "apexcharts-trellis-grid";
+    wrap.appendChild(grid);
+    el.appendChild(wrap);
+    this.elWrap = wrap;
+    this.elGrid = grid;
+    this.w.dom.baseEl = el;
+    this.w.dom.elWrap = wrap;
+  }
+  _applyGridStyle() {
+    var _a;
+    const grid = (
+      /** @type {HTMLElement} */
+      this.elGrid
+    );
+    const ly = (
+      /** @type {import('./TrellisLayout').TrellisLayoutResult} */
+      this.layout
+    );
+    grid.style.display = "grid";
+    const is2d = this.split && this.split.mode === "2d";
+    const stripped = is2d && ((_a = this.cfg.header) == null ? void 0 : _a.show) !== false;
+    grid.style.gridTemplateColumns = stripped ? `auto repeat(${ly.cols}, minmax(0, 1fr))` : `repeat(${ly.cols}, minmax(0, 1fr))`;
+    grid.style.gap = `${ly.gap}px`;
+  }
+  _buildCells() {
+    var _a;
+    const grid = (
+      /** @type {HTMLElement} */
+      this.elGrid
+    );
+    const split2 = (
+      /** @type {import('./TrellisSplit').TrellisSplitResult} */
+      this.split
+    );
+    const ly = (
+      /** @type {import('./TrellisLayout').TrellisLayoutResult} */
+      this.layout
+    );
+    const is2d = split2.mode === "2d";
+    const stripped = is2d && ((_a = this.cfg.header) == null ? void 0 : _a.show) !== false;
+    this._stripEls = [];
+    const emptyMode = this.cfg.emptyPanels || "placeholder";
+    if (stripped) {
+      const corner = BrowserAPIs.createElement("div");
+      corner.className = "apexcharts-trellis-corner";
+      grid.appendChild(corner);
+      this._stripEls.push(corner);
+      (split2.colKeys || []).forEach((ck, ci) => {
+        const el = this.chrome.stripEl("column", ck, {
+          index: ci,
+          count: (split2.colKeys || []).length
+        });
+        grid.appendChild(el);
+        this._stripEls.push(el);
+      });
+    }
+    this.panels = [];
+    split2.panels.forEach((slice, i) => {
+      var _a2;
+      if (stripped && i % ly.cols === 0) {
+        const ri = Math.floor(i / ly.cols);
+        const el = this.chrome.stripEl(
+          "row",
+          (_a2 = (split2.rowKeys || [])[ri]) != null ? _a2 : "",
+          { index: ri, count: (split2.rowKeys || []).length }
+        );
+        grid.appendChild(el);
+        this._stripEls.push(el);
+      }
+      const cell = BrowserAPIs.createElement("div");
+      cell.className = "apexcharts-trellis-cell";
+      cell.setAttribute("data-key", slice.key);
+      this._applyCellMutes(cell, ly.cells[i]);
+      if (!is2d) {
+        this.chrome.buildHeader(cell, slice.key, {
+          index: i,
+          count: split2.panels.length
+        });
+      }
+      const mount = BrowserAPIs.createElement("div");
+      mount.className = "apexcharts-trellis-panel";
+      if (this._virtualActive) {
+        mount.classList.add("apexcharts-trellis-skeleton");
+        mount.style.minHeight = `${ly.panelH}px`;
+      }
+      cell.appendChild(mount);
+      const noMount = slice.empty && emptyMode !== "placeholder";
+      if (slice.empty) {
+        cell.classList.add("apexcharts-trellis-cell-empty");
+        if (emptyMode === "hide") {
+          cell.classList.add("apexcharts-trellis-cell-hidden");
+        } else if (emptyMode === "skip") {
+          mount.classList.add("apexcharts-trellis-skeleton");
+          mount.style.minHeight = `${ly.panelH}px`;
+        } else {
+          const label = BrowserAPIs.createElement("div");
+          label.className = "apexcharts-trellis-empty-label";
+          label.textContent = this.w.config.noData && this.w.config.noData.text || "no data";
+          cell.appendChild(label);
+        }
+      }
+      grid.appendChild(cell);
+      this.panels.push({
+        key: slice.key,
+        index: i,
+        el: mount,
+        cellEl: cell,
+        chart: null,
+        empty: slice.empty,
+        noMount
+      });
+    });
+  }
+  /**
+   * Edge-label policy as CSS classes: a muted cell hides its labels' INK
+   * (opacity), never their SPACE, so every panel keeps the identical plot
+   * rectangle and a policy flip on resize re-renders nothing (22a).
+   * @param {HTMLElement} cell
+   * @param {import('./TrellisLayout').TrellisCell} c
+   */
+  _applyCellMutes(cell, c) {
+    cell.classList.toggle("apexcharts-trellis-mute-x", !c.showXLabels);
+    cell.classList.toggle("apexcharts-trellis-mute-y", !c.showYLabels);
+  }
+  /**
+   * Whether a panel has the axis chrome the trellis trims (the band above
+   * the plot, the slack below the x axis). Circular and space-filling types
+   * have neither, and a sparkline zeroes its own.
+   * @param {any} chartOpts the panel's (or the user's) `chart` options
+   */
+  _hasPlotChrome(chartOpts) {
+    var _a;
+    return !((_a = chartOpts == null ? void 0 : chartOpts.sparkline) == null ? void 0 : _a.enabled) && !GRIDLESS_TYPES.includes(this.w.config.chart.type);
+  }
+  /**
+   * Construct (not render) one panel chart. Every mount path goes through
+   * here so the hook is never missed: `panelTopBand` has Dimensions drop
+   * the standalone title band above the plot and keep only what the top
+   * ink needs (TrellisTopClearance; see PANEL_PAD_RECLAIM_BOTTOM).
+   * @param {HTMLElement} el
+   * @param {any} opts
+   */
+  _createPanelChart(el, opts) {
+    const chart = (
+      /** @type {any} */
+      new this._ApexCharts(el, opts)
+    );
+    if (this._hasPlotChrome(opts.chart)) chart.panelTopBand = dropPanelTopBand;
+    return chart;
+  }
+  /**
+   * Build one panel's full options object: the user's own options (functions
+   * preserved by reference), minus what the trellis owns, plus the shared
+   * scale/color/geometry overrides. `trellis.panel(key, meta)` is applied
+   * last, so a caller can override anything per panel.
+   * @param {number} i
+   * @param {{ noAnimation?: boolean }} [flags] noAnimation forces animations
+   *   off regardless of policy (virtualized REMOUNTS: scrolling back must not
+   *   replay the draw animation).
+   * @returns {Record<string, any>}
+   */
+  _assemblePanelOptions(i, { noAnimation = false } = {}) {
+    var _b, _c, _d, _e, _f, _g, _h, _i, _j, _k;
+    const w = this.w;
+    const split2 = (
+      /** @type {import('./TrellisSplit').TrellisSplitResult} */
+      this.split
+    );
+    const ly = (
+      /** @type {import('./TrellisLayout').TrellisLayoutResult} */
+      this.layout
+    );
+    const slice = split2.panels[i];
+    const _a = this.ctx.opts || {}, {
+      series: _s,
+      trellis: _t,
+      responsive: _r
+    } = _a, userOpts = __objRest(_a, [
+      "series",
+      "trellis",
+      "responsive"
+    ]);
+    const base = Utils.clone(userOpts);
+    if (base.annotations) {
+      base.annotations = scopeAnnotations(base.annotations, slice.key);
+    }
+    const userChart = base.chart || {};
+    const userEvents = userChart.events || {};
+    const hostId = w.globals.chartID;
+    const userAnimations = (_d = (_c = (_b = this.ctx.opts) == null ? void 0 : _b.chart) == null ? void 0 : _c.animations) == null ? void 0 : _d.enabled;
+    const animationsOff = noAnimation || split2.panels.length > ANIMATION_PANEL_BUDGET && userAnimations === void 0;
+    const isPlaceholder = slice.empty && (this.cfg.emptyPanels || "placeholder") === "placeholder";
+    const data = this._panelDataPatch(i);
+    const overrides = __spreadValues(__spreadValues(__spreadProps(__spreadValues({
+      chart: __spreadProps(__spreadValues(__spreadValues({
+        id: `${hostId}-tp${i}`,
+        // Group membership is unconditional: it powers tooltip and crosshair
+        // sync, not only zoom. zoom:'none' disables the zoom TOOL below.
+        group: this._groupId(),
+        height: ly.panelH,
+        width: "100%",
+        // The trellis's single ResizeObserver is the only relayout owner
+        // (22a Q4); a panel must never self-rerender on a resize tick. Printing
+        // is the same rule: a panel re-laying itself out to a printable width
+        // would tear the grid apart, since its position and size are the
+        // orchestrator's to decide.
+        redrawOnParentResize: false,
+        redrawOnWindowResize: false,
+        print: { enabled: false },
+        // Core pads the chart by parentHeightOffset (default 15) via a
+        // min-height on its wrapper; inside a height-budgeted grid cell that
+        // slack de-syncs mounted cells from the skeleton reserve (the grid
+        // gap is the breathing room here).
+        parentHeightOffset: 0,
+        // The tool armed on the shared toolbar reaches panels mounted after
+        // the click too (virtualized scroll-ins, rebuilt-in-place panels).
+        toolbar: this._tool ? { show: false, autoSelected: this._tool } : { show: false },
+        // the shared toolbar owns the one reset (TrellisSync.resetAll); with
+        // toolbar 'none' a panel's own reset is the only way back, unless the
+        // page turned it off. trellis.zoom only decides whether a zoom SYNCS:
+        // the page's own chart.zoom.enabled: false still means no zoom at
+        // all. Read from the page's options, not the merged config: a type
+        // default (histogram, waterfall, sparkline) keeps the grid's zoom.
+        zoom: {
+          enabled: this.cfg.zoom !== "none" && ((_g = (_f = (_e = this.ctx.opts) == null ? void 0 : _e.chart) == null ? void 0 : _f.zoom) == null ? void 0 : _g.enabled) !== false,
+          resetControl: this.cfg.toolbar == "none" && w.config.chart.zoom.resetControl !== false
+        }
+      }, animationsOff ? { animations: { enabled: false } } : {}), this._panelRenderer ? { renderer: this._panelRenderer } : {}), {
+        events: __spreadProps(__spreadValues({}, userEvents), {
+          zoomed: this.sync.makeZoomedHandler(userEvents.zoomed),
+          scrolled: this.sync.makeScrolledHandler(userEvents.scrolled)
+        })
+      }),
+      series: data.series
+    }, data.colors ? { colors: data.colors } : {}), {
+      // Headers replace per-panel titles; the shared legend replaces per-panel
+      // legends. margin: 0 and floating both matter: an empty-string title
+      // still charges its margin to the top gutter in Dimensions, and its
+      // empty element still measures height + 5 unless floating.
+      title: { text: "", margin: 0, floating: true },
+      subtitle: { text: "", margin: 0, floating: true },
+      legend: { show: false }
+    }), isPlaceholder ? { tooltip: { enabled: false } } : {}), ly.panelH < COMPACT_TOOLTIP_PANEL_H && this.cfg.tooltip !== "grid" && typeof ((_i = (_h = this.ctx.opts) == null ? void 0 : _h.tooltip) == null ? void 0 : _i.compact) !== "boolean" ? { tooltip: { compact: true } } : {});
+    if (this._hasPlotChrome(userChart)) {
+      const userPad = base.grid && base.grid.padding || {};
+      const reclaimBottom = ((_k = (_j = this.ctx.opts) == null ? void 0 : _j.xaxis) == null ? void 0 : _k.type) === "datetime" ? PANEL_PAD_RECLAIM_BOTTOM_DATETIME : PANEL_PAD_RECLAIM_BOTTOM;
+      overrides.grid = {
+        padding: {
+          bottom: (typeof userPad.bottom === "number" ? userPad.bottom : 0) - reclaimBottom
+        }
+      };
+    }
+    if (data.xaxis) overrides.xaxis = data.xaxis;
+    if (data.yaxis) {
+      const userY = (
+        /** @type {any[]} */
+        [].concat(base.yaxis || {})
+      );
+      overrides.yaxis = Array.isArray(data.yaxis) ? data.yaxis.map((p, ai) => Utils.extend(userY[ai] || {}, p)) : Utils.extend(userY[0] || {}, data.yaxis);
+      delete base.yaxis;
+    }
+    if (data.plotOptions) overrides.plotOptions = data.plotOptions;
+    let opts = Utils.extend(base, overrides);
+    if (typeof this.cfg.panel === "function") {
+      const extra = this.cfg.panel(slice.key, { index: i, seriesNames: slice.seriesNames });
+      if (extra && typeof extra === "object") opts = Utils.extend(opts, extra);
+    }
+    return opts;
+  }
+  /**
+   * The DATA-derived half of one panel's options: its series, the shared
+   * colour map, the shared x/y domains with the uniform label formatter,
+   * and the type frames. Both the first assembly and every host
+   * updateSeries push this one patch, so an override added here can never
+   * go stale after an update the way a second copy of it did.
+   * @param {number} i
+   * @returns {Record<string, any>}
+   */
+  _panelDataPatch(i) {
+    var _a, _b, _c, _d;
+    const w = this.w;
+    const split2 = (
+      /** @type {import('./TrellisSplit').TrellisSplitResult} */
+      this.split
+    );
+    const scales = (
+      /** @type {ReturnType<typeof TrellisScales.resolve>} */
+      this.scales
+    );
+    const slice = split2.panels[i];
+    const type = w.config.chart.type;
+    const series = slice.empty && (this.cfg.emptyPanels || "placeholder") === "placeholder" ? [placeholderSeries(split2, { chartType: type })] : slice.series;
+    const patch = { series };
+    if (["pie", "donut", "polarArea", "radialBar"].includes(type)) {
+      patch.series = series.flatMap(
+        (s) => Array.isArray(s.data) ? s.data : []
+      ).map(
+        (v) => typeof v === "number" && isFinite(v) ? v : 0
+      );
+    } else {
+      patch.colors = series.map(
+        (s) => scales.colorOf(s.name, true)
+      );
+      patch.series = series.map((s) => __spreadProps(__spreadValues({}, s), {
+        hidden: this.sync.isHidden(s.name)
+      }));
+    }
+    const valueAxisIsX = this._valueAxisIsX();
+    if (scales.x && !valueAxisIsX) {
+      patch.xaxis = { min: scales.x.min, max: scales.x.max };
+    }
+    const yBounds = this._yBoundsFor(slice, true);
+    if (yBounds) {
+      const userY = (_a = this.ctx.opts) == null ? void 0 : _a.yaxis;
+      const names = this._axisNames;
+      patch.yaxis = /** @type {any[]} */
+      [].concat(yBounds).map((b, ai) => {
+        var _a2;
+        const entry = b ? { min: b.min, max: b.max, tickAmount: b.tickAmount } : {};
+        if (names) entry.seriesName = names[ai];
+        const user = Array.isArray(userY) ? userY[ai] : userY;
+        if (b && typeof ((_a2 = user == null ? void 0 : user.labels) == null ? void 0 : _a2.formatter) !== "function") {
+          entry.labels = {
+            formatter: (val) => typeof val === "number" && isFinite(val) ? val.toFixed(b.decimals) : val
+          };
+        }
+        return entry;
+      });
+      if (!Array.isArray(yBounds)) patch.yaxis = patch.yaxis[0];
+      if (valueAxisIsX) {
+        patch.xaxis = Utils.extend(
+          patch.xaxis || {},
+          this._valueAxisXPatch(yBounds)
+        );
+      }
+    }
+    const frames = this._frames;
+    if (frames && frames.plotOptions) {
+      patch.plotOptions = Utils.clone(frames.plotOptions);
+    }
+    const ratio = frames && frames.pieScaleOf ? frames.pieScaleOf(slice.key) : null;
+    if (ratio !== null) {
+      const userScale = (_d = (_c = (_b = this.ctx.opts) == null ? void 0 : _b.plotOptions) == null ? void 0 : _c.pie) == null ? void 0 : _d.customScale;
+      patch.plotOptions = Utils.extend(patch.plotOptions || {}, {
+        pie: {
+          customScale: ratio * (typeof userScale === "number" ? userScale : 1)
+        }
+      });
+    }
+    return patch;
+  }
+  /**
+   * Independent-y gutter alignment (22a Q2): measure every panel's label
+   * gutter, push the max as a shared `yaxis.labels.minWidth`. `max()` of the
+   * measured widths makes the panels' `max(minWidth, measured)` resolve to
+   * the same constant everywhere, so one iteration is exact by construction.
+   * @param {boolean} [grow] push only when the floor has to widen
+   * @returns {Promise<void>}
+   */
+  _alignGutters(grow = false) {
+    return __async(this, null, function* () {
+      var _a, _b, _c, _d;
+      const widths = this.panels.map((p) => {
+        var _a2, _b2, _c2, _d2, _e;
+        return (_e = (_d2 = (_c2 = (_b2 = (_a2 = p.chart) == null ? void 0 : _a2.w) == null ? void 0 : _b2.globals) == null ? void 0 : _c2.yLabelsCoords) == null ? void 0 : _d2[0]) == null ? void 0 : _e.width;
+      }).filter((v) => typeof v === "number" && isFinite(v));
+      if (!widths.length) return;
+      const isHorizontal = !!((_d = (_c = (_b = (_a = this.panels[0]) == null ? void 0 : _a.chart) == null ? void 0 : _b.w) == null ? void 0 : _c.globals) == null ? void 0 : _d.isBarHorizontal);
+      const labelPad = isHorizontal ? 0 : Y_LABEL_PAD;
+      const minWidth = Math.max(0, Math.max(...widths) - labelPad);
+      if (grow && minWidth <= this.virtual._gutterFloor + 0.5) return;
+      this.virtual._gutterFloor = minWidth;
+      yield this._pushGutterFloor(minWidth);
+    });
+  }
+  /** The vertical-axis label pad inside the yLabelsCoords width (22a Q2). */
+  _yLabelPad() {
+    return Y_LABEL_PAD;
+  }
+  /**
+   * Push one shared gutter floor (`yaxis.labels.minWidth`) to every MOUNTED
+   * panel. Shared by the eager one-pass alignment and the virtualized
+   * monotone floor (TrellisVirtual bumps it when a newly mounted panel
+   * measures wider).
+   * @param {number} minWidth
+   * @returns {Promise<void>}
+   */
+  _pushGutterFloor(minWidth) {
+    return __async(this, null, function* () {
+      for (const p of this.panels) {
+        if (!p.chart) continue;
+        yield p.chart.updateOptions(
+          { yaxis: yaxisPayload(p.chart, { labels: { minWidth } }) },
+          false,
+          false,
+          false
+        ).catch(() => {
+        });
+      }
+    });
+  }
+  /**
+   * Re-run the layout now that the shared chrome is measurable, so the panels
+   * get the host height MINUS the title / toolbar / legend rather than all of
+   * it. Only matters when the host gave a height at all — an aspect-ratio grid
+   * is sized by its width and grows downward as much as it likes.
+   */
+  _refitForChrome() {
+    const hostH = this._hostHeight();
+    if (!hostH) return;
+    const chromeH = this._chromeHeight();
+    if (chromeH <= 0 || Math.round(chromeH) === Math.round(this._chromeH)) {
+      this._warnIfOverflowing();
+      return;
+    }
+    this._chromeH = chromeH;
+    this._relayout(this._containerWidth());
+  }
+  /**
+   * Say so, once, when the minimum-panel-height floor has made the grid taller
+   * than the box it was given. Silently overflowing is the thing that gets
+   * reported as a bug; the floor itself is deliberate (panels below it are
+   * unreadable), so the useful answer is which knob to turn.
+   */
+  _warnIfOverflowing() {
+    const ly = this.layout;
+    if (!ly || !ly.overflowH || this._overflowWarned) return;
+    this._overflowWarned = true;
+    console.warn(
+      `ApexCharts: trellis needs ${Math.round(ly.gridH + this._chromeH)}px but its container gives ${Math.round(this._hostHeight() || 0)}px; ${ly.rows} rows cannot go below the ${ly.panelH}px panel floor. Raise the container, use fewer panels (trellis.limit) or more columns (trellis.columns), or lower trellis.minPanelHeight.`
+    );
+  }
+  /** rAF-coalesced container resize -> single trellis-owned relayout. */
+  _onContainerResize() {
+    if (!this._mounted) return;
+    if (this._raf) return;
+    this._raf = requestAnimationFrame(() => {
+      this._raf = 0;
+      const width = this._containerWidth();
+      const height = this._hostHeight() || 0;
+      if (Math.round(width) === Math.round(this._lastWidth) && Math.round(height) === Math.round(this._lastHeight)) {
+        return;
+      }
+      this._lastWidth = width;
+      this._lastHeight = height;
+      if (this._promotedKey) {
+        const p = this.panels.find((p2) => p2.key === this._promotedKey);
+        if (p && p.chart) p.chart.updateOptions({}, false, false, false).catch(() => {
+        });
+        return;
+      }
+      this._relayout(width);
+    });
+  }
+  /**
+   * Panel promotion (P3): expand one panel to the grid's full width, park the
+   * rest (their cells hide; virtualized ones unmount via the observer), and
+   * show a breadcrumb to come back. Zoom/legend state is untouched: parked
+   * eager panels stay alive, parked virtual panels stash and restore.
+   * @param {string} key
+   * @returns {Promise<void>}
+   */
+  promote(key) {
+    return __async(this, null, function* () {
+      var _a;
+      const panel = this.panels.find((p) => p.key === String(key));
+      if (!panel || panel.noMount || !this._mounted) return;
+      if (this._promotedKey === panel.key) return;
+      if (this._promotedKey) yield this.restorePromotion();
+      this._promotedKey = panel.key;
+      const ly = this.layout;
+      const gridH = this.elGrid ? this.elGrid.getBoundingClientRect().height : 0;
+      const promotedH = Math.round(
+        Math.max(280, Math.min(560, gridH || (ly ? ly.panelH * 2.4 : 420)))
+      );
+      (_a = this.elWrap) == null ? void 0 : _a.classList.add("apexcharts-trellis-promoting");
+      this.panels.forEach((p) => {
+        if (!p.cellEl) return;
+        const promoted = p === panel;
+        p.cellEl.classList.toggle("apexcharts-trellis-cell-promoted", promoted);
+        p.cellEl.classList.toggle("apexcharts-trellis-cell-parked", !promoted);
+      });
+      this._stripEls.forEach(
+        (el) => el.classList.add("apexcharts-trellis-cell-parked")
+      );
+      this.chrome.buildBreadcrumb(
+        /** @type {HTMLElement} */
+        this._elChromeTop,
+        panel.key,
+        () => this.restorePromotion()
+      );
+      if (!panel.chart && this._virtualActive) {
+        panel.wantMounted = true;
+        this.virtual._dirty.add(panel);
+        this.virtual._schedule();
+      }
+      if (panel.el) panel.el.style.minHeight = `${promotedH}px`;
+      if (panel.chart) {
+        yield panel.chart.updateOptions({ chart: { height: promotedH } }, false, false, false).catch(() => {
+        });
+      }
+      this._fire("panelPromoted", { key: panel.key, chart: panel.chart });
+    });
+  }
+  /** Restore the grid from a promotion. @returns {Promise<void>} */
+  restorePromotion() {
+    return __async(this, null, function* () {
+      var _a;
+      if (!this._promotedKey) return;
+      const panel = this.panels.find((p) => p.key === this._promotedKey);
+      this._promotedKey = null;
+      (_a = this.elWrap) == null ? void 0 : _a.classList.remove("apexcharts-trellis-promoting");
+      this.panels.forEach((p) => {
+        if (!p.cellEl) return;
+        p.cellEl.classList.remove("apexcharts-trellis-cell-promoted");
+        p.cellEl.classList.remove("apexcharts-trellis-cell-parked");
+      });
+      this._stripEls.forEach(
+        (el) => el.classList.remove("apexcharts-trellis-cell-parked")
+      );
+      this.chrome.removeBreadcrumb();
+      const ly = this.layout;
+      if (panel && panel.el && ly) panel.el.style.minHeight = `${ly.panelH}px`;
+      if (panel && panel.chart && ly) {
+        yield panel.chart.updateOptions({ chart: { height: ly.panelH } }, false, false, false).catch(() => {
+        });
+      }
+      this._lastWidth = 0;
+      this._relayout(this._containerWidth());
+      this._lastWidth = this._containerWidth();
+      this._fire("panelRestored", { key: panel ? panel.key : null });
+    });
+  }
+  /**
+   * Recompute the grid for a new width. A changed column count re-derives the
+   * edge policy (which panels sit on the bottom row changed) by toggling cell
+   * classes; panel geometry updates are one non-fanout updateOptions each.
+   * @param {number} width
+   */
+  _relayout(width) {
+    const split2 = this.split;
+    if (!split2) return;
+    const prevH = this.layout ? this.layout.panelH : 0;
+    this.layout = compute({
+      panelCount: split2.panels.length,
+      containerWidth: width,
+      cfg: this._layoutCfg(),
+      hostHeight: this._hostHeight(),
+      chromeHeight: this._chromeH
+    });
+    this._applyGridStyle();
+    this._warnIfOverflowing();
+    const ly = this.layout;
+    this.panels.forEach((p, i) => {
+      if (p.cellEl) this._applyCellMutes(p.cellEl, ly.cells[i]);
+      if (p.el && this._virtualActive) p.el.style.minHeight = `${ly.panelH}px`;
+      if (!p.chart) return;
+      const payload = ly.panelH !== prevH ? { chart: { height: ly.panelH } } : {};
+      p.chart.updateOptions(payload, false, false, false).catch(() => {
+      });
+    });
+    if (this._virtualActive) this.virtual.refresh();
+  }
+  /**
+   * Can this option change reach the panels without rebuilding the grid?
+   *
+   * Every top-level key has to be one that only affects how a panel paints
+   * (`PANEL_ONLY_OPTIONS`), and the grid has to be in its ordinary state: a
+   * promoted panel carries a height the shared layout does not know about, so
+   * re-pushing the layout's height would silently un-promote it.
+   *
+   * @param {Record<string, any>|undefined} options
+   * @returns {boolean}
+   */
+  canApplyInPlace(options) {
+    if (!this._mounted || this._promotedKey) return false;
+    if (!options || typeof options !== "object") return false;
+    const keys = Object.keys(options);
+    if (!keys.length) return false;
+    return keys.every((k2) => PANEL_ONLY_OPTIONS.includes(k2));
+  }
+  /**
+   * Re-derive each live panel's options from the host's (already merged)
+   * config and push them, leaving the grid, the panels and their state alone.
+   *
+   * Re-assembling rather than forwarding the caller's patch is deliberate: the
+   * panel options are composed (scoped annotations, the shared colour map, the
+   * compact-tooltip rule, the padding reclaim), and forwarding a raw patch
+   * would drop whichever of those the patch happens to overlap.
+   *
+   * @param {boolean} [animate]
+   * @returns {Promise<void>}
+   */
+  applyPanelOptions(animate = true) {
+    return __async(this, null, function* () {
+      const split2 = this.split;
+      if (!split2) return;
+      this._deriveShared(split2, false);
+      yield Promise.all(
+        this.panels.map((p) => {
+          if (!p.chart) return Promise.resolve();
+          const opts = this._assemblePanelOptions(p.index);
+          delete opts.series;
+          delete opts.xaxis;
+          delete opts.yaxis;
+          if (opts.chart) delete opts.chart.height;
+          return p.chart.updateOptions(opts, false, animate, false, false).catch(() => {
+          });
+        })
+      );
+      this.chrome.rebuildLegend();
+    });
+  }
+  /**
+   * Host updateSeries: re-split against the SAME panel key set and push each
+   * panel its new slice (plus refreshed shared domains) in one update. A
+   * changed key set (panels appearing/disappearing) is a structural change:
+   * torn down and re-rendered.
+   * @param {any[]} newSeries
+   * @param {boolean} [animate]
+   * @returns {Promise<any>}
+   */
+  updateSeries(newSeries, animate = true) {
+    return __async(this, null, function* () {
+      const w = this.w;
+      if (Array.isArray(this.cfg.data) && this.cfg.data.length) {
+        console.warn(
+          "ApexCharts: this trellis renders from trellis.data; update it via updateOptions({ trellis: { data } })."
+        );
+        return Promise.resolve();
+      }
+      w.config.series = newSeries;
+      if (this.ctx.opts) this.ctx.opts.series = newSeries;
+      if (!this._mounted) return this.ctx.render();
+      const nextSplit = split(newSeries || [], this.cfg, this._splitHost());
+      const sameKeys = nextSplit.panels.length === this.panels.length && nextSplit.panels.every(
+        (p, i) => p.key === this.panels[i].key && !!p.empty === !!this.panels[i].empty
+      );
+      if (!sameKeys) {
+        this.teardown();
+        return this.ctx.render();
+      }
+      this.split = nextSplit;
+      this._deriveShared(nextSplit);
+      this.sync.prune(nextSplit.seriesNames);
+      this.sync.currentWindow = null;
+      this.panels.forEach((p) => {
+        if (p.viewStash) p.viewStash = __spreadProps(__spreadValues({}, p.viewStash), { window: null, zoomed: false });
+        if (p.chart) p.chart.w.interact.zoomed = false;
+      });
+      const gen = this._gen;
+      yield Promise.all(
+        this.panels.map((p) => {
+          if (!p.chart) return Promise.resolve();
+          const patch = this._panelDataPatch(p.index);
+          const py = patch.yaxis;
+          if (py) {
+            patch.yaxis = yaxisPayload(p.chart, {}).map(
+              (e, ai) => Utils.extend(e, (Array.isArray(py) ? py[ai] : py) || {})
+            );
+          }
+          return p.chart.updateOptions(patch, false, animate, false).catch(() => {
+          });
+        })
+      );
+      if (gen !== this._gen) return;
+      if (this._yMode() !== "shared") yield this._alignGutters(true);
+      if (gen !== this._gen) return;
+      this.chrome.rebuildLegend();
+      this._refitForChrome();
+    });
+  }
+  /** @returns {Array<{ key: string, index: number, chart: any|null, el: HTMLElement|null }>} */
+  getPanels() {
+    return this.panels.map((p) => ({
+      key: p.key,
+      index: p.index,
+      chart: p.chart,
+      el: p.cellEl
+    }));
+  }
+  /**
+   * @param {string} key
+   * @returns {any|null} the panel's ApexCharts instance
+   */
+  getPanel(key) {
+    const p = this.panels.find((p2) => p2.key === String(key));
+    return p ? p.chart : null;
+  }
+  /**
+   * Destroy every panel (each unregisters itself from Apex._chartInstances),
+   * disconnect the observers, and remove the trellis DOM.
+   */
+  teardown() {
+    this._gen++;
+    this._rendering = false;
+    this.virtual.stop();
+    this._virtualActive = false;
+    this._panelRenderer = null;
+    this._promotedKey = null;
+    this._frames = null;
+    this._tool = null;
+    this.sync.currentWindow = null;
+    this.chrome.destroyGradientLegend();
+    const c = this.chrome;
+    c.elLegend = c.elToolbar = c.elTitle = c.elSubtitle = c.elBreadcrumb = null;
+    this._elChromeTop = null;
+    if (this.gridTooltip) {
+      this.gridTooltip.destroy();
+      this.gridTooltip = null;
+    }
+    if (this._raf) {
+      cancelAnimationFrame(this._raf);
+      this._raf = 0;
+    }
+    if (Environment.isBrowser() && this.ctx.el) {
+      removeResizeListener(
+        /** @type {Element} */
+        this.ctx.el,
+        this._resizeHandler
+      );
+    }
+    this.panels.forEach((p) => {
+      if (p.chart) {
+        try {
+          p.chart.destroy();
+        } catch (e) {
+        }
+      }
+      p.chart = null;
+    });
+    this.panels = [];
+    this._stripEls = [];
+    if (this.elWrap && this.elWrap.parentNode) {
+      this.elWrap.parentNode.removeChild(this.elWrap);
+    }
+    this.elWrap = null;
+    this.elGrid = null;
+    this._mounted = false;
+    this.ctx._renderPromise = null;
+  }
+}
+_core__default.registerFeatures({ trellis: Trellis });
+export {
+  default2 as default
+};

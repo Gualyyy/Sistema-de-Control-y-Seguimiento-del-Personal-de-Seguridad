@@ -1,0 +1,235 @@
+{% extends 'Estructura/base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="contenedor_formulario">
+    <div class="contenedor_campos_demasiado_amplio">
+        <h2>Historial de Compras</h2>
+
+        <div class="modulo_compra_cliente">
+
+            <div class="contenedor_facturas_realizadas">
+
+                <form method="post">
+                    {% csrf_token %}
+
+                    <div class="contenedor_navegacion">
+
+                        <div class="campo_formulario">
+                            <label for="fecha_compra">Fecha de compra:</label>
+                            <select name="fecha_compra" id="fecha_compra">
+                            </select>
+                        </div>
+
+                        <div class="campo_formulario">
+                            <label for="estado_compra">Estado de la compra:</label>
+                            <select name="estado_compra" id="estado_compra"></select>
+                        </div>
+
+                    </div>
+
+                </form>
+
+                <div class="distribucion_factura_cliente">
+
+                    <!-- LISTADO DE COMPRAS -->
+                    <section class="panel_compras_cliente">
+
+                        <h3>Compras realizadas</h3>
+
+                        <div id="contenedor_compras" class="compras">
+                        </div>
+                    </section>
+
+
+                    <!-- DATOS GENERALES DE LA COMPRA -->
+                    <section class="panel_datos_generales">
+
+                        <h3>Datos generales de la compra</h3>
+
+                        <div class="datos_generales_factura">
+
+                            <div class="campo_dato_factura">
+                                <label>Comprobante:</label>
+                                <span id="comprobante_venta"></span>
+                            </div>
+
+                            <div class="campo_dato_factura">
+                                <label>Fecha de compra:</label>
+                                <span id="fecha_registro_compra"></span>
+                            </div>
+
+                            <div class="campo_dato_factura">
+                                <label>Cliente:</label>
+                                <span id="nombre_cliente"></span>
+                            </div>
+
+                            <div class="campo_dato_factura">
+                                <label>Identificación:</label>
+                                <span id="identificacion_cliente"></span>
+                            </div>
+
+                            <div class="campo_dato_factura">
+                                <label>Correo electrónico:</label>
+                                <span id="correo_cliente"></span>
+                            </div>
+
+                            <div class="campo_dato_factura">
+                                <label>Estado:</label>
+                                <span id="estado_factura"></span>
+                            </div>
+
+                        </div>
+
+                    </section>
+
+
+                    <!-- PRODUCTOS COMPRADOS -->
+                    <section class="panel_productos_comprados">
+
+                        <h3>Productos comprados</h3>
+
+                        <div class="tabla_productos_factura">
+
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>N.º</th>
+                                        <th>Producto</th>
+                                        <th>Código</th>
+                                        <th>Cantidad</th>
+                                        <th>Unidad</th>
+                                        <th>Precio unitario</th>
+                                        <th>Descuento</th>
+                                        <th>Subtotal</th>
+                                    </tr>
+                                </thead>
+
+                                <tbody id="detalle_productos">
+                                    <tr>
+                                        <td colspan="8" class="factura_en_espera">
+                                            En espera de seleccionar una factura.
+                                        </td>
+                                    </tr>
+                                </tbody>
+
+                            </table>
+
+                        </div>
+
+                    </section>
+
+
+                    <!-- RESUMEN E INFORMACIÓN DEL PAGO -->
+                    <div class="distribucion_resumen_pago">
+
+                        <!-- RESUMEN DE LA COMPRA -->
+                        <section class="panel_resumen_compra">
+
+                            <h3>Resumen de la compra</h3>
+
+                            <div class="datos_resumen_compra">
+
+                                <div class="fila_resumen">
+                                    <span>Subtotal:</span>
+                                    <strong id="subtotal"></strong>
+                                </div>
+
+                                <div class="fila_resumen">
+                                    <span>Descuento:</span>
+                                    <strong id="descuento_compra"></strong>
+                                </div>
+
+                                <div class="fila_resumen">
+                                    <span>Impuesto (IVA):</span>
+                                    <strong id="iva_compra"></strong>
+                                </div>
+
+                                <div class="fila_resumen total_compra">
+                                    <span>TOTAL:</span>
+                                    <strong id="total_compra"></strong>
+                                </div>
+
+                                <div class="fila_resumen">
+                                    <span>Tasa de cambio:</span>
+                                    <strong id="tasa_cambio_compra"></strong>
+                                </div>
+
+                                <div class="fila_resumen">
+                                    <span>Total en USD:</span>
+                                    <strong id="total_usd_compra"></strong>
+                                </div>
+
+                            </div>
+
+                        </section>
+
+
+                        <!-- INFORMACIÓN DEL PAGO -->
+                        <section class="panel_informacion_pago">
+
+                            <h3>Información del pago</h3>
+
+                            <div class="datos_informacion_pago">
+
+                                <div class="campo_dato_factura">
+                                    <label>Método de pago:</label>
+                                    <span id="metodo_pago"></span>
+                                </div>
+
+                                <div class="campo_dato_factura">
+                                    <label>Referencia:</label>
+                                    <span id="referencia_pago"></span>
+                                </div>
+
+                                <div class="campo_dato_factura">
+                                    <label>Monto:</label>
+                                    <span id="monto_pago"></span>
+                                </div>
+
+                                <div class="campo_dato_factura">
+                                    <label>Estado del pago:</label>
+                                    <span id="estado_pago"></span>
+                                </div>
+
+                                <div class="campo_dato_factura">
+                                    <label>Banco:</label>
+                                    <span id="banco_pago"></span>
+                                </div>
+
+                                <div class="campo_dato_factura">
+                                    <label>Documento:</label>
+                                    <span id="documento_pago"></span>
+                                </div>
+
+                                <div class="campo_dato_factura">
+                                    <label>N.º Móvil:</label>
+                                    <span id="numero_movil_pago"></span>
+                                </div>
+
+                                <div class="campo_dato_factura">
+                                    <label>Tipo de cuenta:</label>
+                                    <span id="tipo_cuenta_pago"></span>
+                                </div>
+
+                            </div>
+
+                        </section>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+    </div>
+</section>
+
+<script src="{% static 'Funcionalidades_Asincronas/ventas/compras/clientes/visualizar_compras.js' %}"></script>
+
+{% endblock %}

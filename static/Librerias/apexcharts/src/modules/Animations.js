@@ -1,0 +1,845 @@
+// @ts-check
+import Utils from '../utils/Utils'
+import { BrowserAPIs } from '../ssr/BrowserAPIs'
+import { Environment } from '../utils/Environment'
+import { setDefaultEasing } from '../svg/SVGAnimation'
+import { resolveEasing } from './animations/Easing'
+
+const SVGNS = 'http://www.w3.org/2000/svg'
+
+/**
+ * Cubic ease-out — fast start, decelerates toward the end. Reads as a pen
+ * sweeping across the chart and settling, which is the feel we want for the
+ * draw effect (ease-in-out's fast middle makes it whip too aggressively).
+ * @param {number} t
+ */
+function easeOutCubic(t) {
+  return 1 - Math.pow(1 - t, 3)
+}
+
+/**
+ * Cubic ease-out-back — overshoots `1` near the end then settles. Used for the
+ * `pop` effect (scatter/bubble markers) so each marker feels like it's
+ * landing rather than just appearing.
+ * Equivalent to CSS `cubic-bezier(0.34, 1.56, 0.64, 1)`.
+ * @param {number} t
+ */
+function easeOutBack(t) {
+  const c1 = 1.70158
+  const c3 = c1 + 1
+  return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2)
+}
+
+/**
+ * Each chart's mount frame loop: the steppers below (sweep, pop, draw) used
+ * to poll one requestAnimationFrame chain per element, so a line with 2,000
+ * markers and labels ran 4,000 callbacks a frame. They queue jobs here and
+ * share ONE rAF per chart per frame, which stops when the queue drains or
+ * the chart is destroyed. A job returns true to run again next frame, or a
+ * function: its writes, run once every job has done its reads. A job queued
+ * during a frame first runs on the next, as its own rAF did.
+ * State per chart: `q` the next frame's jobs, `n` the pops in flight.
+ * @type {WeakMap<object, any>}
+ */
+const loops = new WeakMap()
+
+/**
+ * @param {import('../types/internal').ChartStateW} w
+ * @param {(now: number) => any} job
+ * @returns {any} the chart's loop state
+ */
+function onFrame(w, job) {
+  let s = loops.get(w)
+  if (!s) loops.set(w, (s = { n: 0, q: [] }))
+  // The first job queued for a frame requests it.
+  if (s.q.push(job) < 2) {
+    BrowserAPIs.requestAnimationFrame((now) => {
+      const jobs = s.q
+      s.q = []
+      // for...of also visits the writes appended mid-loop, after every read.
+      for (const j of jobs) {
+        // A destroyed chart drops its queue and its pop count, checked per
+        // job: an animationEnd handler a job reaches may destroy it.
+        if (w.globals.isDestroyed) {
+          s.n = 0
+          break
+        }
+        // A throw (a user handler) loses only its own job, as when each
+        // element had its own rAF, and is reported once the frame is done.
+        try {
+          const r = j(now)
+          if (r === true) onFrame(w, j)
+          else if (r) jobs.push(r)
+        } catch (e) {
+          setTimeout(() => {
+            throw e
+          })
+        }
+      }
+    })
+  }
+  return s
+}
+
+/**
+ * Cached reduced-motion query — `matchMedia` evaluation is cheap but the
+ * MediaQueryList instance is reused if a chart re-renders.
+ * @type {MediaQueryList | null}
+ */
+let _reducedMotionMql = null
+
+/**
+ * @returns {boolean} true when the OS has prefers-reduced-motion: reduce active.
+ */
+export function prefersReducedMotion() {
+  if (!Environment.isBrowser()) return false
+  try {
+    if (!_reducedMotionMql) {
+      _reducedMotionMql = window.matchMedia('(prefers-reduced-motion: reduce)')
+    }
+    return !!_reducedMotionMql.matches
+  } catch (_) {
+    return false
+  }
+}
+
+/**
+ * Whether this render draws its line / area / rangeArea paths with the
+ * pen-stroke effect, the one the progressive reveal follows. Mirrors the
+ * gates of Graphics.renderPaths and animateDraw: a mount render, animations
+ * on, a speed the draw does not skip, and series not painted on canvas.
+ *
+ * @param {import('../types/internal').ChartStateW} w
+ * @returns {boolean}
+ */
+export function drawRevealActive(w) {
+  const gl = w.globals
+  const anim = w.config.chart.animations
+  const type = w.config.chart.type
+  return (
+    Environment.isBrowser() &&
+    !gl.dataChanged &&
+    !gl.resized &&
+    gl.shouldAnimate &&
+    !!anim &&
+    anim.enabled !== false &&
+    !(anim.speed * 2 < 1) &&
+    (type === 'line' || type === 'area' || type === 'rangeArea') &&
+    (gl.activeRenderer || {}).kind !== 'canvas' &&
+    w.layout.gridWidth > 0
+  )
+}
+
+/**
+ * Apply the "progressive marker reveal" to an SVG element at grid-x `x`.
+ * On initial mount of a line/area/rangeArea chart, each marker (or data label
+ * or x-axis/point annotation) snaps in at the moment the line's pen-stroke
+ * reaches its x position.
+ *
+ * Idempotent and SSR-safe — no-op when:
+ *   - not running in a browser
+ *   - this is a data-update / resize render
+ *   - chart.animations.enabled is false
+ *   - chart type isn't line/area/rangeArea
+ *   - the pen-stroke draw does not run (speed 0, canvas; drawRevealActive)
+ *
+ * @param {any} el       - svg.js element (uses el.node.style)
+ * @param {number} x     - grid-coordinate x of the element
+ * @param {import('../types/internal').ChartStateW} w
+ * @returns {boolean}    - true if the reveal was applied
+ */
+export function applyProgressiveReveal(el, x, w) {
+  if (!drawRevealActive(w)) return false
+  const animCfg = w.config.chart.animations
+
+  // Line/area/radar draw mode internally doubles the configured speed (see
+  // Graphics.renderPaths). The reveal must use the same effective duration
+  // so markers land in sync with the pen tip.
+  const drawSpeed = (animCfg.speed || 800) * 2
+  const xRatio = Math.max(0, Math.min(1, x / w.layout.gridWidth))
+
+  // Invert the line's easeOutCubic to find *when* the tip reaches this x.
+  // The line covers ground fast at the start and slow at the end, so a marker
+  // at xRatio=0.5 is reached at t ≈ 0.21, not t = 0.5. Linear timing was
+  // making everything lag by exactly this eased-vs-linear difference.
+  //   easeOutCubic(t) = 1 - (1 - t)^3
+  //   inverse:          t = 1 - cbrt(1 - y)
+  const easedT = 1 - Math.cbrt(1 - xRatio)
+  const revealDelay = easedT * drawSpeed
+
+  const style = el.node.style
+  style.opacity = '0'
+
+  // Anchor on the first frame after render, the same frame `animateDraw` uses
+  // as its t=0, so reveal and draw share an origin; snap on frame boundaries.
+  let startAnchor = -1
+  onFrame(w, (/** @type {number} */ now) => {
+    if (startAnchor < 0) startAnchor = now
+    if (now - startAnchor < revealDelay) return true
+    // Clear the inline opacity rather than forcing '1': an inline style
+    // would override the element's SVG `opacity` attribute (e.g. an
+    // x-axis range annotation rect with `opacity: 0.4`).
+    style.opacity = ''
+  })
+  return true
+}
+
+/**
+ * Apply OS / config-driven animation policy to the chart's effective config.
+ * Currently: if prefers-reduced-motion is active AND
+ * `chart.animations.respectReducedMotion` is true, disable both initial-mount
+ * and data-change animations so the chart renders instantly.
+ *
+ * The disable is a REVERSIBLE latch. `w.config` is the merged config that every
+ * update merges *onto* (`w.config = Utils.extend(w.config, options)` in
+ * UpdateHelpers._updateOptions), so writing `enabled = false` straight into it
+ * used to be permanent: a viewer who turned the OS preference back off
+ * mid-session kept a chart that never animated again, because nothing ever put
+ * the original value back. The pre-policy values are stashed in globals and
+ * restored the moment the query stops matching.
+ *
+ * Known corner: an explicit `animations.enabled: false` arriving via
+ * updateOptions() *while* the latch is engaged is indistinguishable from the
+ * false we wrote ourselves, so lifting the OS preference restores the older
+ * value instead. Reaching it takes an OS toggle mid-session, and the
+ * alternative is threading user intent through every config merge site.
+ *
+ * Must be called once, after config finalization (Base.init) and before the
+ * first render. Idempotent; safe to call again after a config update.
+ *
+ * @param {import('../types/internal').ChartStateW} w
+ */
+export function applyAnimationPolicy(w) {
+  const anim = w.config.chart.animations
+  if (!anim) return
+  const dyn = anim.dynamicAnimation
+  const gl = w.globals
+
+  if (anim.respectReducedMotion !== false && prefersReducedMotion()) {
+    if (!gl.reducedMotionLatch) {
+      gl.reducedMotionLatch = {
+        enabled: anim.enabled,
+        dynamicEnabled: dyn ? dyn.enabled : undefined,
+      }
+    } else {
+      // Latch already engaged, so anything that is no longer `false` was put
+      // there by the user since the last render — re-stash it, or lifting the
+      // OS preference would restore a value they have already replaced.
+      if (anim.enabled !== false) {
+        gl.reducedMotionLatch.enabled = anim.enabled
+      }
+      if (dyn && dyn.enabled !== false) {
+        gl.reducedMotionLatch.dynamicEnabled = dyn.enabled
+      }
+    }
+    anim.enabled = false
+    if (dyn) dyn.enabled = false
+  } else if (gl.reducedMotionLatch) {
+    anim.enabled = gl.reducedMotionLatch.enabled
+    if (dyn && gl.reducedMotionLatch.dynamicEnabled !== undefined) {
+      dyn.enabled = gl.reducedMotionLatch.dynamicEnabled
+    }
+    gl.reducedMotionLatch = null
+  }
+  // Cadence (#6) P1: resolve chart.animations.easing (name | cubic-bezier array
+  // | fn) and set it as the runner's default for the generic tweens. Defaults
+  // to 'easeInOutSine', which is the runner's historical curve, so unspecified
+  // charts animate exactly as before. Kept per chart too: the default is one
+  // for the whole page, so the last chart rendered would set every curve.
+  const ease = resolveEasing(anim.easing)
+  easeByState.set(w, ease)
+  setDefaultEasing(ease)
+}
+
+/**
+ * Compute a per-element delay for staggered initial-mount animations.
+ *
+ * Recognized options on `opts`:
+ *   style:      'sequential' | 'diagonal' | 'none'
+ *   index:      0-based item index in its group
+ *   baseDelay:  delay per stagger step in ms (default 40)
+ *   row, col:   for 'diagonal' (heatmap)
+ *
+ * @param {any} opts
+ * @returns {number} delay in ms
+ */
+export function computeStagger(opts) {
+  const style = opts.style
+  const index = opts.index || 0
+  const baseDelay = typeof opts.baseDelay === 'number' ? opts.baseDelay : 40
+  switch (style) {
+    case 'none':
+      return 0
+    case 'diagonal':
+      return ((opts.row || 0) + (opts.col || 0)) * baseDelay
+    default:
+      return index * baseDelay
+  }
+}
+
+/**
+ * The chart instance behind each chart state `w`, recorded by the first
+ * Animations built with one (the chart-level instance InitCtxVariables makes
+ * in the chart constructor). Most renderers build their Animations from `w`
+ * alone, and whichever of them finishes the mount animation is the one that
+ * fires `chart.events.animationEnd`, so without this lookup a line, pie or
+ * heatmap chart would hand the user `undefined` where the chart belongs.
+ * A WeakMap keeps `w` free of a reference back to the chart.
+ * @type {WeakMap<object, import('../types/internal').ChartContext>}
+ */
+const chartByState = new WeakMap()
+
+/**
+ * Each chart's resolved `chart.animations.easing`, set by applyAnimationPolicy
+ * and stamped on the chart's root <svg> by every Animations built once the
+ * paper exists, where the runners read it (SVGAnimation).
+ * @type {WeakMap<object, (t: number) => number>}
+ */
+const easeByState = new WeakMap()
+
+/**
+ * ApexCharts Animation Class.
+ *
+ * @module Animations
+ **/
+
+export default class Animations {
+  /**
+   * @param {import('../types/internal').ChartStateW} w
+   * @param {import('../types/internal').ChartContext} [ctx]
+   */
+  constructor(w, ctx) {
+    this.w = w
+    this.ctx = ctx // kept for animationEnd user callback: chart.events.animationEnd(ctx, …)
+    if (ctx && w && !chartByState.has(w)) chartByState.set(w, ctx)
+    const paper = w?.dom?.Paper?.node
+    if (paper) paper.__apexEase = easeByState.get(w)
+  }
+
+  /**
+   * Scale-up "pop" effect for scatter/bubble markers. Animates
+   * `transform: scale(0 → 1)` (with `easeOutBack` overshoot) plus opacity,
+   * around the marker's own center via `transform-box: fill-box`.
+   *
+   * Falls back to instant render in SSR / when shouldAnimate is false.
+   *
+   * @param {any} el
+   * @param {{ speed: number, delay?: number, onComplete?: () => void }} params
+   */
+  animatePop(el, { speed, delay = 0, onComplete }) {
+    const w = this.w
+
+    if (!Environment.isBrowser() || !w.globals.shouldAnimate || speed < 1) {
+      if (onComplete) onComplete()
+      return
+    }
+
+    const node = el.node
+    const style = node.style
+    // SVG2 transform-box puts the origin at the element's geometric center
+    // regardless of its (x,y) position, so each marker scales in place.
+    style.transformBox = 'fill-box'
+    style.transformOrigin = 'center'
+    style.transform = 'scale(0)'
+    style.opacity = '0'
+
+    // Pops land in stagger order, so the animation is over when the LAST one
+    // lands: completion waits for the chart's pop count to drain. A destroyed
+    // chart's loop stops before it, so animationEnd never fires on a
+    // torn-down chart (react-apexcharts#602).
+    const startAt = performance.now() + delay
+    const s = onFrame(w, (/** @type {number} */ now) => {
+      const t = Math.max(0, Math.min(1, (now - startAt) / speed))
+      style.transform = `scale(${easeOutBack(t)})`
+      // Fade in over the first half so the back-out overshoot is visible
+      // (rather than blasted in at full opacity from frame 1).
+      style.opacity = String(Math.min(1, t * 2))
+      if (t < 1) return true
+      style.transform = ''
+      style.transformOrigin = ''
+      style.transformBox = ''
+      style.opacity = ''
+      if (!--s.n && onComplete) onComplete()
+    })
+    s.n++
+  }
+
+  /*
+   ** Animate rect properties
+   * @param {any} el
+   * @param {any} from
+   * @param {any} to
+   * @param {number} speed
+   * @param {Function} fn
+   */
+  /** @param {any} el @param {any} from @param {any} to @param {any} speed @param {any} fn @param {number} [delay] */
+  animateRect(el, from, to, speed, fn, delay = 0) {
+    return el
+      .attr(from)
+      .animate(speed, delay)
+      .attr(to)
+      .after(() => fn())
+  }
+
+  /**
+   * @param {Record<string, any>} params
+   */
+  animatePathsGradually(params) {
+    const {
+      el,
+      realIndex,
+      j,
+      fill,
+      pathFrom,
+      pathTo,
+      pathToInterp,
+      speed,
+      delay,
+      scrollMorph,
+    } = params
+
+    const me = this
+    const w = this.w
+
+    let delayFactor = 0
+
+    if (w.config.chart.animations.animateGradually.enabled) {
+      delayFactor = w.config.chart.animations.animateGradually.delay
+    }
+
+    if (
+      w.config.chart.animations.dynamicAnimation.enabled &&
+      w.globals.dataChanged &&
+      w.config.chart.type !== 'bar'
+    ) {
+      // disabled due to this bug - https://github.com/apexcharts/vue-apexcharts/issues/75
+      delayFactor = 0
+    }
+    me.morphSVG(
+      el,
+      realIndex,
+      j,
+      w.config.chart.type === 'line' && !w.globals.comboCharts
+        ? 'stroke'
+        : fill,
+      pathFrom,
+      pathTo,
+      speed,
+      delay * delayFactor,
+      scrollMorph,
+      pathToInterp,
+    )
+  }
+
+  /**
+   * Opacity-fade reveal (see Graphics.renderPaths `revealViaFade`): hide this
+   * path immediately, then reveal the whole series in a single CSS opacity fade
+   * once the synchronous draw pass has finished. Used by the large-dataset bulk
+   * render (> largeDatasetThreshold), where per-path morphs cost too much.
+   * (Candlestick/boxPlot data changes used to fade too; they now morph, keyed
+   * by datum, see Graphics.renderPaths.) Every faded path is
+   * pushed to delayedElements, but only the first one schedules the reveal — a
+   * lone requestAnimationFrame fires after all paths are in the DOM, so N paths
+   * cost one frame callback instead of N morph timelines. The guard flag is
+   * reset inside the callback (and in initGlobalVars) so subsequent renders
+   * re-arm it.
+   * @param {any} el
+   */
+  revealBulk(el) {
+    const w = this.w
+    el.node.classList.add('apexcharts-element-hidden')
+    w.globals.delayedElements.push({ el: el.node })
+    w.globals.fadeRevealEls.push(el.node)
+
+    if (!Environment.isBrowser() || !w.globals.shouldAnimate) {
+      // No animation frame to wait on (SSR / animation off) — reveal at once so
+      // the serialized output isn't frozen at opacity 0.
+      this.animationCompleted(el)
+      return
+    }
+
+    if (!w.globals.bulkRevealScheduled) {
+      w.globals.bulkRevealScheduled = true
+      // the frame loop skips it on a chart destroyed before it ran
+      onFrame(w, () => {
+        w.globals.bulkRevealScheduled = false
+        const faded = w.globals.fadeRevealEls
+        w.globals.fadeRevealEls = []
+        const batch = w.globals.morphBatch
+        if (batch && batch.pending > 0) {
+          // A series that fades can share the render with series that
+          // morph (candles that lost their identity beside a line). The
+          // animation is not over until those land: reveal only what faded
+          // now, and complete when the last morph does.
+          faded.forEach((n) => {
+            n.classList.remove('apexcharts-element-hidden')
+            n.classList.add('apexcharts-hidden-element-shown')
+          })
+          batch.onDone = () => this.animationCompleted(el)
+          return
+        }
+        this.animationCompleted(el)
+      })
+    }
+  }
+
+  showDelayedElements() {
+    /**
+     * @param {object} d
+     */
+    this.w.globals.delayedElements.forEach((d) => {
+      // Entries marked holdUntilComplete stay hidden through the data-change
+      // morph even when an early reveal fires (the updateOptions flow sets
+      // `resized` and reveals immediately in renderPaths). They are released
+      // by animationCompleted, which flips animationEnded first; when
+      // animations are off entirely, animationEnded is already true here.
+      if (d.holdUntilComplete && !this.w.globals.animationEnded) return
+      const ele = d.el
+      ele.classList.remove('apexcharts-element-hidden')
+      ele.classList.add('apexcharts-hidden-element-shown')
+    })
+  }
+
+  /**
+   * @param {any} el
+   */
+  animationCompleted(el) {
+    const w = this.w
+    // A runner cannot be cancelled, so a morph can land after destroy().
+    if (w.globals.animationEnded || w.globals.isDestroyed) return
+
+    w.globals.animationEnded = true
+    this.showDelayedElements()
+
+    if (typeof w.config.chart.events.animationEnd === 'function') {
+      w.config.chart.events.animationEnd(this.ctx || chartByState.get(w), {
+        el,
+        w,
+      })
+    }
+  }
+
+  /**
+   * Initial-mount "pen-stroke" draw effect for line / area / rangeArea paths.
+   *
+   * Stroke paths animate `stroke-dashoffset` from total length → 0.
+   * Fill paths animate the width of a per-series SVG `<mask>` rect from 0 → gridWidth,
+   * which coexists with the existing `clip-path: gridRectMask` (mask + clip-path
+   * are independent SVG attributes).
+   *
+   * For radar / radial shapes, pass `mask: { type: 'radial', cx, cy, r }` to
+   * use a circular mask that blooms from center outward instead of the default
+   * left-to-right rect wipe.
+   *
+   * @param {any} el            - SVG.js path element
+   * @param {{realIndex: number, j?: number, isFill: boolean, isLast: boolean, speed: number, delay: number, mask?: {type: 'rect'|'radial', cx?: number, cy?: number, r?: number}}} params
+   */
+  animateDraw(el, { realIndex, j, isFill, isLast, speed, delay, mask: maskShape }) {
+    const w = this.w
+    const me = this
+
+    const finalize = () => {
+      if (isLast && w.globals.shouldAnimate) {
+        me.animationCompleted(el)
+      }
+      me.showDelayedElements()
+    }
+
+    if (!Environment.isBrowser() || !w.globals.shouldAnimate || speed < 1) {
+      finalize()
+      return
+    }
+
+    const node = el.node
+
+    // Mask-based reveal — works for filled paths (area) and for stroked paths that
+    // already have a custom dash pattern (forecast, user-set stroke.dashArray).
+    const runMaskReveal = () => {
+      const pad = 4
+      const isRadial = maskShape && maskShape.type === 'radial'
+      const targetWidth = w.layout.gridWidth + pad * 2
+      const radialCx = (maskShape && maskShape.cx) || 0
+      const radialCy = (maskShape && maskShape.cy) || 0
+      const targetRadius =
+        ((maskShape && maskShape.r) || w.layout.gridWidth / 2) + pad
+
+      const maskId = `apexDrawMask${w.globals.cuid}-${realIndex}-${j ?? 0}-${isFill ? 'f' : 's'}`
+      const mask = BrowserAPIs.createElementNS(SVGNS, 'mask')
+      mask.setAttribute('id', maskId)
+      mask.setAttribute('maskUnits', 'userSpaceOnUse')
+
+      /** @type {Element} */
+      let revealEl
+      if (isRadial) {
+        // Region must cover the full radar bbox (centered at cx, cy with radius r + pad).
+        const region = targetRadius
+        mask.setAttribute('x', String(radialCx - region))
+        mask.setAttribute('y', String(radialCy - region))
+        mask.setAttribute('width', String(region * 2))
+        mask.setAttribute('height', String(region * 2))
+
+        revealEl = BrowserAPIs.createElementNS(SVGNS, 'circle')
+        revealEl.setAttribute('cx', String(radialCx))
+        revealEl.setAttribute('cy', String(radialCy))
+        revealEl.setAttribute('r', '0')
+        revealEl.setAttribute('fill', '#fff')
+      } else {
+        mask.setAttribute('x', String(-pad))
+        mask.setAttribute('y', String(-pad))
+        mask.setAttribute('width', String(targetWidth))
+        mask.setAttribute('height', String(w.layout.gridHeight + pad * 2))
+
+        revealEl = BrowserAPIs.createElementNS(SVGNS, 'rect')
+        revealEl.setAttribute('x', String(-pad))
+        revealEl.setAttribute('y', String(-pad))
+        revealEl.setAttribute('width', '0')
+        revealEl.setAttribute('height', String(w.layout.gridHeight + pad * 2))
+        revealEl.setAttribute('fill', '#fff')
+      }
+      mask.appendChild(revealEl)
+      w.dom.elDefs.node.appendChild(mask)
+
+      node.setAttribute('mask', `url(#${maskId})`)
+
+      const startAt = performance.now() + (delay || 0)
+      onFrame(w, (/** @type {number} */ now) => {
+        const t = Math.max(0, Math.min(1, (now - startAt) / speed))
+        const eased = easeOutCubic(t)
+        if (isRadial) {
+          revealEl.setAttribute('r', String(eased * targetRadius))
+        } else {
+          revealEl.setAttribute('width', String(eased * targetWidth))
+        }
+        if (t < 1) return true
+        node.removeAttribute('mask')
+        if (mask.parentNode) mask.parentNode.removeChild(mask)
+        finalize()
+      })
+    }
+
+    // Stroke draw via stroke-dashoffset (only safe when no custom dash pattern exists).
+    /** @param {number} len */
+    const runStrokeDraw = (len) => {
+      node.setAttribute('stroke-dasharray', String(len))
+      node.setAttribute('stroke-dashoffset', String(len))
+
+      const startAt = performance.now() + (delay || 0)
+      onFrame(w, (/** @type {number} */ now) => {
+        const t = Math.max(0, Math.min(1, (now - startAt) / speed))
+        node.setAttribute('stroke-dashoffset', String(len * (1 - easeOutCubic(t))))
+        if (t < 1) return true
+        node.removeAttribute('stroke-dasharray')
+        node.removeAttribute('stroke-dashoffset')
+        finalize()
+      })
+    }
+
+    // Defer one frame: callers (e.g. Line.js for forecast paths) set stroke-dasharray
+    // *after* renderPaths returns, so a sync check would miss it. The job only
+    // reads (dash, length) and hands back its writes, which the loop runs
+    // after every path's reads, so N series cost one style and layout flush,
+    // not N. The loop skips it on a destroyed chart, whose DOM is gone
+    // (react-apexcharts#602).
+    onFrame(w, () => {
+      // A stroke with a custom dash pattern keeps it and reveals via the mask
+      // instead of fighting dashoffset.
+      const existingDash = node.getAttribute('stroke-dasharray')
+      if (isFill || (existingDash && existingDash !== '0')) return runMaskReveal
+
+      let len = 0
+      try {
+        len = node.getTotalLength()
+      } catch (_) {
+        // no geometry to measure: nothing to draw
+      }
+      return len ? () => runStrokeDraw(len) : finalize
+    })
+  }
+
+  // SVG.js animation for morphing one path to another
+  /**
+   * @param {any} el
+   * @param {number} realIndex
+   * @param {number} j
+   * @param {string} fill
+   * @param {string} pathFrom
+   * @param {string} pathTo
+   * @param {number} speed
+   * @param {number} delay
+   * @param {boolean} [scrollMorph] - this morph is a streaming scroll (StreamScroll)
+   * @param {string} [pathToInterp] - interpolation target that differs from the
+   *   final path. Reconciled length-change morphs tween toward a padded copy of
+   *   pathTo (extra anchors sitting exactly on the final geometry) and snap to
+   *   the clean pathTo at the end.
+   */
+  morphSVG(
+    el,
+    realIndex,
+    j,
+    fill,
+    pathFrom,
+    pathTo,
+    speed,
+    delay,
+    scrollMorph,
+    pathToInterp,
+  ) {
+    const w = this.w
+
+    if (!pathFrom) {
+      pathFrom = el.attr('pathFrom')
+    }
+
+    if (!pathTo) {
+      pathTo = el.attr('pathTo')
+    }
+
+    const disableAnimationForCorrupPath = () => {
+      if (w.config.chart.type === 'radar') {
+        // radar chart drops the path to bottom and hence a corrup path looks ugly
+        // therefore, disable animation for such a case
+        speed = 1
+      }
+      return `M 0 ${w.layout.gridHeight}`
+    }
+
+    if (
+      !pathFrom ||
+      pathFrom.indexOf('undefined') > -1 ||
+      pathFrom.indexOf('NaN') > -1
+    ) {
+      pathFrom = disableAnimationForCorrupPath()
+    }
+
+    if (
+      !pathTo.trim() ||
+      pathTo.indexOf('undefined') > -1 ||
+      pathTo.indexOf('NaN') > -1
+    ) {
+      pathTo = disableAnimationForCorrupPath()
+      pathToInterp = undefined
+    }
+    if (
+      pathToInterp &&
+      (!pathToInterp.trim() ||
+        pathToInterp.indexOf('undefined') > -1 ||
+        pathToInterp.indexOf('NaN') > -1)
+    ) {
+      // A corrupt padded target must not poison the tween; fall back to the
+      // plain (clean) target morph.
+      pathToInterp = undefined
+    }
+    if (!w.globals.shouldAnimate) {
+      speed = 1
+    }
+
+    // Cross-type morph chains use the polygon-resample engine (smooth tween
+    // between very different shapes via N-point perimeter sampling). Within-
+    // type updates fall back to the default per-command lerp.
+    const crossTypeMorph = this.ctx?.morphTypeChange?.isActive() === true
+    const morphAlgo = crossTypeMorph ? 'polygons' : 'commands'
+
+    // Data-change easing: `dynamicAnimation.easing` (when set) overrides the
+    // chart-wide default for update morphs; a detected streaming scroll
+    // defaults to linear, since a window slide only reads as continuous motion
+    // at constant velocity (the default sine in-out makes it pulse each tick).
+    let morphEase = null
+    if (w.globals.dataChanged) {
+      const dynEasing = w.config.chart.animations.dynamicAnimation.easing
+      if (dynEasing != null) {
+        morphEase = resolveEasing(dynEasing)
+      } else if (scrollMorph) {
+        morphEase = resolveEasing('linear')
+      }
+    }
+
+    // One runner, one delay. The old two-runner chain (a 1ms hold followed by
+    // the real morph, each carrying `delay`) accumulated the delay TWICE in
+    // _executeChain, so every staggered bar started at 2x its intended offset,
+    // drifting away from the axis/data labels that share its clock. The
+    // synchronous plot(pathFrom) already pins the start shape during the wait.
+    // The morphs this render started, so a fade sharing the render can wait
+    // for the last of them (see revealBulk).
+    const batch = w.globals.morphBatch
+    if (batch) batch.pending++
+    const landed = Animations.trackSeriesTween(w, realIndex)
+    const runner = el.plot(pathFrom).animate(speed, delay)
+    if (morphEase) {
+      runner.ease(morphEase)
+    }
+    runner
+      .plot(
+        pathToInterp || pathTo,
+        morphAlgo,
+        pathToInterp ? pathTo : undefined,
+      )
+      .after(() => {
+        // a flag to indicate that the original mount function can return true now as animation finished here
+        if (Utils.isNumber(j)) {
+          // The series may have been replaced (or emptied) by an updateSeries
+          // that landed while this animation was in flight, so the captured
+          // index can point past the current array. Never dereference blindly.
+          const maxSeries = w.seriesData.series[w.globals.maxValsInArrayIndex]
+          if (maxSeries && j === maxSeries.length - 2 && w.globals.shouldAnimate) {
+            this.animationCompleted(el)
+          }
+        } else if (fill !== 'none' && w.globals.shouldAnimate) {
+          if (
+            (!w.globals.comboCharts &&
+              realIndex === w.seriesData.series.length - 1) ||
+            w.globals.comboCharts
+          ) {
+            this.animationCompleted(el)
+          }
+        }
+
+        this.showDelayedElements()
+
+        if (batch && --batch.pending <= 0) {
+          if (batch.onDone) {
+            const done = batch.onDone
+            batch.onDone = null
+            done()
+          }
+          // The last morph of this render has landed: the rules above miss
+          // some shapes (one category has no penultimate point).
+          if (batch === w.globals.morphBatch && w.globals.shouldAnimate) {
+            this.animationCompleted(el)
+          }
+        }
+        landed()
+      })
+  }
+
+  /**
+   * Count one tween of series `realIndex` in this render's batch, and return
+   * the call to make when it lands. A legend-hidden series is cleared the
+   * moment its LAST tween lands (Series.settleCollapsedShapes): a line that
+   * has flattened onto the baseline must not lie there waiting for a timer.
+   * @param {import('../types/internal').ChartStateW} w
+   * @param {any} realIndex
+   * @returns {() => void}
+   */
+  static trackSeriesTween(w, realIndex) {
+    const series = w.globals.morphBatch?.series
+    if (!series || !Utils.isNumber(realIndex)) return () => {}
+    let s = series.get(realIndex)
+    if (!s) {
+      s = { pending: 0, onDone: null }
+      series.set(realIndex, s)
+    }
+    const entry = s
+    entry.pending++
+    let done = false
+    return () => {
+      if (done) return
+      done = true
+      entry.pending--
+      if (entry.pending <= 0 && entry.onDone) {
+        const fn = entry.onDone
+        entry.onDone = null
+        fn()
+      }
+    }
+  }
+}

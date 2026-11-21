@@ -19,8 +19,18 @@ function configurarCorreo(inputCorreo, selectDominio) {
 
     function cargarDominios() {
 
-        selectDominio.innerHTML =
-            "<option value='' selected>DOMINIO</option>";
+        selectDominio.innerHTML = "";
+
+        const correoOpcional = selectDominio.classList.contains(
+            "campo_opcional"
+        );
+        if (correoOpcional) {
+            const opcionVacia = document.createElement("option");
+            opcionVacia.value = "";
+            opcionVacia.textContent = "Seleccione un dominio";
+            opcionVacia.selected = true;
+            selectDominio.appendChild(opcionVacia);
+        }
 
         dominios.forEach(dominio => {
 
@@ -32,6 +42,8 @@ function configurarCorreo(inputCorreo, selectDominio) {
             selectDominio.appendChild(option);
 
         });
+
+        selectDominio.value = correoOpcional ? "" : dominios[0];
     }
 
     inputCorreo.addEventListener("keydown", function (e) {

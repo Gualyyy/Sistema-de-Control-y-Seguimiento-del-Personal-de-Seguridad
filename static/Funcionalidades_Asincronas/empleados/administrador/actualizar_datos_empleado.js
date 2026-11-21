@@ -54,6 +54,26 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const contador_nacimiento = document.getElementById("contador_nacimiento");
     const contador_residencia = document.getElementById("contador_residencia");
+    const mensaje_ci_requerida = "La cédula de identidad es obligatoria.";
+
+    function mostrar_error_ci_requerida() {
+        input_actualizar_cedula.setCustomValidity(mensaje_ci_requerida);
+        input_actualizar_cedula.classList.add("is-invalid");
+        input_actualizar_cedula.classList.remove("is-valid");
+        contenedor_mensaje_ci.textContent = mensaje_ci_requerida;
+        contenedor_mensaje_ci.classList.add("error");
+        contenedor_mensaje_ci.classList.remove("exito");
+        btn_actualizar.disabled = true;
+    }
+
+    function actualizar_estado_boton() {
+        const campos = formulario_actualizar.querySelectorAll(
+            "input, select, textarea"
+        );
+        btn_actualizar.disabled = Array.from(campos).some(
+            campo => !campo.disabled && !campo.validity.valid
+        );
+    }
 
     configurarCedula(input_cedula_identidad, select_nacionalidad);
     configurarCedula(input_actualizar_cedula, select_actualizar_nacionalidad);
@@ -1163,80 +1183,80 @@ document.addEventListener("DOMContentLoaded", () => {
         "Andrés Eloy Blanco": ["El Cantón", "Santa Cruz de Guacas", "Puerto Vivas", "Dominga Ortiz de Páez"]
     };
 
-    function cargarPaises() {
+    function cargarPaises(paisSeleccionado = "Venezuela") {
         select_actualizar_pais_nacimiento.innerHTML = "";
 
-        paises.forEach(paises => {
+        paises.forEach(pais => {
             const opcion = document.createElement("option");
-            opcion.value = paises;
-            opcion.textContent = paises;
+            opcion.value = pais;
+            opcion.textContent = pais;
+            if (pais === paisSeleccionado) {
+                opcion.selected = true;
+            }
             select_actualizar_pais_nacimiento.appendChild(opcion);
         });
     }
-    cargarPaises();
 
-    function cargarEstados() {
+    function cargarEstados(estadoSeleccionado = "Barinas") {
         select_actualizar_estado_nacimiento.innerHTML = "";
 
         Estado.forEach(estado => {
             const opcion = document.createElement("option");
             opcion.value = estado;
             opcion.textContent = estado;
+            if (estado === estadoSeleccionado) {
+                opcion.selected = true;
+            }
             select_actualizar_estado_nacimiento.appendChild(opcion);
         });
     }
-    cargarEstados();
 
-    function cargarMunicipios(municipioSeleccionado = "") {
+    function cargarMunicipios(municipioSeleccionado = "Barinas") {
         const estado = select_actualizar_estado_nacimiento.value;
 
         select_actualizar_municipio_nacimiento.innerHTML = "";
 
         if (estado in municipiosPorEstado) {
             municipiosPorEstado[estado].forEach(municipio => {
-
                 const option = document.createElement("option");
                 option.value = municipio;
                 option.textContent = municipio;
-
                 if (municipio === municipioSeleccionado) {
                     option.selected = true;
                 }
-
                 select_actualizar_municipio_nacimiento.appendChild(option);
             });
-
-            if (!municipioSeleccionado) {
-                select_actualizar_municipio_nacimiento.selectedIndex = 0;
-            }
         }
     }
 
-    function cargarParroquias(parroquiaSeleccionada = "") {
+    function cargarParroquias(parroquiaSeleccionada = "El Carmen") {
         const estado = select_actualizar_estado_nacimiento.value;
         const municipio = select_actualizar_municipio_nacimiento.value;
 
-        if (parroquiasPorMunicipio[estado] && parroquiasPorMunicipio[estado][municipio]) {
+        select_actualizar_parroquia_nacimiento.innerHTML = "";
 
+        if (parroquiasPorMunicipio[estado] && parroquiasPorMunicipio[estado][municipio]) {
             parroquiasPorMunicipio[estado][municipio].forEach(parroquia => {
 
                 const option = document.createElement("option");
                 option.value = parroquia;
                 option.textContent = parroquia;
-
                 if (parroquia === parroquiaSeleccionada) {
                     option.selected = true;
                 }
 
                 select_actualizar_parroquia_nacimiento.appendChild(option);
             });
-
-            if (!parroquiaSeleccionada) {
-                select_actualizar_parroquia_nacimiento.selectedIndex = 0;
-            }
         }
     }
 
+    // CARGA INICIAL
+    cargarPaises();
+    cargarEstados();
+    cargarMunicipios();
+    cargarParroquias();
+
+    // CAMBIOS MANUALES
     select_actualizar_estado_nacimiento.addEventListener("change", () => {
         cargarMunicipios();
         cargarParroquias();
@@ -1246,7 +1266,7 @@ document.addEventListener("DOMContentLoaded", () => {
         cargarParroquias();
     });
 
-    function cargarMunicipiosResidencia(municipioSeleccionado = "") {
+    function cargarMunicipiosResidencia(municipioSeleccionado = "Barinas") {
         select_actualizar_municipio_residencia.innerHTML = "";
 
         municipios.forEach(municipio => {
@@ -1258,14 +1278,9 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             select_actualizar_municipio_residencia.appendChild(option);
         });
-
-        if (!municipioSeleccionado) {
-            select_actualizar_municipio_residencia.selectedIndex = 0;
-        }
     }
-    cargarMunicipiosResidencia();
 
-    function cargarParroquiasResidencia(parroquiaSeleccionada = "") {
+    function cargarParroquiasResidencia(parroquiaSeleccionada = "El Carmen") {
         const municipio = select_actualizar_municipio_residencia.value;
 
         select_actualizar_parroquia_residencia.innerHTML = "";
@@ -1273,25 +1288,22 @@ document.addEventListener("DOMContentLoaded", () => {
         if (municipio in parroquiasPorMunicipioResidencia) {
 
             parroquiasPorMunicipioResidencia[municipio].forEach(parroquia => {
-
                 const option = document.createElement("option");
                 option.value = parroquia;
                 option.textContent = parroquia;
-
                 if (parroquia === parroquiaSeleccionada) {
                     option.selected = true;
                 }
-
                 select_actualizar_parroquia_residencia.appendChild(option);
             });
-
-            if (!parroquiaSeleccionada) {
-                select_actualizar_parroquia_residencia.selectedIndex = 0;
-            }
         }
     }
+
+    // CARGA INICIAL
+    cargarMunicipiosResidencia();
     cargarParroquiasResidencia();
 
+    // CAMBIOS MANUALES
     select_actualizar_municipio_residencia.addEventListener("change", () => {
         cargarParroquiasResidencia();
     });
@@ -1299,11 +1311,17 @@ document.addEventListener("DOMContentLoaded", () => {
     // VALIDAR CAMPOS CRITICOS
     async function validar_ci(nacionalidad, cedula, msg) {
         if (!nacionalidad.value || !cedula.value.trim()) {
-            msg.textContent = "";
-            msg.classList.remove("exito", "error");
-
-            cedula.setCustomValidity("");
-            cedula.classList.remove("is-valid", "is-invalid");
+            if (
+                cedula === input_actualizar_cedula &&
+                !cedula.value.trim()
+            ) {
+                mostrar_error_ci_requerida();
+            } else {
+                msg.textContent = "";
+                msg.classList.remove("exito", "error");
+                cedula.setCustomValidity("");
+                cedula.classList.remove("is-valid", "is-invalid");
+            }
 
             btn_actualizar.disabled = true;
             return;
@@ -1325,9 +1343,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 },
                 body: formulario
             });
-
             const resultado = await respuesta.json();
-
             console.log(resultado);
 
             if (resultado.existe) {
@@ -1360,7 +1376,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 msg.classList.add("exito");
                 msg.classList.remove("error");
 
-                btn_actualizar.disabled = false;
+                actualizar_estado_boton();
             }
 
         } catch (error) {
@@ -1368,19 +1384,35 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
+    input_actualizar_cedula.addEventListener("invalid", () => {
+        if (!input_actualizar_cedula.value.trim()) {
+            mostrar_error_ci_requerida();
+        }
+    });
+
     input_actualizar_cedula.addEventListener("input", async () => {
         const nacionalidad = select_actualizar_nacionalidad.value;
         const cedula = input_actualizar_cedula.value.trim();
 
         // Sin nacionalidad o cédula vacía
         if (!nacionalidad || !cedula) {
-            contenedor_mensaje_ci.textContent = "";
-            contenedor_mensaje_ci.classList.remove("exito", "error"); // Limpia estilos de caja
-
-            input_actualizar_cedula.setCustomValidity("");
-            input_actualizar_cedula.classList.remove("is-valid", "is-invalid");
+            if (!cedula) {
+                mostrar_error_ci_requerida();
+            } else {
+                contenedor_mensaje_ci.textContent = "";
+                contenedor_mensaje_ci.classList.remove("exito", "error");
+                input_actualizar_cedula.setCustomValidity("");
+                input_actualizar_cedula.classList.remove(
+                    "is-valid",
+                    "is-invalid"
+                );
+            }
             return;
         }
+
+        input_actualizar_cedula.setCustomValidity("");
+        contenedor_mensaje_ci.textContent = "";
+        contenedor_mensaje_ci.classList.remove("exito", "error");
 
         let longitudMinima;
         let longitudMaxima;
@@ -1424,38 +1456,56 @@ document.addEventListener("DOMContentLoaded", () => {
         const valorCorreo = correo.value.trim().toLowerCase();
         const valorDominio = dominio.value.trim().toLowerCase();
 
-        // Cancelar petición anterior del mismo campo
         if (tipo === "principal") {
-
             if (controlador_correo_principal) {
                 controlador_correo_principal.abort();
             }
-
         } else {
-
             if (controlador_correo_secundario) {
                 controlador_correo_secundario.abort();
             }
         }
 
-        // CORREO O DOMINIO VACÍO
-        if (!valorDominio || !valorCorreo) {
+        if (!valorCorreo || !valorDominio) {
+            if (
+                tipo === "secundario" &&
+                !valorCorreo &&
+                !valorDominio
+            ) {
+                msg.textContent = "";
+                msg.classList.remove("exito", "error");
+                correo.setCustomValidity("");
+                correo.classList.remove("is-valid", "is-invalid");
+                actualizar_estado_boton();
+                return;
+            }
+
+            if (tipo === "secundario") {
+                const mensaje = (
+                    "Complete el usuario y el dominio del correo "
+                    + "secundario, o deje ambos campos vacíos."
+                );
+                correo.setCustomValidity(mensaje);
+                correo.classList.add("is-invalid");
+                correo.classList.remove("is-valid");
+                msg.textContent = mensaje;
+                msg.classList.add("error");
+                msg.classList.remove("exito");
+                actualizar_estado_boton();
+                return;
+            }
+
             msg.textContent = "";
-            msg.classList.remove(
-                "exito",
-                "error"
-            );
+            msg.classList.remove("exito", "error");
+
             correo.setCustomValidity("");
-            correo.classList.remove(
-                "is-valid",
-                "is-invalid"
-            );
+            correo.classList.remove("is-valid", "is-invalid");
+
             btn_actualizar.disabled = true;
             return;
         }
 
-
-        // COMPROBAR SI PRINCIPAL Y SECUNDARIO SON IGUALES
+        // Comprobar que el correo principal y secundario sean diferentes.
         const valorOtroCorreo = otro_correo.value.trim().toLowerCase();
         const valorOtroDominio = otro_dominio.value.trim().toLowerCase();
 
@@ -1463,38 +1513,29 @@ document.addEventListener("DOMContentLoaded", () => {
             valorOtroDominio &&
             valorCorreo === valorOtroCorreo &&
             valorDominio === valorOtroDominio) {
-            correo.setCustomValidity(
-                "El correo electrónico principal y secundario no pueden ser iguales."
-            );
-            correo.classList.add(
-                "is-invalid"
-            );
-            correo.classList.remove(
-                "is-valid"
-            );
+            correo.setCustomValidity("El correo electrónico principal y secundario no pueden ser iguales.");
+            correo.classList.add("is-invalid");
+            correo.classList.remove("is-valid");
+
             msg.textContent = "El correo electrónico principal y secundario no pueden ser iguales.";
-            msg.classList.add(
-                "error"
-            );
-            msg.classList.remove(
-                "exito"
-            );
+            msg.classList.add("error");
+            msg.classList.remove("exito");
+
             btn_actualizar.disabled = true;
             return;
         }
 
-        // CREAR CONTROLADOR
         const controlador = new AbortController();
 
         if (tipo === "principal") {
             controlador_correo_principal = controlador;
-
         } else {
             controlador_correo_secundario = controlador;
         }
 
         try {
             const formulario = new FormData();
+
             formulario.append("correo", valorCorreo);
             formulario.append("dominio", valorDominio);
             formulario.append("id_usuario", input_id_usuario.value);
@@ -1512,47 +1553,41 @@ document.addEventListener("DOMContentLoaded", () => {
             const resultado = await respuesta.json();
             console.log(resultado);
 
-            // COMPROBAR QUE EL VALOR NO CAMBIÓ
+            // Ignorar respuestas de peticiones anteriores.
+            const controladorActual = tipo === "principal"
+                ? controlador_correo_principal
+                : controlador_correo_secundario;
+
+            if (controladorActual !== controlador) {
+                return;
+            }
+
+            // Comprobar que los campos no hayan cambiado.
             if (correo.value.trim().toLowerCase() !== valorCorreo ||
                 dominio.value.trim().toLowerCase() !== valorDominio) {
                 return;
             }
 
-            // CORREO YA EXISTE EN OTRO USUARIO
             if (resultado.existe) {
-                correo.setCustomValidity(
-                    "Ya existe un usuario con este correo electrónico."
-                );
-                correo.classList.add(
-                    "is-invalid"
-                );
-                correo.classList.remove(
-                    "is-valid"
-                );
+                correo.setCustomValidity("Ya existe un usuario con este correo electrónico.");
+                correo.classList.add("is-invalid");
+                correo.classList.remove("is-valid");
+
                 msg.textContent = "Ya existe un usuario con este correo electrónico.";
-                msg.classList.add(
-                    "error"
-                );
-                msg.classList.remove(
-                    "exito"
-                );
+                msg.classList.add("error");
+                msg.classList.remove("exito");
+
                 btn_actualizar.disabled = true;
             } else {
                 correo.setCustomValidity("");
-                correo.classList.add(
-                    "is-valid"
-                );
-                correo.classList.remove(
-                    "is-invalid"
-                );
+                correo.classList.add("is-valid");
+                correo.classList.remove("is-invalid");
+
                 msg.textContent = "El correo electrónico está disponible.";
-                msg.classList.add(
-                    "exito"
-                );
-                msg.classList.remove(
-                    "error"
-                );
-                btn_actualizar.disabled = false;
+                msg.classList.add("exito");
+                msg.classList.remove("error");
+
+                actualizar_estado_boton();
             }
 
         } catch (error) {
@@ -1560,20 +1595,27 @@ document.addEventListener("DOMContentLoaded", () => {
                 return;
             }
 
-            console.error(error);
+            console.error("Error al validar el correo electrónico:", error);
+
+            correo.setCustomValidity("No se pudo verificar el correo electrónico. Inténtalo nuevamente.");
+            correo.classList.add("is-invalid");
+            correo.classList.remove("is-valid");
+
+            msg.textContent = "No se pudo verificar el correo electrónico. Inténtalo nuevamente.";
+            msg.classList.add("error");
+            msg.classList.remove("exito");
+
+            btn_actualizar.disabled = true;
         }
     }
 
-    // CORREO PRINCIPAL
     input_actualizar_correo_principal.addEventListener("input", async () => {
         await validar_correo(
             input_actualizar_correo_principal,
             select_actualizar_dominio_principal,
             contenedor_mensaje_correo_principal,
-
             input_actualizar_correo_secundario,
             select_actualizar_dominio_secundario,
-
             "principal"
         );
     });
@@ -1583,24 +1625,19 @@ document.addEventListener("DOMContentLoaded", () => {
             input_actualizar_correo_principal,
             select_actualizar_dominio_principal,
             contenedor_mensaje_correo_principal,
-
             input_actualizar_correo_secundario,
             select_actualizar_dominio_secundario,
-
             "principal"
         );
     });
 
-    // CORREO SECUNDARIO
     input_actualizar_correo_secundario.addEventListener("input", async () => {
         await validar_correo(
             input_actualizar_correo_secundario,
             select_actualizar_dominio_secundario,
             contenedor_mensaje_correo_secundario,
-
             input_actualizar_correo_principal,
             select_actualizar_dominio_principal,
-
             "secundario"
         );
     });
@@ -1610,10 +1647,8 @@ document.addEventListener("DOMContentLoaded", () => {
             input_actualizar_correo_secundario,
             select_actualizar_dominio_secundario,
             contenedor_mensaje_correo_secundario,
-
             input_actualizar_correo_principal,
             select_actualizar_dominio_principal,
-
             "secundario"
         );
     });
@@ -1621,85 +1656,82 @@ document.addEventListener("DOMContentLoaded", () => {
     let controlador_telefono_principal = null;
     let controlador_telefono_secundario = null;
 
-    async function validar_telefono(prefijo, numero, msg, otro_prefijo, otro_numero, tipo) {
+    async function validar_telefono(numero, prefijo, msg, otro_prefijo, otro_numero, tipo) {
         const valorPrefijo = prefijo.value.trim();
         const valorNumero = numero.value.trim();
 
-        // CANCELAR PETICIÓN ANTERIOR DEL MISMO CAMPO
         if (tipo === "principal") {
-
             if (controlador_telefono_principal) {
                 controlador_telefono_principal.abort();
             }
-
         } else {
-
             if (controlador_telefono_secundario) {
                 controlador_telefono_secundario.abort();
             }
         }
 
-
-        // PREFIJO O NÚMERO VACÍO
         if (!valorPrefijo || !valorNumero) {
+            if (
+                tipo === "secundario" &&
+                !valorPrefijo &&
+                !valorNumero
+            ) {
+                msg.textContent = "";
+                msg.classList.remove("exito", "error");
+                numero.setCustomValidity("");
+                numero.classList.remove("is-valid", "is-invalid");
+                actualizar_estado_boton();
+                return;
+            }
+
+            if (tipo === "secundario") {
+                const mensaje = (
+                    "Complete el prefijo y el número, o deje vacío "
+                    + "el teléfono secundario."
+                );
+                numero.setCustomValidity(mensaje);
+                numero.classList.add("is-invalid");
+                numero.classList.remove("is-valid");
+                msg.textContent = mensaje;
+                msg.classList.add("error");
+                msg.classList.remove("exito");
+                actualizar_estado_boton();
+                return;
+            }
+
             msg.textContent = "";
-            msg.classList.remove(
-                "exito",
-                "error"
-            );
+            msg.classList.remove("exito", "error");
+
             numero.setCustomValidity("");
-            numero.classList.remove(
-                "is-valid",
-                "is-invalid"
-            );
+            numero.classList.remove("is-valid", "is-invalid");
+
             btn_actualizar.disabled = true;
             return;
         }
 
-        // COMPROBAR PRINCIPAL = SECUNDARIO
         const valorOtroPrefijo = otro_prefijo.value.trim();
         const valorOtroNumero = otro_numero.value.trim();
 
-        if (
-            valorOtroPrefijo &&
+        if (valorOtroPrefijo &&
             valorOtroNumero &&
             valorPrefijo === valorOtroPrefijo &&
-            valorNumero === valorOtroNumero
-        ) {
+            valorNumero === valorOtroNumero) {
+            numero.setCustomValidity("El teléfono principal y secundario no pueden ser iguales.");
+            numero.classList.add("is-invalid");
+            numero.classList.remove("is-valid");
 
-            numero.setCustomValidity(
-                "El teléfono principal y secundario no pueden ser iguales."
-            );
-
-            numero.classList.add(
-                "is-invalid"
-            );
-
-            numero.classList.remove(
-                "is-valid"
-            );
-
-            msg.textContent =
-                "El teléfono principal y secundario no pueden ser iguales.";
-
-            msg.classList.add(
-                "error"
-            );
-
-            msg.classList.remove(
-                "exito"
-            );
+            msg.textContent = "El teléfono principal y secundario no pueden ser iguales.";
+            msg.classList.add("error");
+            msg.classList.remove("exito");
 
             btn_actualizar.disabled = true;
-
             return;
         }
 
-        // CREAR CONTROLADOR
         const controlador = new AbortController();
+
         if (tipo === "principal") {
             controlador_telefono_principal = controlador;
-
         } else {
             controlador_telefono_secundario = controlador;
         }
@@ -1723,123 +1755,102 @@ document.addEventListener("DOMContentLoaded", () => {
             const resultado = await respuesta.json();
             console.log(resultado);
 
-            // COMPROBAR QUE EL VALOR NO CAMBIÓ
+            // Ignorar respuestas de solicitudes que ya fueron canceladas.
+            const controladorActual = tipo === "principal"
+                ? controlador_telefono_principal
+                : controlador_telefono_secundario;
+
+            if (controladorActual !== controlador) {
+                return;
+            }
+
+            // Comprobar que los valores no hayan cambiado durante la petición.
             if (prefijo.value.trim() !== valorPrefijo || numero.value.trim() !== valorNumero) {
                 return;
             }
 
-            // TELÉFONO YA EXISTE
             if (resultado.existe) {
-                numero.setCustomValidity(
-                    "Ya existe un usuario con este número telefónico."
-                );
-                numero.classList.add(
-                    "is-invalid"
-                );
-                numero.classList.remove(
-                    "is-valid"
-                );
+                numero.setCustomValidity("Ya existe un usuario con este número telefónico.");
+                numero.classList.add("is-invalid");
+                numero.classList.remove("is-valid");
                 msg.textContent = "Ya existe un usuario con este número telefónico.";
-                msg.classList.add(
-                    "error"
-                );
-                msg.classList.remove(
-                    "exito"
-                );
+                msg.classList.add("error");
+                msg.classList.remove("exito");
+
                 btn_actualizar.disabled = true;
             } else {
                 numero.setCustomValidity("");
-                numero.classList.add(
-                    "is-valid"
-                );
-                numero.classList.remove(
-                    "is-invalid"
-                );
+                numero.classList.add("is-valid");
+                numero.classList.remove("is-invalid");
 
-                msg.textContent =
-                    "El número telefónico está disponible.";
+                msg.textContent = "El número telefónico está disponible.";
+                msg.classList.add("exito");
+                msg.classList.remove("error");
 
-                msg.classList.add(
-                    "exito"
-                );
-
-                msg.classList.remove(
-                    "error"
-                );
-
-                btn_actualizar.disabled = false;
+                actualizar_estado_boton();
             }
 
-
         } catch (error) {
-
             if (error.name === "AbortError") {
                 return;
             }
 
-            console.error(
-                "Error al validar el teléfono:",
-                error
-            );
+            console.error("Error al validar el teléfono:", error);
+
+            numero.setCustomValidity("No se pudo verificar el teléfono. Inténtalo nuevamente.");
+            numero.classList.add("is-invalid");
+            numero.classList.remove("is-valid");
+
+            msg.textContent = "No se pudo verificar el teléfono. Inténtalo nuevamente.";
+            msg.classList.add("error");
+            msg.classList.remove("exito");
+
+            btn_actualizar.disabled = true;
         }
     }
 
-    // TELÉFONO PRINCIPAL - NÚMERO
     input_actualizar_num_telefono_principal.addEventListener("input", async () => {
         await validar_telefono(
             input_actualizar_num_telefono_principal,
             select_actualizar_prefijo_principal,
             contenedor_mensaje_telefono_principal,
-
             select_actualizar_prefijo_secundario,
             input_actualizar_num_telefono_secundario,
-
             "principal"
         );
     });
 
-    // TELÉFONO PRINCIPAL - PREFIJO
     select_actualizar_prefijo_principal.addEventListener("change", async () => {
         await validar_telefono(
             input_actualizar_num_telefono_principal,
             select_actualizar_prefijo_principal,
             contenedor_mensaje_telefono_principal,
-
             select_actualizar_prefijo_secundario,
             input_actualizar_num_telefono_secundario,
-
             "principal"
         );
     });
 
-    // TELÉFONO SECUNDARIO - NÚMERO
     input_actualizar_num_telefono_secundario.addEventListener("input", async () => {
         await validar_telefono(
             input_actualizar_num_telefono_secundario,
             select_actualizar_prefijo_secundario,
             contenedor_mensaje_telefono_secundario,
-
             select_actualizar_prefijo_principal,
             input_actualizar_num_telefono_principal,
-
             "secundario"
         );
-
     });
 
-    // TELÉFONO SECUNDARIO - PREFIJO
     select_actualizar_prefijo_secundario.addEventListener("change", async () => {
         await validar_telefono(
             input_actualizar_num_telefono_secundario,
             select_actualizar_prefijo_secundario,
             contenedor_mensaje_telefono_secundario,
-
             select_actualizar_prefijo_principal,
             input_actualizar_num_telefono_principal,
-
             "secundario"
         );
-
     });
 
     // BLOQUEAR LOS CONTROLES ANTES DE LA BUSQUEDA DE LOS DATOS
@@ -1920,12 +1931,64 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     input_actualizar_nombre.addEventListener("input", () => {
-        soloTexto(this);
+        soloTexto(input_actualizar_nombre);
     });
 
     input_actualizar_apellido.addEventListener("input", () => {
-        soloTexto(this);
+        soloTexto(input_actualizar_apellido);
     });
+
+    function mostrarNoRegistrado(elemento) {
+        elemento.disabled = true;
+
+        if (elemento.tagName === "SELECT") {
+            let opcion = Array.from(elemento.options).find(
+                option => option.value === "No registrado"
+            );
+
+            if (!opcion) {
+                opcion = document.createElement("option");
+                opcion.value = "No registrado";
+                opcion.textContent = "No registrado";
+                elemento.appendChild(opcion);
+            }
+
+            elemento.value = "No registrado";
+        } else {
+            elemento.value = "No registrado";
+        }
+    }
+
+    function habilitarCampos(campos) {
+        campos.forEach(campo => {
+            campo.disabled = false;
+        });
+    }
+
+    function establecerCamposObligatorios(campos, requeridos) {
+        campos.forEach(campo => {
+            campo.required = requeridos.includes(campo);
+        });
+    }
+
+    const campos_nacimiento = [
+        select_actualizar_pais_nacimiento,
+        select_actualizar_estado_nacimiento,
+        select_actualizar_municipio_nacimiento,
+        select_actualizar_parroquia_nacimiento,
+        input_actualizar_estado_vzla_nacimiento,
+        input_actualizar_municipio_vzla_nacimiento,
+        input_actualizar_parroquia_vzla_nacimiento,
+        textarea_actualizar_direccion_nacimiento,
+        input_actualizar_fecha_nacimiento
+    ];
+
+    const campos_residencia = [
+        select_actualizar_condicion_residencia,
+        select_actualizar_municipio_residencia,
+        select_actualizar_parroquia_residencia,
+        textarea_actualizar_direccion_residencia
+    ];
 
     // BUSCAR LOS DATOS DEL EMPLEADO
     formulario_busqueda.addEventListener("submit", async (e) => {
@@ -1960,6 +2023,10 @@ document.addEventListener("DOMContentLoaded", () => {
             });
 
             bloquearFormularioActualizar(false);
+            establecerCamposObligatorios(
+                [...campos_nacimiento, ...campos_residencia],
+                []
+            );
 
             input_id_usuario.value = resultado.usuario.id;
             input_actualizar_nombre.value = resultado.usuario.nombres;
@@ -1977,19 +2044,29 @@ document.addEventListener("DOMContentLoaded", () => {
             select_actualizar_nacionalidad.append(option_nacionalidad);
             input_actualizar_cedula.value = cedula;
 
+            // GÉNERO
             const option_genero = document.createElement("option");
             option_genero.value = resultado.usuario.genero;
             option_genero.textContent = resultado.usuario.genero;
-            option_genero.selected = true;
-            option_genero.hidden = true;
-            select_actualizar_genero.append(option_genero);
+            if (resultado.usuario.genero) {
+                option_genero.selected = true;
+                option_genero.hidden = true;
+                select_actualizar_genero.append(option_genero);
+            } else {
+                select_actualizar_genero.selectedIndex = -1;
+            }
 
+            // ESTADO CIVIL
             const option_estado_civil = document.createElement("option");
             option_estado_civil.value = resultado.usuario.estado_civil;
             option_estado_civil.textContent = resultado.usuario.estado_civil;
-            option_estado_civil.selected = true;
-            option_estado_civil.hidden = true;
-            select_actualizar_estado_civil.append(option_estado_civil);
+            if (resultado.usuario.estado_civil) {
+                option_estado_civil.selected = true;
+                option_estado_civil.hidden = true;
+                select_actualizar_estado_civil.append(option_estado_civil);
+            } else {
+                select_actualizar_estado_civil.selectedIndex = -1;
+            }
 
             const [prefijo_principal, telefono_principal] = resultado.contacto.telefono_principal.split("-");
 
@@ -2040,85 +2117,178 @@ document.addEventListener("DOMContentLoaded", () => {
                 select_actualizar_dominio_secundario.append(option_dominio_secundaria);
             }
 
-            const option_pais_nacimiento = document.createElement("option");
-            option_pais_nacimiento.value = resultado.nacimiento.pais;
-            option_pais_nacimiento.textContent = resultado.nacimiento.pais;
-            option_pais_nacimiento.selected = true;
-            option_pais_nacimiento.hidden = true;
-            select_actualizar_pais_nacimiento.append(option_pais_nacimiento);
+            if (resultado.nacimiento.pais !== "No registrado") {
 
-            if (resultado.nacimiento.pais == "Venezuela") {
-                const option_estado_nacimiento = document.createElement("option");
-                option_estado_nacimiento.value = resultado.nacimiento.estado;
-                option_estado_nacimiento.textContent = resultado.nacimiento.estado;
-                option_estado_nacimiento.selected = true;
-                option_estado_nacimiento.hidden = true;
-                select_actualizar_estado_nacimiento.append(option_estado_nacimiento);
+                habilitarCampos(campos_nacimiento);
+                const campos_nacimiento_requeridos = [
+                    select_actualizar_pais_nacimiento,
+                    textarea_actualizar_direccion_nacimiento,
+                    input_actualizar_fecha_nacimiento
+                ];
 
-                const option_municipio_nacimiento = document.createElement("option");
-                option_municipio_nacimiento.value = resultado.nacimiento.municipio;
-                option_municipio_nacimiento.textContent = resultado.nacimiento.municipio;
-                option_municipio_nacimiento.selected = true;
-                option_municipio_nacimiento.hidden = true;
-                select_actualizar_municipio_nacimiento.append(option_municipio_nacimiento);
+                const option_pais_nacimiento = document.createElement("option");
+                option_pais_nacimiento.value = resultado.nacimiento.pais;
+                option_pais_nacimiento.textContent = resultado.nacimiento.pais;
+                option_pais_nacimiento.selected = true;
+                option_pais_nacimiento.hidden = true;
+                select_actualizar_pais_nacimiento.append(option_pais_nacimiento);
 
-                const option_parroquia_nacimiento = document.createElement("option");
-                option_parroquia_nacimiento.value = resultado.nacimiento.parroquia;
-                option_parroquia_nacimiento.textContent = resultado.nacimiento.parroquia;
-                option_parroquia_nacimiento.selected = true;
-                option_parroquia_nacimiento.hidden = true;
-                select_actualizar_parroquia_nacimiento.append(option_parroquia_nacimiento);
+                if (resultado.nacimiento.pais === "Venezuela") {
+                    campos_nacimiento_requeridos.push(
+                        select_actualizar_estado_nacimiento,
+                        select_actualizar_municipio_nacimiento,
+                        select_actualizar_parroquia_nacimiento
+                    );
 
-                cargarMunicipios(resultado.nacimiento.municipio);
+                    const option_estado_nacimiento = document.createElement("option");
+                    option_estado_nacimiento.value = resultado.nacimiento.estado;
+                    option_estado_nacimiento.textContent = resultado.nacimiento.estado;
+                    option_estado_nacimiento.selected = true;
+                    option_estado_nacimiento.hidden = true;
+                    select_actualizar_estado_nacimiento.append(option_estado_nacimiento);
 
-                cargarParroquias(resultado.nacimiento.parroquia);
+                    const option_municipio_nacimiento = document.createElement("option");
+                    option_municipio_nacimiento.value = resultado.nacimiento.municipio;
+                    option_municipio_nacimiento.textContent = resultado.nacimiento.municipio;
+                    option_municipio_nacimiento.selected = true;
+                    option_municipio_nacimiento.hidden = true;
+                    select_actualizar_municipio_nacimiento.append(option_municipio_nacimiento);
+
+                    const option_parroquia_nacimiento = document.createElement("option");
+                    option_parroquia_nacimiento.value = resultado.nacimiento.parroquia;
+                    option_parroquia_nacimiento.textContent = resultado.nacimiento.parroquia;
+                    option_parroquia_nacimiento.selected = true;
+                    option_parroquia_nacimiento.hidden = true;
+                    select_actualizar_parroquia_nacimiento.append(option_parroquia_nacimiento);
+
+                    cargarMunicipios(resultado.nacimiento.municipio);
+                    cargarParroquias(resultado.nacimiento.parroquia);
+
+                } else {
+                    campos_nacimiento_requeridos.push(
+                        input_actualizar_estado_vzla_nacimiento,
+                        input_actualizar_municipio_vzla_nacimiento,
+                        input_actualizar_parroquia_vzla_nacimiento
+                    );
+                    input_actualizar_estado_vzla_nacimiento.value = resultado.nacimiento.estado;
+                    input_actualizar_municipio_vzla_nacimiento.value = resultado.nacimiento.municipio;
+                    input_actualizar_parroquia_vzla_nacimiento.value = resultado.nacimiento.parroquia;
+                }
+
+                establecerCamposObligatorios(
+                    campos_nacimiento,
+                    campos_nacimiento_requeridos
+                );
+                textarea_actualizar_direccion_nacimiento.value = resultado.nacimiento.direccion;
+
+                actualizarContador(
+                    textarea_actualizar_direccion_nacimiento,
+                    contador_nacimiento
+                );
+
+                input_actualizar_fecha_nacimiento.value = resultado.nacimiento.fecha_nacimiento;
+
             } else {
-                input_actualizar_estado_vzla_nacimiento.value = resultado.nacimiento.estado;
-                input_actualizar_municipio_vzla_nacimiento.value = resultado.nacimiento.municipio;
-                input_actualizar_parroquia_vzla_nacimiento.value = resultado.nacimiento.parroquia;
+                campos_nacimiento.forEach(mostrarNoRegistrado);
+                actualizarContador(textarea_actualizar_direccion_nacimiento, contador_nacimiento);
             }
 
-            textarea_actualizar_direccion_nacimiento.value = resultado.nacimiento.direccion;
+            if (resultado.residencia.condicion_residencia !== "No registrado") {
 
-            actualizarContador(textarea_actualizar_direccion_nacimiento, contador_nacimiento);
+                habilitarCampos(campos_residencia);
+                establecerCamposObligatorios(
+                    campos_residencia,
+                    campos_residencia
+                );
 
-            input_actualizar_fecha_nacimiento.value = resultado.nacimiento.fecha_nacimiento;
+                const option_condicion_residencia = document.createElement("option");
+                option_condicion_residencia.value = resultado.residencia.condicion_residencia;
+                option_condicion_residencia.textContent = resultado.residencia.condicion_residencia;
+                option_condicion_residencia.selected = true;
+                option_condicion_residencia.hidden = true;
+                select_actualizar_condicion_residencia.append(option_condicion_residencia);
 
-            const option_condicion_residencia = document.createElement("option");
-            option_condicion_residencia.value = resultado.residencia.condicion_residencia;
-            option_condicion_residencia.textContent = resultado.residencia.condicion_residencia;
-            option_condicion_residencia.selected = true;
-            option_condicion_residencia.hidden = true;
-            select_actualizar_condicion_residencia.append(option_condicion_residencia);
+                const option_municipio_residencia = document.createElement("option");
+                option_municipio_residencia.value = resultado.residencia.municipio;
+                option_municipio_residencia.textContent = resultado.residencia.municipio;
+                option_municipio_residencia.selected = true;
+                option_municipio_residencia.hidden = true;
+                select_actualizar_municipio_residencia.append(option_municipio_residencia);
 
-            const option_municipio_residencia = document.createElement("option");
-            option_municipio_residencia.value = resultado.residencia.municipio;
-            option_municipio_residencia.textContent = resultado.residencia.municipio;
-            option_municipio_residencia.selected = true;
-            option_municipio_residencia.hidden = true;
-            select_actualizar_municipio_residencia.append(option_municipio_residencia);
+                const option_parroquia_residencia = document.createElement("option");
+                option_parroquia_residencia.value = resultado.residencia.parroquia;
+                option_parroquia_residencia.textContent = resultado.residencia.parroquia;
+                option_parroquia_residencia.selected = true;
+                option_parroquia_residencia.hidden = true;
+                select_actualizar_parroquia_residencia.append(option_parroquia_residencia);
 
-            const option_parroquia_residencia = document.createElement("option");
-            option_parroquia_residencia.value = resultado.residencia.parroquia;
-            option_parroquia_residencia.textContent = resultado.residencia.parroquia;
-            option_parroquia_residencia.selected = true;
-            option_parroquia_residencia.hidden = true;
-            select_actualizar_parroquia_residencia.append(option_parroquia_residencia);
+                cargarMunicipiosResidencia(resultado.residencia.municipio);
+                cargarParroquiasResidencia(resultado.residencia.parroquia);
 
-            cargarMunicipiosResidencia(resultado.residencia.municipio);
+                textarea_actualizar_direccion_residencia.value = resultado.residencia.direccion;
 
-            cargarParroquiasResidencia(resultado.residencia.parroquia);
+                actualizarContador(
+                    textarea_actualizar_direccion_residencia,
+                    contador_residencia
+                );
 
-            textarea_actualizar_direccion_residencia.value = resultado.residencia.direccion;
+            } else {
+                campos_residencia.forEach(mostrarNoRegistrado);
+                actualizarContador(textarea_actualizar_direccion_residencia, contador_residencia);
+            }
 
-            actualizarContador(textarea_actualizar_direccion_residencia, contador_residencia);
+            actualizar_estado_boton();
         } catch (error) {
             console.error(error);
         }
     });
 
+    function limpiarFormularioActualizar() {
+
+        formulario_actualizar.reset();
+        establecerCamposObligatorios(
+            [...campos_nacimiento, ...campos_residencia],
+            []
+        );
+
+        // LIMPIAR TODOS LOS VALORES
+        formulario_actualizar.querySelectorAll("input, textarea").forEach(campo => {
+
+            if (campo.type === "hidden") {
+                campo.value = "";
+            } else if (campo.tagName === "SELECT") {
+                campo.selectedIndex = -1;
+            } else {
+                campo.value = "";
+            }
+
+            // LIMPIAR VALIDACIONES
+            campo.setCustomValidity("");
+
+            // LIMPIAR ESTILOS DE VALIDACIÓN
+            campo.classList.remove("is-valid", "is-invalid");
+
+            // LIMPIAR VALIDACIONES PENDIENTES
+            delete campo.dataset.validando;
+        });
+
+        // LIMPIAR MENSAJES
+        formulario_actualizar.querySelectorAll(".mensaje-feedback").forEach(mensaje => {
+            mensaje.textContent = "";
+            mensaje.classList.remove("exito", "error");
+        });
+
+        // REINICIAR CONTADORES
+        contador_nacimiento.textContent = "0";
+        contador_residencia.textContent = "0";
+
+        // REINICIAR NAVEGACIÓN
+        navegacion.reiniciar();
+    }
+
     // ACTUALIZAR LOS DATOS DEL EMPLEADO
-    const navegacion = configurarFormularioPasos(formulario_actualizar);
+    const modulo_actualizar = formulario_actualizar.closest(".modulo_registro");
+    const navegacion = configurarPasos(modulo_actualizar);
 
     formulario_actualizar.addEventListener("submit", async (e) => {
         e.preventDefault();
@@ -2138,15 +2308,15 @@ document.addEventListener("DOMContentLoaded", () => {
                 icon: resultado.icon
             });
 
-            if (resultado.estado == "exito") {
-                bloquearFormularioActualizar(true);
-                navegacion.reiniciar();
-                formulario_actualizar.reset();
+            bloquearFormularioActualizar(true);
+            navegacion.reiniciar();
+            limpiarFormularioActualizar();
 
-                contenedor_mensaje_ci.innerHTML = "";
-                contenedor_mensaje_correo_secundario.innerHTML = "";
-                contenedor_mensaje_correo_principal.innerHTML = "";
-            }
+            contenedor_mensaje_ci.innerHTML = "";
+            contenedor_mensaje_correo_principal.innerHTML = "";
+            contenedor_mensaje_correo_secundario.innerHTML = "";
+            contenedor_mensaje_telefono_principal.innerHTML = "";
+            contenedor_mensaje_telefono_secundario.innerHTML = "";
         } catch (error) {
             console.error(error);
         }

@@ -1,0 +1,1925 @@
+// @ts-check
+import Graphics from './Graphics'
+import Utils from './../utils/Utils'
+import Toolbar from './Toolbar'
+import AxisMapping from './AxisMapping'
+import TooltipUtils from './tooltip/Utils'
+import { Box } from '../svg/index'
+import { BrowserAPIs } from '../ssr/BrowserAPIs.js'
+
+// Wheel-zoom feel: scrolling this many deltaY pixels doubles (or halves) the
+// visible x-window. 240px is about two discrete wheel notches per 2x zoom
+// (~1.4x per notch): steep enough to traverse a large dataset in a few flicks,
+// gentle enough that a trackpad's stream of small deltas feels continuous.
+const WHEEL_ZOOM_PIXELS_PER_2X = 240
+
+// Kinetic-pan (inertia) tuning. A one-finger pan release glides on, decaying
+// each frame, until it slows below a floor or reaches the data edge.
+const INERTIA_MIN_RELEASE_VELOCITY = 0.05 // px/ms; below this a release doesn't glide
+const INERTIA_DEFAULT_FRICTION = 0.92 // per-60fps-frame velocity multiplier (chart.pan.friction overrides)
+const INERTIA_STOP_VELOCITY = 0.02 // px/ms floor at which the glide ends
+const FRAME_MS_60FPS = 16.6667 // one frame at 60fps; normalizes friction to the real refresh rate
+
+// A pan nudge shifts the x-window by this fraction of the grid width.
+const PAN_NUDGE_DIVISOR = 15
+
+// Left edge of the x-domain in the plot-origin pixel space the selection rect
+// lives in. Under AxisMapping, minX maps to this pixel and maxX maps to
+// gridWidth, so the pair is the data boundary expressed in rect coordinates.
+const PLOT_ORIGIN_PX = 0
+
+/**
+ * ApexCharts Zoom Class for handling zooming and panning on axes based charts.
+ *
+ * @module ZoomPanSelection
+ **/
+
+export default class ZoomPanSelection extends Toolbar {
+  /**
+   * @param {import('../types/internal').ChartStateW} w
+   * @param {import('../types/internal').ChartContext} ctx
+   */
+  constructor(w, ctx) {
+    super(w, ctx)
+
+    this.w = w
+    this.ctx = ctx // needed: toolbar ref, fires events with ctx
+
+    this.dragged = false
+    this.graphics = new Graphics(this.w)
+
+    this.eventList = [
+      'mousedown',
+      'mouseleave',
+      'mousemove',
+      'touchstart',
+      'touchmove',
+      'mouseup',
+      'touchend',
+    ]
+    // NOTE: 'wheel' is intentionally NOT here. svgMouseEvents has no wheel branch,
+    // so binding it to wheel only ran the shift zoom<->pan flip + selection-rect
+    // work on every notch. The dedicated mouseWheelEvent (bound in init) is the
+    // only wheel handler needed.
+
+    this.clientX = 0
+    this.clientY = 0
+    this.startX = 0
+    this.endX = 0
+    this.dragX = 0
+    this.startY = 0
+    this.endY = 0
+    this.dragY = 0
+    this.moveDirection = 'none'
+  }
+
+  /** @param {{xyRatios: any}} opts */
+  init({ xyRatios }) {
+    const w = this.w
+    const me = this
+
+    // fastUpdate refreshes this field in place when a data-only update changes
+    // the domain (the instance survives the fast path; only a full render
+    // recreates it). Always read this.xyRatios, never an init-captured copy.
+    this.xyRatios = xyRatios
+
+    this.zoomRect = this.graphics.drawRect(0, 0, 0, 0)
+    this.selectionRect = this.graphics.drawRect(0, 0, 0, 0)
+
+    this.constraints = new Box(0, 0, w.layout.gridWidth, w.layout.gridHeight)
+
+    this.zoomRect.node.classList.add('apexcharts-zoom-rect')
+    this.selectionRect.node.classList.add('apexcharts-selection-rect')
+    w.dom.Paper.add(this.zoomRect)
+    w.dom.Paper.add(this.selectionRect)
+
+    if (w.config.chart.selection.type === 'x') {
+      this.slDraggableRect = this.selectionRect
+        .draggable({
+          minX: 0,
+          minY: 0,
+          maxX: w.layout.gridWidth,
+          maxY: w.layout.gridHeight,
+        })
+        .on('dragmove.namespace', this.selectionDragging.bind(this, 'dragging'))
+    } else if (w.config.chart.selection.type === 'y') {
+      this.slDraggableRect = this.selectionRect
+        .draggable({
+          minX: 0,
+          maxX: w.layout.gridWidth,
+        })
+        .on('dragmove.namespace', this.selectionDragging.bind(this, 'dragging'))
+    } else {
+      this.slDraggableRect = this.selectionRect
+        .draggable()
+        .on('dragmove.namespace', this.selectionDragging.bind(this, 'dragging'))
+    }
+    this.preselectedSelection()
+
+    this.hoverArea = /** @type {Element} */ (
+      w.dom.baseEl.querySelector(`${w.globals.chartClass} .apexcharts-svg`)
+    )
+    if (!this.hoverArea) return
+    this.hoverArea.classList.add('apexcharts-zoomable')
+
+    this.eventList.forEach((event) => {
+      this.hoverArea?.addEventListener(event, me.svgMouseEvents.bind(me), {
+        capture: false,
+        passive: true,
+      })
+    })
+
+    if (this._wheelZoomEnabled()) {
+      this.hoverArea.addEventListener('wheel', me.mouseWheelEvent.bind(me), {
+        capture: false,
+        passive: false,
+      })
+    }
+
+    // Escape: the way back for the viewer who never goes looking for a button.
+    // Bound on the node the gestures are on, which the chart focuses on any
+    // pointer down inside it, so the drag that zoomed also left Escape live.
+    // Bound unconditionally and resolved per event, because the gate reads
+    // config a page can change under a live chart.
+    this.hoverArea.addEventListener('keydown', me.escapeResetEvent.bind(me), {
+      capture: false,
+      passive: true,
+    })
+
+    // Momentum: passive:false touch listeners (following the wheel-listener
+    // template above) so two-finger pinch and horizontal pan can preventDefault
+    // the browser's native page zoom/scroll. Every _updateOptions destroys and
+    // recreates this instance (see Destroy.clear), and applying a gesture frame
+    // triggers exactly that re-render, so ALL gesture state lives on w.interact
+    // (which survives re-renders) rather than on the instance. The browser keeps
+    // delivering the touch sequence to its original target node, whose listener
+    // is bound to the now-detached old instance; that old instance keeps driving
+    // the gesture using the persistent w state. init() just (re)binds listeners
+    // to the current hover area for the NEXT gesture; old nodes are GC'd.
+    if (this._momentumEnabled()) {
+      ;['touchstart', 'touchmove', 'touchend', 'touchcancel'].forEach(
+        (event) => {
+          this.hoverArea?.addEventListener(event, me.momentumTouch.bind(me), {
+            capture: false,
+            passive: false,
+          })
+        },
+      )
+    }
+  }
+
+  // remove the event listeners which were previously added on hover area
+  destroy() {
+    // The wheel, inertia and wheel-hint frames and timers live on w.interact.
+    // destroy() runs on every update (isUpdating), not only on a real destroy,
+    // and each gesture frame is an update, so cancelling them per update would
+    // kill a glide on its first frame. Only a real destroy
+    // (w.globals.isDestroyed, set before this runs) ends them, and drops the
+    // state so a later render() starts clean: a stale rafId or busy flag
+    // would block every gesture after it.
+    if (this.w.globals.isDestroyed) {
+      const it = this.w.interact
+      const st = this._wheel()
+      BrowserAPIs.cancelAnimationFrame(st.rafId)
+      clearTimeout(st.endTimer)
+      this._hideWheelHint()
+      this._cancelInertia()
+      it.wheel = it.momentum = undefined
+    }
+    if (this.slDraggableRect) {
+      this.slDraggableRect.draggable(false)
+      this.slDraggableRect.off()
+      this.selectionRect.off()
+    }
+
+    this.selectionRect = null
+    this.zoomRect = null
+  }
+
+  /**
+   * @param {any} e
+   */
+  svgMouseEvents(e) {
+    const w = this.w
+    const toolbar = this.ctx.toolbar
+
+    // Momentum owns multi-touch and any in-progress touch gesture: stand down
+    // the single-touch pan/selection path so they do not fight. (momentum.busy
+    // also covers touchend, where e.touches has already emptied.) Mouse events
+    // carry no e.touches and never set momentum.busy, so they are unaffected.
+    if (w.interact.momentum && w.interact.momentum.busy) return
+    if (this._momentumEnabled() && e.touches && e.touches.length > 1) {
+      return
+    }
+
+    const zoomtype = w.interact.zoomEnabled
+      ? w.config.chart.zoom.type
+      : w.config.chart.selection.type
+
+    const autoSelected = w.config.chart.toolbar.autoSelected
+
+    // Shift temporarily flips zoom<->pan, restoring the auto-selected tool on
+    // release. 'measure' is not a zoom/pan tool (it captures the plot via its
+    // own pane), so it opts out of this shift dance entirely.
+    if (autoSelected !== 'measure') {
+      // Latch on the persistent w.interact slice, NOT the instance: every
+      // _updateOptions (which a pan frame triggers) destroys and recreates this
+      // instance, so an instance-scoped flag would be undefined on the frame that
+      // handles Shift release, leaving the chart stuck in the flipped tool.
+      if (e.shiftKey) {
+        w.interact.shiftWasPressed = true
+        toolbar.enableZoomPanFromToolbar(autoSelected === 'pan' ? 'zoom' : 'pan')
+      } else {
+        if (w.interact.shiftWasPressed) {
+          toolbar.enableZoomPanFromToolbar(autoSelected)
+          w.interact.shiftWasPressed = false
+        }
+      }
+    }
+
+    if (!e.target) return
+
+    const tc = e.target.classList
+    let pc
+    if (e.target.parentNode && e.target.parentNode !== null) {
+      pc = e.target.parentNode.classList
+    }
+    const falsePositives =
+      tc.contains('apexcharts-legend-marker') ||
+      tc.contains('apexcharts-legend-text') ||
+      (pc && pc.contains('apexcharts-toolbar'))
+
+    if (falsePositives) return
+
+    this.clientX =
+      e.type === 'touchmove' || e.type === 'touchstart'
+        ? e.touches[0].clientX
+        : e.type === 'touchend'
+          ? e.changedTouches[0].clientX
+          : e.clientX
+    this.clientY =
+      e.type === 'touchmove' || e.type === 'touchstart'
+        ? e.touches[0].clientY
+        : e.type === 'touchend'
+          ? e.changedTouches[0].clientY
+          : e.clientY
+
+    if ((e.type === 'mousedown' && e.which === 1) || e.type === 'touchstart') {
+      if (!this._hasPlot()) return
+
+      this.startX = this._screenXToPlotPx(this.clientX)
+      this.startY = this._screenYToPlotPx(this.clientY)
+
+      this.dragged = false
+      // Drop a flag left by a drag that ended outside the chart, so the next
+      // plain click is not swallowed.
+      this.w.interact.wasDragged = false
+      this.w.interact.mousedown = true
+    }
+
+    if ((e.type === 'mousemove' && e.which === 1) || e.type === 'touchmove') {
+      this.dragged = true
+
+      if (w.interact.panEnabled) {
+        w.interact.selection = null
+        if (this.w.interact.mousedown) {
+          this.panDragging({
+            context: this,
+            zoomtype,
+            xyRatios: this.xyRatios,
+          })
+        }
+      } else {
+        if (
+          (this.w.interact.mousedown && w.interact.zoomEnabled) ||
+          (this.w.interact.mousedown && w.interact.selectionEnabled)
+        ) {
+          this.selection = this.selectionDrawing({
+            context: this,
+            zoomtype,
+          })
+        }
+      }
+    }
+
+    if (
+      e.type === 'mouseup' ||
+      e.type === 'touchend' ||
+      e.type === 'mouseleave'
+    ) {
+      this.handleMouseUp({ zoomtype, eventType: e.type })
+    }
+
+    this.makeSelectionRectDraggable()
+  }
+
+  /** @param {{ zoomtype?: any, isResized?: any, eventType?: string }} opts */
+  handleMouseUp({ zoomtype, isResized, eventType }) {
+    const w = this.w
+
+    if (this._hasPlot() && (this.w.interact.mousedown || isResized)) {
+      // user released the drag, now do all the calculations
+      this.endX = this._screenXToPlotPx(this.clientX)
+      this.endY = this._screenYToPlotPx(this.clientY)
+      this.dragX = Math.abs(this.endX - this.startX)
+      this.dragY = Math.abs(this.endY - this.startY)
+
+      // Same 10px gate as selectionDrawn. Set before that call: it may zoom
+      // (and recreate this handler) before the mouseup bubbles to the chart
+      // click listener, which reads the flag. Only a real release bubbles
+      // there to consume it: a drag that ends on mouseleave would leave the
+      // flag set and swallow the next click (e.g. on the legend).
+      if (
+        (eventType === 'mouseup' || eventType === 'touchend') &&
+        (w.interact.zoomEnabled || w.interact.selectionEnabled) &&
+        this.dragged &&
+        (this.dragX > 10 || this.dragY > 10)
+      ) {
+        w.interact.wasDragged = true
+      }
+
+      if (w.interact.zoomEnabled || w.interact.selectionEnabled) {
+        this.selectionDrawn({
+          context: this,
+          zoomtype,
+        })
+      }
+    }
+
+    if (w.interact.zoomEnabled) {
+      this.hideSelectionRect(this.selectionRect)
+    }
+
+    this.dragged = false
+    this.w.interact.mousedown = false
+  }
+
+  // ---------------------------------------------------------------------------
+  // Wheel zoom: continuous, cursor-anchored zoom on mouse wheel / trackpad.
+  //
+  // Each wheel event multiplies a pending zoom factor scaled to its deltaY (so
+  // a trackpad's stream of tiny deltas and a discrete wheel's ±100 notches both
+  // feel proportional), and the accumulated factor is applied at most once per
+  // animation frame through the same immediate, animation-free fast path the
+  // touch pinch uses (_applyXRange). Deliberately instant, trading-chart style:
+  // no per-step morph and no easing between steps (an animated variant was
+  // tried and rejected). The original implementation instead ran a fixed
+  // 0.5x/1.5x animated update at most once per 400ms and dropped every wheel
+  // event in between, which read as lag on continuous scrolling.
+  //
+  // Like Momentum (see the comment above momentumTouch), applying a frame
+  // triggers _updateOptions, which destroys and recreates this instance
+  // mid-gesture, so all wheel-gesture state lives on w.interact.wheel rather
+  // than on the instance.
+  // ---------------------------------------------------------------------------
+
+  /**
+   * A wheel or pinch zoom is an incidental gesture: the viewer can land in a
+   * zoomed window without meaning to (a page scroll over the chart, a two-finger
+   * swipe), so it is only offered when there is a way back out of it. 'auto'
+   * (the default for both allowMouseWheelZoom and pinch) resolves against a
+   * reset button that is already on screen. A page that builds its own reset
+   * control sets the option to true and gets the gesture with no toolbar.
+   * Drag-to-zoom is deliberate, so it is not gated this way.
+   *
+   * `chart.zoom.resetControl` supplies a reset of its own once a chart IS
+   * zoomed, and deliberately does NOT open this gate. It arrives after the
+   * fact, and what an incidental wheel zoom takes from the viewer first is the
+   * page scroll it swallowed, which no button hands back.
+   *
+   * @param {boolean|'auto'} setting
+   */
+  _incidentalZoomEnabled(setting) {
+    const c = this.w.config.chart
+    if (!c.zoom || !c.zoom.enabled) return false
+    if (setting !== 'auto') return !!setting
+    return !!(c.toolbar?.show && c.toolbar?.tools?.reset)
+  }
+
+  _wheelZoomEnabled() {
+    const { zoom } = this.w.config.chart
+    return this._incidentalZoomEnabled(zoom && zoom.allowMouseWheelZoom)
+  }
+
+  /** An explicit `true` zooms on every wheel; 'auto' needs Ctrl/Cmd. */
+  _wheelZoomGreedy() {
+    return this.w.config.chart.zoom.allowMouseWheelZoom === true
+  }
+
+  /**
+   * Tell a viewer whose bare wheel just scrolled past the chart how to zoom it.
+   * Shown over the chart while the scroll goes on and faded out shortly after
+   * it stops. Only for a mostly vertical wheel: a sideways trackpad swipe is
+   * not someone reaching for zoom.
+   *
+   * The node lives in elWrap and the timer on w.interact, since a re-render can
+   * replace both this instance and the wrapper's contents while it is up.
+   *
+   * @param {any} e
+   */
+  _showWheelHint(e) {
+    const w = this.w
+    if (w.config.chart.zoom.wheelHint === false) return
+    if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return
+    const wrap = w.dom.elWrap
+    if (!wrap) return
+
+    let el = wrap.querySelector('.apexcharts-wheel-hint')
+    if (!el) {
+      const win = BrowserAPIs.getWindow()
+      const nav = win && win.navigator
+      const mac = !!nav && /Mac|iPhone|iPad/.test(nav.platform || nav.userAgent)
+      const text = (w.globals.locale.toolbar.wheelZoomHint || '').replace(
+        '{key}',
+        mac ? '⌘' : 'Ctrl',
+      )
+      el = BrowserAPIs.createElement('div')
+      el.className = 'apexcharts-wheel-hint'
+      el.setAttribute('aria-hidden', 'true')
+      const label = BrowserAPIs.createElement('span')
+      label.textContent = text
+      label.style.fontFamily = w.config.chart.fontFamily
+      el.appendChild(label)
+      wrap.appendChild(el)
+      // lay the hidden state out before showing it, so it fades in
+      void (/** @type {HTMLElement} */ (el).offsetWidth)
+    }
+    el.classList.add('apexcharts-wheel-hint-visible')
+
+    const it = w.interact
+    if (it.wheelHintTimer) clearTimeout(it.wheelHintTimer)
+    it.wheelHintTimer = setTimeout(() => this._hideWheelHint(), 1200)
+  }
+
+  _hideWheelHint() {
+    const w = this.w
+    const it = w.interact
+    if (it.wheelHintTimer) {
+      clearTimeout(it.wheelHintTimer)
+      it.wheelHintTimer = null
+    }
+    const el = w.dom.elWrap?.querySelector('.apexcharts-wheel-hint')
+    if (el) el.classList.remove('apexcharts-wheel-hint-visible')
+  }
+
+  /**
+   * Put keyboard focus on the chart, where the chart is focusable at all.
+   *
+   * A drag is swallowed by the zoom handlers before the browser can move focus,
+   * so a viewer who has just zoomed by hand leaves nothing focused, and every
+   * key the chart offers is out of reach: Escape to reset (see
+   * {@link ZoomPanSelection#escapeResetEvent}) and the +, - and 0 the keyboard
+   * module already binds. Focusing what they just acted on puts those in reach.
+   *
+   * Pointer-driven focus, which keyboard navigation expects and does not read
+   * as a request to start navigating, and which the stylesheet draws no ring
+   * around (`svg:focus:not(:focus-visible)`).
+   *
+   * Only where the accessibility module has made the SVG focusable, which is
+   * the default: a page that turned keyboard support off is not handed a tab
+   * stop it never asked for, and still has the reset control as its way back.
+   */
+  _focusForKeyboard() {
+    const node = this.w.dom.Paper && this.w.dom.Paper.node
+    if (!node || typeof node.focus !== 'function') return
+    if (node.getAttribute('tabindex') === null) return
+    // Said before the focus lands, or the accessibility module reads it as a
+    // request to start navigating and flashes a tooltip after every zoom.
+    this.ctx.keyboardNavigation?.notePointerFocus?.()
+    try {
+      node.focus({ preventScroll: true })
+    } catch {
+      node.focus()
+    }
+  }
+
+  /**
+   * Escape, on a zoomed chart, puts the range back.
+   *
+   * The quiet half of the same answer the on-demand reset control gives, and
+   * gated on it, so a page that says it supplies its own way back gets neither.
+   *
+   * It defers to keyboard navigation, whose Escape dismisses the tooltip and
+   * which offers `0` for this, so the key means one thing at a time. It does
+   * not stop the event either, so a page listening for Escape still hears it.
+   *
+   * Reachable because a completed drag-zoom puts focus on the chart; see
+   * {@link ZoomPanSelection#_focusForKeyboard}.
+   *
+   * @param {any} e
+   */
+  escapeResetEvent(e) {
+    if (e.key !== 'Escape' && e.key !== 'Esc') return
+    if (!this.w.interact.zoomed) return
+    const nav = this.ctx.keyboardNavigation
+    if (nav && nav.active) return
+    if (!this.resetControlAllowed()) return
+    this.handleZoomReset()
+  }
+
+  /** Lazily-created, re-render-surviving wheel-gesture state. */
+  _wheel() {
+    const it = this.w.interact
+    if (!it.wheel) {
+      it.wheel = {
+        factor: 1,
+        clientX: 0,
+        /** @type {number|null} */ rafId: null,
+        /** @type {any} */ endTimer: null,
+      }
+    }
+    return it.wheel
+  }
+
+  /**
+   * @param {any} e
+   */
+  mouseWheelEvent(e) {
+    const st = this._wheel()
+
+    // Cooperative wheel ('auto'): a bare wheel belongs to the page, so a
+    // dashboard of charts scrolls past them instead of zooming each one it
+    // crosses. Ctrl/Cmd + wheel zooms, and so does a trackpad pinch, which
+    // browsers deliver as a wheel event with ctrlKey set. Once a zoom gesture
+    // is under way it keeps the wheel until it settles, so a trackpad's
+    // momentum tail after the key comes up does not spill into a page scroll.
+    // An explicit `true` keeps the greedy wheel (every scroll zooms).
+    if (
+      !this._wheelZoomGreedy() &&
+      !e.ctrlKey &&
+      !e.metaKey &&
+      st.endTimer == null
+    ) {
+      this._showWheelHint(e)
+      return
+    }
+
+    e.preventDefault()
+    this._hideWheelHint()
+
+    // normalize the delta to pixels (deltaMode 1 = lines, 2 = pages)
+    let dy = e.deltaY
+    if (e.deltaMode === 1) dy *= 33
+    else if (e.deltaMode === 2) dy *= 330
+
+    // scroll up (dy < 0) shrinks the window => zoom in
+    st.factor *= Math.pow(2, dy / WHEEL_ZOOM_PIXELS_PER_2X)
+    st.clientX = e.clientX
+
+    if (st.rafId == null) {
+      st.rafId = requestAnimationFrame(() => this._applyWheelZoom())
+    }
+
+    // the zoomed callback fires once per gesture (like pinch), not per event
+    if (st.endTimer) clearTimeout(st.endTimer)
+    st.endTimer = setTimeout(() => this._endWheelZoom(), 150)
+  }
+
+  /**
+   * Apply the zoom factor accumulated since the last animation frame, keeping
+   * the data value under the cursor pinned (both zooming in and out).
+   */
+  _applyWheelZoom() {
+    const w = this.w
+    const st = this._wheel()
+    st.rafId = null
+    const scale = st.factor
+    st.factor = 1
+    if (scale === 1 || w.globals.isDestroyed) return
+
+    const gridWidth = w.layout.gridWidth
+    if (!this._hasPlot() || !gridWidth) return
+
+    const { min, max } = this._currentXWindow()
+    const range = max - min
+    const mouseX = Math.min(
+      Math.max(this._screenXToPlotPx(st.clientX) / gridWidth, 0),
+      1,
+    )
+
+    let newRange = range * scale
+
+    // Floor the zoom-in window at ~2 data points' worth of x-span (minXDiff is
+    // the smallest gap between consecutive x values), not a fixed 1% of the
+    // full data span: a span-relative floor stopped wheel-zoom far short of the
+    // toolbar's zoom-in button on large series. Cap zoom-out at the full domain
+    // so scrolling out past the data doesn't keep re-rendering.
+    const bounds = this._clampBounds()
+    if (bounds) {
+      const minXDiff =
+        w.globals.minXDiff > 0 && isFinite(w.globals.minXDiff)
+          ? w.globals.minXDiff
+          : 0
+      const minRange = Math.max(minXDiff * 2, (bounds.max - bounds.min) * 1e-6)
+      if (newRange < minRange) newRange = minRange
+      if (newRange > bounds.max - bounds.min) newRange = bounds.max - bounds.min
+    }
+
+    const anchor = min + mouseX * range
+    let newMinX = anchor - mouseX * newRange
+    let newMaxX = newMinX + newRange
+
+    // already at the zoom floor or the full domain: nothing to re-render
+    const eps = range * 1e-9
+    if (Math.abs(newMinX - min) < eps && Math.abs(newMaxX - max) < eps) return
+
+    if (isNaN(newMinX) || isNaN(newMaxX)) return
+
+    const beforeZoomRange = this.getBeforeZoomRange(
+      { min: newMinX, max: newMaxX },
+      /** @type {any} */ (undefined),
+    )
+    if (beforeZoomRange && beforeZoomRange.xaxis) {
+      newMinX = beforeZoomRange.xaxis.min
+      newMaxX = beforeZoomRange.xaxis.max
+    }
+
+    this._applyXRange(newMinX, newMaxX, true)
+  }
+
+  /** Fire the zoomed callback once the wheel gesture settles (mirrors _endPinch). */
+  _endWheelZoom() {
+    const w = this.w
+    const st = this._wheel()
+    st.endTimer = null
+    if (w.globals.isDestroyed || !w.interact.zoomed) return
+
+    const { min, max } = this._currentXWindow()
+    const yaxis = this.yaxisForXWindow()
+    const toolbar = this.ctx.toolbar
+    if (toolbar) toolbar.zoomCallback({ min, max }, yaxis)
+  }
+
+  makeSelectionRectDraggable() {
+    const w = this.w
+
+    if (!this.selectionRect) return
+
+    const rectDim = this.selectionRect.node.getBoundingClientRect()
+    if (rectDim.width > 0 && rectDim.height > 0) {
+      this.selectionRect.select(false).resize(false)
+      this.selectionRect
+        /**
+         * @param {Element} group
+         * @param {number} p
+         * @param {number} index
+         * @param {any[]} pointArr
+         * @param {string} handleName
+         */
+        .select({
+          createRot: () => {},
+          updateRot: () => {},
+          createHandle: (
+            /** @type {any} */ group,
+            /** @type {any} */ p,
+            /** @type {any} */ index,
+            /** @type {any} */ pointArr,
+            /** @type {any} */ handleName,
+          ) => {
+            if (handleName === 'l' || handleName === 'r')
+              return group
+                .circle(8)
+                .css({ 'stroke-width': 1, stroke: '#333', fill: '#fff' })
+            /**
+             * @param {Element} group
+             * @param {number} p
+             */
+            return group.circle(0)
+          },
+          updateHandle: (/** @type {any} */ group, /** @type {any} */ p) => {
+            return group.center(p[0], p[1])
+          },
+        })
+        .resize()
+        .on('resize', () => {
+          // SVGSelectable moves a handle freely (its only guard is a negative
+          // width), so pull the rect back inside the x-domain before anything
+          // reads it. Without this a handle dragged past the first or last point
+          // keeps widening the rect into empty space (#5123).
+          this._clampSelectionRectToPlot()
+          if (w.interact.selectionEnabled) {
+            // A handle resize re-reports the selection through the SAME shared
+            // mapping (and debounce) as the rect-body drag. The old path
+            // (handleMouseUp -> selectionDrawn) is gated by `dragged`, which is
+            // false during a pure resize, so the reported range / crossfilter
+            // went stale while the rect visibly grew (e.g. you could never
+            // resize the brush out to cover the last column). Persist the new
+            // rect too so a re-render keeps it.
+            w.interact.selection = {
+              x: parseFloat(this.selectionRect.node.getAttribute('x')),
+              y: parseFloat(this.selectionRect.node.getAttribute('y')),
+              width: parseFloat(this.selectionRect.node.getAttribute('width')),
+              height: parseFloat(this.selectionRect.node.getAttribute('height')),
+            }
+            clearTimeout(this.w.globals.selectionResizeTimer ?? undefined)
+            this.w.globals.selectionResizeTimer = window.setTimeout(() => {
+              this._emitSelectionFromRect()
+            }, 30)
+          } else {
+            const zoomtype = w.interact.zoomEnabled
+              ? w.config.chart.zoom.type
+              : w.config.chart.selection.type
+            this.handleMouseUp({ zoomtype, isResized: true })
+          }
+        })
+    }
+  }
+
+  preselectedSelection() {
+    const w = this.w
+    const xyRatios = this.xyRatios
+
+    if (!w.interact.zoomEnabled) {
+      if (
+        typeof w.interact.selection !== 'undefined' &&
+        w.interact.selection !== null
+      ) {
+        this.drawSelectionRect({
+          ...w.interact.selection,
+          translateX: w.layout.translateX,
+          translateY: w.layout.translateY,
+        })
+      } else {
+        if (
+          w.config.chart.selection.xaxis.min !== undefined &&
+          w.config.chart.selection.xaxis.max !== undefined
+        ) {
+          // Same mapping as bar placement (AxisMapping): x/width in plot-origin
+          // px so the preselected rect is pixel-exact against the bars.
+          let x = AxisMapping.dataXToPx(w, w.config.chart.selection.xaxis.min)
+          let width =
+            AxisMapping.dataXToPx(w, w.config.chart.selection.xaxis.max) - x
+          if (w.axisFlags.isRangeBar) {
+            // rangebars put datetime data in y axis
+            x =
+              (w.config.chart.selection.xaxis.min -
+                w.globals.yAxisScale[0].niceMin) /
+              xyRatios.invertedYRatio
+            width =
+              (w.config.chart.selection.xaxis.max -
+                w.config.chart.selection.xaxis.min) /
+              xyRatios.invertedYRatio
+          }
+          const selectionRect = {
+            x,
+            y: 0,
+            width,
+            height: w.layout.gridHeight,
+            translateX: w.layout.translateX,
+            translateY: w.layout.translateY,
+            selectionEnabled: true,
+          }
+          this.drawSelectionRect(selectionRect)
+          this.makeSelectionRectDraggable()
+          if (typeof w.config.chart.events.selection === 'function') {
+            w.config.chart.events.selection(this.ctx, {
+              xaxis: {
+                min: w.config.chart.selection.xaxis.min,
+                max: w.config.chart.selection.xaxis.max,
+              },
+              yaxis: {},
+            })
+          }
+        }
+      }
+    }
+  }
+
+  /** @param {{x: any, y: any, width: any, height: any, translateX: any, translateY: any}} opts */
+  drawSelectionRect({ x, y, width, height, translateX = 0, translateY = 0 }) {
+    const w = this.w
+    const zoomRect = this.zoomRect
+    const selectionRect = this.selectionRect
+    if (this.dragged || w.interact.selection !== null) {
+      const scalingAttrs = {
+        transform: 'translate(' + translateX + ', ' + translateY + ')',
+      }
+
+      // change styles based on zoom or selection
+      // zoom is Enabled and user has dragged, so draw blue rect
+      if (w.interact.zoomEnabled && this.dragged) {
+        if (width < 0) width = 1 // fixes apexcharts.js#1168
+        zoomRect.attr({
+          x,
+          y,
+          width,
+          height,
+          fill: w.config.chart.zoom.zoomedArea.fill.color,
+          'fill-opacity': w.config.chart.zoom.zoomedArea.fill.opacity,
+          stroke: w.config.chart.zoom.zoomedArea.stroke.color,
+          'stroke-width': w.config.chart.zoom.zoomedArea.stroke.width,
+          'stroke-opacity': w.config.chart.zoom.zoomedArea.stroke.opacity,
+        })
+        Graphics.setAttrs(zoomRect.node, scalingAttrs)
+      }
+
+      // selection is enabled
+      if (w.interact.selectionEnabled) {
+        selectionRect.attr({
+          x,
+          y,
+          width: width > 0 ? width : 0,
+          height: height > 0 ? height : 0,
+          fill: w.config.chart.selection.fill.color,
+          'fill-opacity': w.config.chart.selection.fill.opacity,
+          stroke: w.config.chart.selection.stroke.color,
+          'stroke-width': w.config.chart.selection.stroke.width,
+          'stroke-dasharray': w.config.chart.selection.stroke.dashArray,
+          'stroke-opacity': w.config.chart.selection.stroke.opacity,
+        })
+
+        Graphics.setAttrs(selectionRect.node, scalingAttrs)
+      }
+    }
+  }
+
+  /**
+   * Clamp the persistent selection rect to the pixel span the x-domain occupies,
+   * i.e. PLOT_ORIGIN_PX..gridWidth, which under AxisMapping is exactly
+   * minX..maxX. A body drag has always obeyed this box through `this.constraints`;
+   * this puts a handle resize on the same footing.
+   *
+   * The rect itself is rewritten rather than only the numbers reported to
+   * listeners, so the range every consumer receives keeps matching the rect the
+   * user sees (the one-mapping invariant selection-geometry.spec.js guards), and
+   * the handles are repositioned onto the clamped edge so a handle held past the
+   * boundary stays visually pinned there.
+   */
+  _clampSelectionRectToPlot() {
+    const rect = this.selectionRect
+    if (!rect || !rect.node) return
+
+    const maxPx = this.w.layout.gridWidth
+    // A domain with no pixel width (pre-layout, or a destroyed chart) has no
+    // meaningful boundary to clamp against.
+    if (!(maxPx > PLOT_ORIGIN_PX)) return
+
+    const x = parseFloat(rect.node.getAttribute('x')) || 0
+    const width = parseFloat(rect.node.getAttribute('width')) || 0
+
+    const clamp = (/** @type {number} */ px) =>
+      Math.min(Math.max(px, PLOT_ORIGIN_PX), maxPx)
+    const left = clamp(x)
+    const right = clamp(x + width)
+
+    if (left === x && right === x + width) return
+
+    rect.attr({ x: left, width: right - left })
+    if (rect._updateSelectPositions) rect._updateSelectPositions()
+  }
+
+  /**
+   * @param {any} rect
+   */
+  hideSelectionRect(rect) {
+    if (rect) {
+      rect.attr({
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0,
+      })
+    }
+  }
+
+  selectionDrawing(/** @type {any} */ { context, zoomtype }) {
+    const w = this.w
+    const me = context
+
+    if (!this._hasPlot()) return
+
+    // The rect's corner is the pixel the drag started on, in both axes. (x
+    // used to start a pixel left of it: an offset that once came paired with
+    // a matching one on the width, and outlived it.)
+    const startX = me.startX
+    const startY = me.startY
+    let inversedX = false
+    let inversedY = false
+
+    const left = this._screenXToPlotPx(me.clientX)
+    const top = this._screenYToPlotPx(me.clientY)
+
+    let selectionWidth = left - startX
+    let selectionHeight = top - startY
+
+    /** @type {any} */
+    let selectionRect = {
+      translateX: w.layout.translateX,
+      translateY: w.layout.translateY,
+    }
+
+    if (Math.abs(selectionWidth + startX) > w.layout.gridWidth) {
+      // user dragged the mouse outside drawing area to the right
+      selectionWidth = w.layout.gridWidth - startX
+    } else if (left < 0) {
+      // user dragged the mouse outside drawing area to the left
+      selectionWidth = startX
+    }
+
+    // inverse selection X
+    if (startX > left) {
+      inversedX = true
+      selectionWidth = Math.abs(selectionWidth)
+    }
+
+    // inverse selection Y
+    if (startY > top) {
+      inversedY = true
+      selectionHeight = Math.abs(selectionHeight)
+    }
+
+    if (zoomtype === 'x') {
+      selectionRect = {
+        x: inversedX ? startX - selectionWidth : startX,
+        y: 0,
+        width: selectionWidth,
+        height: w.layout.gridHeight,
+      }
+    } else if (zoomtype === 'y') {
+      selectionRect = {
+        x: 0,
+        y: inversedY ? startY - selectionHeight : startY,
+        width: w.layout.gridWidth,
+        height: selectionHeight,
+      }
+    } else {
+      selectionRect = {
+        x: inversedX ? startX - selectionWidth : startX,
+        y: inversedY ? startY - selectionHeight : startY,
+        width: selectionWidth,
+        height: selectionHeight,
+      }
+    }
+
+    selectionRect = {
+      ...selectionRect,
+      translateX: w.layout.translateX,
+      translateY: w.layout.translateY,
+    }
+
+    me.drawSelectionRect(selectionRect)
+    me.selectionDragging('resizing')
+    return selectionRect
+  }
+
+  /**
+   * @param {string} type
+   * @param {CustomEvent} e
+   */
+  selectionDragging(type, e) {
+    const w = this.w
+    if (!e) return
+
+    e.preventDefault()
+
+    const { handler, box } = e.detail
+    const constraints = /** @type {any} */ (this.constraints)
+
+    let { x, y } = box
+
+    if (x < constraints.x) {
+      x = constraints.x
+    }
+
+    if (y < constraints.y) {
+      y = constraints.y
+    }
+
+    if (box.x2 > constraints.x2) {
+      x = constraints.x2 - box.w
+    }
+
+    if (box.y2 > constraints.y2) {
+      y = constraints.y2 - box.h
+    }
+
+    handler.move(x, y)
+
+    const selRect = this.selectionRect
+
+    let timerInterval = 0
+
+    if (type === 'resizing') {
+      timerInterval = 30
+    }
+
+    // update selection when selection rect is dragged
+    /**
+     * @param {string} attr
+     */
+    const getSelAttr = (attr) => {
+      return parseFloat(selRect.node.getAttribute(attr))
+    }
+    const draggedProps = {
+      x: getSelAttr('x'),
+      y: getSelAttr('y'),
+      width: getSelAttr('width'),
+      height: getSelAttr('height'),
+    }
+
+    w.interact.selection = draggedProps
+    // update selection ends
+
+    // Run the range recompute when the user has a selection callback OR Linked
+    // Views (#4) crossfilter is on, so dragging/resizing the persistent
+    // selection rect re-crossfilters even without a user events.selection.
+    // Covers both highlight mode (link.enabled) and filter mode (link.dimension).
+    const link = w.config.chart.link
+    const linkActive = !!(
+      link && (link.enabled || typeof link.dimension === 'function')
+    )
+    if (
+      (typeof w.config.chart.events.selection === 'function' || linkActive) &&
+      w.interact.selectionEnabled
+    ) {
+      // a small debouncer is required when resizing to avoid freezing the chart
+      clearTimeout(this.w.globals.selectionResizeTimer ?? undefined)
+      this.w.globals.selectionResizeTimer = window.setTimeout(() => {
+        this._emitSelectionFromRect()
+      }, timerInterval)
+    }
+  }
+
+  /**
+   * Recompute the reported x/y range from the CURRENT persistent selection rect
+   * (via the shared AxisMapping) and notify listeners: chart.events.selection,
+   * brushScrolled, and the crossfilter coordinator. Shared by the rect-body drag
+   * (selectionDragging) and the handle resize (makeSelectionRectDraggable) so
+   * every gesture re-reports through ONE mapping and the reported range always
+   * matches the rect the user sees. No dragged/threshold gate: reaching here
+   * already means the user moved or resized the persistent rect.
+   */
+  _emitSelectionFromRect() {
+    const w = this.w
+    if (!w.interact.selectionEnabled) return
+    const link = w.config.chart.link
+    const linkActive = !!(
+      link && (link.enabled || typeof link.dimension === 'function')
+    )
+    if (typeof w.config.chart.events.selection !== 'function' && !linkActive) {
+      return
+    }
+
+    if (!this._hasPlot()) return
+    const selectionRect = this.selectionRect.node.getBoundingClientRect()
+    const xyRatios = this.xyRatios
+
+    let minX, maxX, minY, maxY
+
+    // Convert the rect's pixel edges to data via the shared AxisMapping used by
+    // bar placement and selectionDrawn: pixels are measured from the plot origin
+    // (translateX), the data origin is minX (NOT niceMin), and barPad never
+    // enters the mapping.
+    const relLeft = this._screenXToPlotPx(selectionRect.left)
+    const relRight = this._screenXToPlotPx(selectionRect.right)
+
+    if (!w.axisFlags.isRangeBar) {
+      if (!w.globals.xAxisScale) return
+      minX = AxisMapping.pxToDataX(w, relLeft)
+      maxX = AxisMapping.pxToDataX(w, relRight)
+
+      minY =
+        w.globals.yAxisScale[0].niceMin +
+        (w.layout.gridHeight - this._screenYToPlotPx(selectionRect.bottom)) *
+          xyRatios.yRatio[0]
+      maxY =
+        w.globals.yAxisScale[0].niceMax -
+        this._screenYToPlotPx(selectionRect.top) * xyRatios.yRatio[0]
+    } else {
+      // rangeBars use y for datetime
+      minX =
+        w.globals.yAxisScale[0].niceMin + relLeft * xyRatios.invertedYRatio
+      maxX =
+        w.globals.yAxisScale[0].niceMin + relRight * xyRatios.invertedYRatio
+
+      minY = 0
+      maxY = 1
+    }
+
+    const xyAxis = {
+      xaxis: { min: minX, max: maxX },
+      yaxis: { min: minY, max: maxY },
+    }
+    if (typeof w.config.chart.events.selection === 'function') {
+      w.config.chart.events.selection(this.ctx, xyAxis)
+    }
+
+    if (
+      w.config.chart.brush.enabled &&
+      w.config.chart.events.brushScrolled !== undefined
+    ) {
+      w.config.chart.events.brushScrolled(this.ctx, xyAxis)
+    }
+
+    // Linked Views (#4): re-crossfilter live as the persistent selection rect is
+    // dragged or resized.
+    this.ctx.linkedViews?.onSourceSelection(xyAxis.xaxis)
+  }
+
+  /** @param {{context: any, zoomtype: any}} opts */
+  selectionDrawn({ context, zoomtype }) {
+    const w = this.w
+    const me = context
+    const xyRatios = this.xyRatios
+    const toolbar = this.ctx.toolbar
+
+    // Use boundingRect for final selection area
+    const selRect = w.interact.zoomEnabled
+      ? me.zoomRect.node.getBoundingClientRect()
+      : me.selectionRect.node.getBoundingClientRect()
+    if (!me._hasPlot()) return
+
+    // Local coords in the plot-origin space, x shared with bar placement via
+    // AxisMapping.
+    const localStartX = this._screenXToPlotPx(selRect.left)
+    const localEndX = this._screenXToPlotPx(selRect.right)
+    const localStartY = this._screenYToPlotPx(selRect.top)
+    const localEndY = this._screenYToPlotPx(selRect.bottom)
+
+    // Convert those local coords to actual data values
+    let xLowestValue, xHighestValue
+
+    if (!w.axisFlags.isRangeBar) {
+      xLowestValue = AxisMapping.pxToDataX(w, localStartX)
+      xHighestValue = AxisMapping.pxToDataX(w, localEndX)
+    } else {
+      xLowestValue =
+        w.globals.yAxisScale[0].niceMin + localStartX * xyRatios.invertedYRatio
+      xHighestValue =
+        w.globals.yAxisScale[0].niceMin + localEndX * xyRatios.invertedYRatio
+    }
+
+    // For Y values, pick from the first y-axis, but handle multi-axis
+    /** @type {any[]} */
+    const yHighestValue = []
+    /** @type {any[]} */
+    const yLowestValue = []
+
+    w.config.yaxis.forEach((_, index) => {
+      // pick whichever series is mapped to this y-axis
+      const seriesIndex = w.globals.seriesYAxisMap[index][0]
+      const highestVal =
+        w.globals.yAxisScale[index].niceMax -
+        xyRatios.yRatio[seriesIndex] * localStartY
+      const lowestVal =
+        w.globals.yAxisScale[index].niceMax -
+        xyRatios.yRatio[seriesIndex] * localEndY
+
+      yHighestValue.push(highestVal)
+      yLowestValue.push(lowestVal)
+    })
+
+    // Only apply if user actually dragged far enough to consider it a selection
+    if (
+      me.dragged &&
+      (me.dragX > 10 || me.dragY > 10) &&
+      xLowestValue !== xHighestValue
+    ) {
+      if (w.interact.zoomEnabled) {
+        if (!w.globals.initialConfig) return
+        let yaxis = Utils.clone(w.globals.initialConfig.yaxis)
+        let xaxis = Utils.clone(w.globals.initialConfig.xaxis)
+
+        w.interact.zoomed = true
+
+        if (w.config.xaxis.convertedCatToNumeric) {
+          xLowestValue = Math.floor(xLowestValue)
+          xHighestValue = Math.floor(xHighestValue)
+
+          if (xLowestValue < 1) {
+            xLowestValue = 1
+            xHighestValue = w.globals.dataPoints
+          }
+
+          if (xHighestValue - xLowestValue < 2) {
+            xHighestValue = xLowestValue + 1
+          }
+        }
+
+        if (zoomtype === 'xy' || zoomtype === 'x') {
+          xaxis = {
+            min: xLowestValue,
+            max: xHighestValue,
+          }
+        }
+
+        if (zoomtype === 'xy' || zoomtype === 'y') {
+          yaxis.forEach((/** @type {any} */ yaxe, /** @type {any} */ index) => {
+            yaxe.min = yLowestValue[index]
+            yaxe.max = yHighestValue[index]
+          })
+        }
+
+        if (toolbar) {
+          const beforeZoomRange = toolbar.getBeforeZoomRange(xaxis, yaxis)
+          if (beforeZoomRange) {
+            xaxis = beforeZoomRange.xaxis ? beforeZoomRange.xaxis : xaxis
+            yaxis = beforeZoomRange.yaxis ? beforeZoomRange.yaxis : yaxis
+          }
+        }
+
+        /** @type {{ xaxis: any; yaxis?: any }} */
+        const options = {
+          xaxis,
+        }
+
+        if (!w.config.chart.group) {
+          // if chart in a group, prevent yaxis update here
+          // fix issue #650
+          options.yaxis = yaxis
+        }
+        const applied = me.ctx.updateHelpers._updateOptions(
+          options,
+          false,
+          me.w.config.chart.animations.dynamicAnimation.enabled,
+        )
+
+        // After the render, not before it: the update replaces the SVG, and
+        // focus set on the node that is about to be thrown away goes back to
+        // the document body with it. Measured, not theorised.
+        if (applied && typeof applied.then === 'function') {
+          applied.then(() => me._focusForKeyboard())
+        } else {
+          me._focusForKeyboard()
+        }
+
+        if (typeof w.config.chart.events.zoomed === 'function') {
+          toolbar.zoomCallback(xaxis, yaxis)
+        }
+      } else if (w.interact.selectionEnabled) {
+        /** @type {any} */
+        let yaxis = null
+        let xaxis = null
+        xaxis = {
+          min: xLowestValue,
+          max: xHighestValue,
+        }
+        if (zoomtype === 'xy' || zoomtype === 'y') {
+          const yaxisCopy = /** @type {ApexYAxis[]} */ (
+            Utils.clone(w.config.yaxis)
+          )
+          yaxis = yaxisCopy
+          yaxisCopy.forEach((yaxe, index) => {
+            yaxe.min = yLowestValue[index]
+            yaxe.max = yHighestValue[index]
+          })
+        }
+
+        w.interact.selection = me.selection
+        if (typeof w.config.chart.events.selection === 'function') {
+          w.config.chart.events.selection(me.ctx, {
+            xaxis,
+            yaxis,
+          })
+        }
+        // Linked Views (#4): feed the brushed data-x range to the crossfilter
+        // coordinator, which dims out-of-range marks across the group. Null-safe
+        // no-op unless the `link` feature is bundled and chart.link.enabled.
+        me.ctx.linkedViews?.onSourceSelection(xaxis)
+      }
+    }
+  }
+
+  /** @param {{ context?: any, zoomtype?: any, xyRatios?: any }} opts */
+  panDragging({ context }) {
+    const w = this.w
+    const me = context
+
+    // check to make sure there is data to compare against
+    if (typeof w.interact.lastClientPosition.x !== 'undefined') {
+      // get the change from last position to this position
+      const deltaX = w.interact.lastClientPosition.x - me.clientX
+      const deltaY = (w.interact.lastClientPosition.y ?? 0) - me.clientY
+
+      // check which direction had the highest amplitude
+      if (Math.abs(deltaX) > Math.abs(deltaY) && deltaX > 0) {
+        this.moveDirection = 'left'
+      } else if (Math.abs(deltaX) > Math.abs(deltaY) && deltaX < 0) {
+        this.moveDirection = 'right'
+      } else if (Math.abs(deltaY) > Math.abs(deltaX) && deltaY > 0) {
+        this.moveDirection = 'up'
+      } else if (Math.abs(deltaY) > Math.abs(deltaX) && deltaY < 0) {
+        this.moveDirection = 'down'
+      }
+    }
+
+    // set the new last position to the current for next time (to get the position of drag)
+    w.interact.lastClientPosition = {
+      x: me.clientX,
+      y: me.clientY,
+    }
+
+    const xLowestValue = w.axisFlags.isRangeBar
+      ? w.globals.minY
+      : w.globals.minX
+
+    const xHighestValue = w.axisFlags.isRangeBar
+      ? w.globals.maxY
+      : w.globals.maxX
+
+    me.panScrolled(xLowestValue, xHighestValue)
+  }
+
+  /**
+   * @param {number} xLowestValue
+   * @param {number} xHighestValue
+   */
+  panScrolled(xLowestValue, xHighestValue) {
+    const w = this.w
+
+    const xyRatios = this.xyRatios
+    if (!w.globals.initialConfig) return
+    const yaxis = this.yaxisForXWindow()
+
+    let xRatio = xyRatios.xRatio
+    let minX = w.globals.minX
+    let maxX = w.globals.maxX
+    if (w.axisFlags.isRangeBar) {
+      xRatio = xyRatios.invertedYRatio
+      minX = w.globals.minY
+      maxX = w.globals.maxY
+    }
+
+    if (this.moveDirection === 'left') {
+      xLowestValue = minX + (w.layout.gridWidth / PAN_NUDGE_DIVISOR) * xRatio
+      xHighestValue = maxX + (w.layout.gridWidth / PAN_NUDGE_DIVISOR) * xRatio
+    } else if (this.moveDirection === 'right') {
+      xLowestValue = minX - (w.layout.gridWidth / PAN_NUDGE_DIVISOR) * xRatio
+      xHighestValue = maxX - (w.layout.gridWidth / PAN_NUDGE_DIVISOR) * xRatio
+    }
+
+    if (!w.axisFlags.isRangeBar) {
+      const clampMin = w.globals.dataReducerRawMinX ?? w.globals.initialMinX
+      const clampMax = w.globals.dataReducerRawMaxX ?? w.globals.initialMaxX
+      if (xLowestValue < clampMin || xHighestValue > clampMax) {
+        xLowestValue = minX
+        xHighestValue = maxX
+      }
+    }
+
+    // A vertical drag, or one held at the data edge, leaves the window where
+    // it is: no re-render and no `scrolled` for a pan that did not move.
+    if (xLowestValue === minX && xHighestValue === maxX) return
+
+    const xaxis = {
+      min: xLowestValue,
+      max: xHighestValue,
+    }
+
+    /** @type {{ xaxis: any; yaxis?: any }} */
+    const options = {
+      xaxis,
+    }
+
+    if (!w.config.chart.group) {
+      // if chart in a group, prevent yaxis update here
+      // fix issue #650
+      options.yaxis = yaxis
+    }
+
+    this.updateScrolledChart(options, xLowestValue, xHighestValue)
+  }
+
+  /**
+   * @param {object} options
+   * @param {number} xLowestValue
+   * @param {number} xHighestValue
+   */
+  updateScrolledChart(options, xLowestValue, xHighestValue) {
+    const w = this.w
+
+    this.ctx.updateHelpers._updateOptions(options, false, false)
+
+    if (typeof w.config.chart.events.scrolled === 'function') {
+      const args = {
+        xaxis: {
+          min: xLowestValue,
+          max: xHighestValue,
+        },
+      }
+      w.config.chart.events.scrolled(this.ctx, args)
+      this.ctx.events.fireEvent('scrolled', args)
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Momentum: multi-touch pinch-zoom, two-finger pan and kinetic inertia.
+  //
+  // Every _updateOptions destroys and recreates this instance, and applying a
+  // gesture frame IS an _updateOptions, so the gesture must not depend on the
+  // instance surviving. All runtime state lives on w.interact.momentum (the
+  // interaction slice that persists across re-renders, like the crude pan's
+  // lastClientPosition). The instance that received touchstart keeps driving
+  // the gesture off the persistent state; inertia is a self-contained rAF loop
+  // that only a real destroy cancels (see destroy()).
+  // ---------------------------------------------------------------------------
+
+  _momentumEnabled() {
+    return this._pinchEnabled() || this._panInertiaEnabled()
+  }
+
+  _pinchEnabled() {
+    return this._incidentalZoomEnabled(this.w.config.chart.zoom.pinch)
+  }
+
+  _panInertiaEnabled() {
+    const c = this.w.config.chart
+    return !!(c.pan && c.pan.inertia)
+  }
+
+  /** Lazily-created, re-render-surviving gesture state on the interaction slice. */
+  _m() {
+    const it = this.w.interact
+    if (!it.momentum) {
+      it.momentum = {
+        busy: false,
+        /** @type {any} */ pinch: null,
+        /** @type {any} */ panState: null,
+        /** @type {{x:number,t:number}[]} */ samples: [],
+        /** @type {number|null} */ inertiaRAF: null,
+      }
+    }
+    return it.momentum
+  }
+
+  /** Current x data-window (rangeBars carry the datetime domain on y). */
+  _currentXWindow() {
+    const w = this.w
+    return w.axisFlags.isRangeBar
+      ? { min: w.globals.minY, max: w.globals.maxY }
+      : { min: w.globals.minX, max: w.globals.maxX }
+  }
+
+  /** Is there a chart on screen to measure the pointer against? */
+  _hasPlot() {
+    const baseEl = this.w.dom.baseEl
+    return !!(baseEl && baseEl.querySelector('.apexcharts-svg'))
+  }
+
+  /**
+   * Convert an absolute (client) y pixel to the plot-origin coordinate space,
+   * the y twin of {@link _screenXToPlotPx}. Measured per event from the svg
+   * (TooltipUtils.plotRect), never from the `.apexcharts-grid` box: unless
+   * gridlines reach the plot's top edge that box starts a pixel below it, so
+   * a drag rect stood a pixel above the pointer and the zoomed y range came
+   * back two pixels high. Dividing by the CSS zoom keeps a chart inside a
+   * zoomed container from reading screen pixels as plot pixels.
+   * @param {number} screenY
+   * @returns {number}
+   */
+  _screenYToPlotPx(screenY) {
+    const plot = TooltipUtils.plotRect(this.w)
+    return (screenY - plot.top) / plot.zoom
+  }
+
+  /**
+   * Convert an absolute (client) x pixel to the plot-origin coordinate space
+   * that bar placement and the selection rect transform both use:
+   * `screenX - svgLeft - translateX`. This is the ONLY correct reference for the
+   * numeric/datetime x mapping (see AxisMapping): do NOT measure from the
+   * `.apexcharts-grid` box and subtract barPadForNumericAxis, because on a
+   * numeric bar chart that box extends barPad to the LEFT of the plot origin, so
+   * the two corrections are a fragile pair that only cancels while the grid box
+   * happens to extend exactly barPad. Anchoring on translateX (the same origin
+   * the bars use) is stable regardless of grid padding.
+   * @param {number} screenX
+   * @returns {number}
+   */
+  _screenXToPlotPx(screenX) {
+    return AxisMapping.screenXToPlotPx(this.w, screenX)
+  }
+
+  /**
+   * Raw data bounds to clamp against. When zoom-aware downsampling is active,
+   * the raw stash tracks the full domain; fall back to the initial window.
+   * Returns null for rangeBars (no raw-x clamp available).
+   * @returns {{min:number, max:number}|null}
+   */
+  _clampBounds() {
+    const w = this.w
+    if (w.axisFlags.isRangeBar) return null
+    return {
+      min: w.globals.dataReducerRawMinX ?? w.globals.initialMinX,
+      max: w.globals.dataReducerRawMaxX ?? w.globals.initialMaxX,
+    }
+  }
+
+  /**
+   * Apply an x-window immediately (no animation), mirroring panScrolled but
+   * pixel-accurate: clamp to the raw bounds (preserving window width so a pan
+   * stops flush at the edge rather than shrinking), floor for category axes,
+   * then route through the fast _updateOptions path.
+   * @param {number} newMinX @param {number} newMaxX @param {boolean} isZoom
+   * @returns {{minX:number, maxX:number}|false} applied window, or false if rejected
+   */
+  _applyXRange(newMinX, newMaxX, isZoom) {
+    const w = this.w
+    if (!w.globals.initialConfig) return false
+
+    // Detect a widening (zoom-out) window up-front, before clamping/rounding can
+    // shrink the requested range at a boundary.
+    const cur = this._currentXWindow()
+    const zoomingOut = isZoom && newMaxX - newMinX > cur.max - cur.min
+
+    const bounds = this._clampBounds()
+    if (bounds) {
+      const range = newMaxX - newMinX
+      if (newMinX < bounds.min) {
+        newMinX = bounds.min
+        newMaxX = newMinX + range
+      }
+      if (newMaxX > bounds.max) {
+        newMaxX = bounds.max
+        newMinX = newMaxX - range
+      }
+      // range wider than the full domain: clamp both edges (pinch-out floor)
+      if (newMinX < bounds.min) newMinX = bounds.min
+    }
+
+    if (w.config.xaxis.convertedCatToNumeric) {
+      // While zooming OUT, ceil the high edge (instead of flooring it) so a
+      // fractional zoom-out always widens by at least one whole category.
+      // Flooring BOTH edges let a wheel/pinch zoom-out at the lower data
+      // boundary collapse to the same integer window every frame: the low edge
+      // is pinned at the first category and the floored high edge dropped the
+      // sub-integer growth, so the visible span never grew and "zoom-out
+      // stopped working" once only the first few points were left (the upper
+      // boundary was unaffected because there the low edge floors downward,
+      // which happens to widen the span). Zoom-IN and pan still floor both edges
+      // so zoom-in keeps tightening to the 3-point floor (ceiling the high edge
+      // there would cancel the floored low edge and stall the shrink).
+      newMinX = Math.floor(newMinX)
+      newMaxX = zoomingOut ? Math.ceil(newMaxX) : Math.floor(newMaxX)
+      if (newMinX < 1) newMinX = 1
+      if (bounds && newMaxX > bounds.max) newMaxX = Math.floor(bounds.max)
+      if (newMaxX - newMinX < 2) return false
+    }
+
+    if (!(newMaxX > newMinX)) return false
+
+    /** @type {{ xaxis: any; yaxis?: any }} */
+    const options = { xaxis: { min: newMinX, max: newMaxX } }
+    if (!w.config.chart.group) {
+      options.yaxis = this.yaxisForXWindow()
+    }
+    if (isZoom) w.interact.zoomed = true
+
+    this.ctx.updateHelpers._updateOptions(options, false, false)
+    return { minX: newMinX, maxX: newMaxX }
+  }
+
+  _cancelInertia() {
+    const m = this._m()
+    if (m.inertiaRAF != null) {
+      cancelAnimationFrame(m.inertiaRAF)
+      m.inertiaRAF = null
+    }
+  }
+
+  _fireScrolled() {
+    const w = this.w
+    if (typeof w.config.chart.events.scrolled !== 'function') return
+    const { min, max } = this._currentXWindow()
+    const args = { xaxis: { min, max } }
+    w.config.chart.events.scrolled(this.ctx, args)
+    this.ctx.events.fireEvent('scrolled', args)
+  }
+
+  /**
+   * Pan a zoomed x-window by `fraction` of its width (keyboard Shift+Arrow),
+   * clamped to the data as a drag pan is, and reported as one (`scrolled`).
+   * @param {number} fraction
+   */
+  panBy(fraction) {
+    const w = this.w
+    if (!w.interact.zoomed) return
+    const { min, max } = this._currentXWindow()
+    let d = (max - min) * fraction
+    // a category window moves by whole categories
+    if (w.config.xaxis.convertedCatToNumeric) {
+      d = d > 0 ? Math.ceil(d) : Math.floor(d)
+    }
+    // _clampBounds has none for a rangeBar: stop at the ends of its bars
+    if (w.axisFlags.isRangeBar) {
+      const r = w.rangeData
+      let lo = Infinity
+      let hi = -Infinity
+      r.seriesRangeStart
+        .concat(r.seriesRangeEnd)
+        .flat()
+        .forEach((/** @type {any} */ y) => {
+          if (y != null) {
+            lo = Math.min(lo, y)
+            hi = Math.max(hi, y)
+          }
+        })
+      d =
+        d > 0
+          ? Math.min(d, Math.max(0, hi - max))
+          : Math.max(d, Math.min(0, lo - min))
+      if (!d) return
+    }
+    if (this._applyXRange(min + d, max + d, false)) this._fireScrolled()
+  }
+
+  /** @param {number} x @param {number} t */
+  _pushSample(x, t) {
+    const s = this._m().samples
+    s.push({ x, t })
+    // keep a short trailing window for a stable release velocity
+    while (s.length > 6) s.shift()
+  }
+
+  /**
+   * Single passive:false handler for all touch phases. Two fingers => pinch /
+   * two-finger pan (zoom). One finger, in pan mode => kinetic pan with inertia.
+   * @param {any} e
+   */
+  momentumTouch(e) {
+    const w = this.w
+    const m = this._m()
+    const type = e.type
+
+    if (type === 'touchstart') {
+      this._cancelInertia()
+      if (!this._hasPlot()) return
+
+      if (e.touches.length >= 2 && this._pinchEnabled()) {
+        e.preventDefault()
+        m.busy = true
+        m.panState = null
+        this._beginPinch(e)
+      } else if (
+        e.touches.length === 1 &&
+        this._panInertiaEnabled() &&
+        w.interact.panEnabled
+      ) {
+        m.busy = true
+        m.pinch = null
+        const t = e.touches[0]
+        const win = this._currentXWindow()
+        const gw = w.layout.gridWidth || 1
+        // The finger moves in screen px, the plot is gridWidth chart px wide:
+        // inside a CSS-zoomed container they differ by the zoom, and read as
+        // one the content ran that factor ahead of (or behind) the finger.
+        const zoom = TooltipUtils.plotRect(w).zoom
+        m.panState = {
+          startX: t.clientX,
+          startY: t.clientY,
+          axis: null, // decided on first move (rails)
+          minX0: win.min,
+          maxX0: win.max,
+          zoom,
+          // data per screen px
+          ratio0: (win.max - win.min) / gw / zoom,
+        }
+        m.samples = [{ x: t.clientX, t: e.timeStamp }]
+      }
+      return
+    }
+
+    if (type === 'touchmove') {
+      if (m.pinch && e.touches.length >= 2) {
+        e.preventDefault()
+        this._movePinch(e)
+      } else if (m.panState && e.touches.length === 1) {
+        this._movePan(e)
+      }
+      return
+    }
+
+    // touchend / touchcancel
+    if (m.pinch) {
+      if (e.touches.length < 2) this._endPinch()
+    } else if (m.panState) {
+      if (e.touches.length === 0) this._endPan()
+    }
+    if (e.touches.length === 0) {
+      // a passive-path touchstart may have flagged mousedown before momentum
+      // took over; clear it (and only release busy if inertia is not running).
+      w.interact.mousedown = false
+      this.dragged = false
+      if (m.inertiaRAF == null && !m.pinch && !m.panState) {
+        m.busy = false
+      }
+    }
+  }
+
+  /**
+   * The centroid is taken in plot px through the shared AxisMapping, the
+   * space `gridWidth` and the x window are in. It used to be the grid box's
+   * left edge less barPadForNumericAxis, which only lands on the plot's left
+   * edge while the gridlines happen to reach exactly barPad past it (with
+   * `grid.show: false` they do not, and the anchor slid a bar's width), and
+   * stayed in screen px, so a chart in a CSS-zoomed container drifted under
+   * the fingers.
+   * @param {any} e
+   */
+  _beginPinch(e) {
+    const w = this.w
+    const t0 = e.touches[0]
+    const t1 = e.touches[1]
+    const dist =
+      Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY) || 1
+    const cx = this._screenXToPlotPx((t0.clientX + t1.clientX) / 2)
+    const { min, max } = this._currentXWindow()
+    this._m().pinch = {
+      d0: dist,
+      cx0: cx,
+      minX0: min,
+      maxX0: max,
+      gridWidth: w.layout.gridWidth || 1,
+    }
+  }
+
+  /** @param {any} e */
+  _movePinch(e) {
+    const w = this.w
+    const p = this._m().pinch
+    if (!p || !this._hasPlot()) return
+
+    const t0 = e.touches[0]
+    const t1 = e.touches[1]
+    const dist =
+      Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY) || 1
+    const cx = this._screenXToPlotPx((t0.clientX + t1.clientX) / 2)
+
+    const range0 = p.maxX0 - p.minX0
+    // fingers spread => dist > d0 => scale < 1 => window shrinks (zoom in)
+    const newRange = range0 * (p.d0 / dist)
+
+    // keep the data value under the pinch centroid pinned to the current
+    // centroid, which folds two-finger pan into the same transform
+    const anchorData = p.minX0 + (p.cx0 / p.gridWidth) * range0
+    let newMinX = anchorData - (cx / p.gridWidth) * newRange
+    let newMaxX = newMinX + newRange
+
+    // floor the zoom-in window at ~2 point-spacings (same reasoning as wheel
+    // zoom) so it never collapses to a zero-width / NaN range
+    const bounds = this._clampBounds()
+    if (bounds) {
+      const minXDiff =
+        w.globals.minXDiff > 0 && isFinite(w.globals.minXDiff)
+          ? w.globals.minXDiff
+          : 0
+      const minRange = Math.max(minXDiff * 2, (bounds.max - bounds.min) * 1e-6)
+      if (newMaxX - newMinX < minRange) {
+        const mid = (newMinX + newMaxX) / 2
+        newMinX = mid - minRange / 2
+        newMaxX = mid + minRange / 2
+      }
+    }
+
+    this._applyXRange(newMinX, newMaxX, true)
+  }
+
+  _endPinch() {
+    const m = this._m()
+    m.pinch = null
+    const { min, max } = this._currentXWindow()
+    const xaxis = { min, max }
+    const yaxis = this.yaxisForXWindow()
+    const toolbar = this.ctx.toolbar
+    if (toolbar) toolbar.zoomCallback(xaxis, yaxis)
+  }
+
+  /** @param {any} e */
+  _movePan(e) {
+    const m = this._m()
+    const s = m.panState
+    const t = e.touches[0]
+
+    // rails: lock to the dominant axis once past a small threshold. Chart x-pan
+    // only exists on the x-axis, so a vertical-dominant drag is a page scroll:
+    // release the gesture and let the browser scroll.
+    if (!s.axis) {
+      const dx = Math.abs(t.clientX - s.startX)
+      const dy = Math.abs(t.clientY - s.startY)
+      if (dx < 6 && dy < 6) {
+        this._pushSample(t.clientX, e.timeStamp)
+        return
+      }
+      if (dy > dx) {
+        m.busy = false
+        m.panState = null
+        return
+      }
+      s.axis = 'x'
+    }
+    if (s.axis !== 'x') return
+
+    // horizontal pan owns the gesture: stop the page from scrolling sideways
+    e.preventDefault()
+
+    const totalDeltaPx = t.clientX - s.startX
+    const deltaData = totalDeltaPx * s.ratio0
+    // finger drags right (deltaPx > 0) => reveal earlier data => window shifts left
+    this._pushSample(t.clientX, e.timeStamp)
+    this._applyXRange(s.minX0 - deltaData, s.maxX0 - deltaData, false)
+  }
+
+  _endPan() {
+    const m = this._m()
+    const s = m.panState
+    m.panState = null
+
+    // release velocity (px/ms) from the trailing samples
+    let vel = 0
+    const samples = m.samples
+    if (samples.length >= 2) {
+      const a = samples[0]
+      const b = samples[samples.length - 1]
+      const dt = b.t - a.t
+      if (dt > 0) vel = (b.x - a.x) / dt
+    }
+    m.samples = []
+
+    if (
+      s &&
+      s.axis === 'x' &&
+      this._panInertiaEnabled() &&
+      Math.abs(vel) > INERTIA_MIN_RELEASE_VELOCITY
+    ) {
+      // the glide runs in plot px, the finger's release speed is screen px
+      this._startInertia(vel / s.zoom)
+    } else {
+      m.busy = false
+      this._fireScrolled()
+    }
+  }
+
+  /**
+   * Kinetic glide after a one-finger pan release: decay the velocity by
+   * `friction` each frame and shift the window, stopping at the data edge
+   * (clamp, not elastic overshoot). The loop is w-driven, so it keeps running
+   * across the re-renders each frame triggers and stops only on a real destroy.
+   * @param {number} vel0 plot px/ms, sign is the finger direction
+   */
+  _startInertia(vel0) {
+    const w = this.w
+    const m = this._m()
+    const cfgFriction = w.config.chart.pan && w.config.chart.pan.friction
+    const friction =
+      typeof cfgFriction === 'number'
+        ? Math.min(Math.max(cfgFriction, 0.5), 0.999)
+        : INERTIA_DEFAULT_FRICTION
+
+    let vel = vel0
+    /** @type {number|null} */ let lastT = null
+    m.busy = true
+
+    /** @param {number} ts */
+    const step = (ts) => {
+      if (w.globals.isDestroyed) {
+        m.inertiaRAF = null
+        m.busy = false
+        return
+      }
+      if (lastT == null) {
+        lastT = ts
+        m.inertiaRAF = requestAnimationFrame(step)
+        return
+      }
+      const dt = ts - lastT
+      lastT = ts
+
+      // decay normalized to a 60fps frame so the glide feels the same regardless
+      // of the actual refresh rate
+      vel *= Math.pow(friction, dt / FRAME_MS_60FPS)
+      if (Math.abs(vel) < INERTIA_STOP_VELOCITY) {
+        m.inertiaRAF = null
+        m.busy = false
+        this._fireScrolled()
+        return
+      }
+
+      const win = this._currentXWindow()
+      const gw = w.layout.gridWidth || 1
+      const ratio = (win.max - win.min) / gw
+      const deltaData = vel * dt * ratio
+      const applied = this._applyXRange(
+        win.min - deltaData,
+        win.max - deltaData,
+        false,
+      )
+
+      const bounds = this._clampBounds()
+      const hitEdge =
+        !applied ||
+        (bounds &&
+          ((deltaData > 0 &&
+            applied.minX <= bounds.min + (bounds.max - bounds.min) * 1e-6) ||
+            (deltaData < 0 &&
+              applied.maxX >= bounds.max - (bounds.max - bounds.min) * 1e-6)))
+      if (hitEdge) {
+        m.inertiaRAF = null
+        m.busy = false
+        this._fireScrolled()
+        return
+      }
+
+      m.inertiaRAF = requestAnimationFrame(step)
+    }
+    m.inertiaRAF = requestAnimationFrame(step)
+  }
+}

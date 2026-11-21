@@ -4,9 +4,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const input_cedula_busqueda = document.getElementById("cedula_identidad");
     const select_categoria_equipo = document.getElementById("categorias_registradas");
 
-    const btn_lista_asignacion_pdf = document.getElementById("lista_asignacion_pdf");
-    const btn_equipo_asignado_pdf = document.getElementById("equipo_asignado_pdf");
-
     const contenedor_asignaciones = document.getElementById("registros_asignaciones");
 
     const dialogo_asignacion = document.getElementById("dialogo_asignacion");
@@ -62,7 +59,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const resultado = await respuesta.json();
             console.log(resultado);
 
-            select_categoria_equipo.innerHTML = "<option value='' selected>Seleccione la categoria</option>";
+            select_categoria_equipo.innerHTML = "<option value='' selected>Todas las Categorias</option>";
 
             resultado.forEach(categoria => {
                 const option_categoria = document.createElement("option");
@@ -176,6 +173,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
+
     async function datos_asignacion() {
         try {
             const formulario = new FormData();
@@ -188,44 +186,54 @@ document.addEventListener("DOMContentLoaded", () => {
                 },
                 body: formulario
             });
+
             const resultado = await respuesta.json();
+
             console.log(resultado);
+
+            if (!respuesta.ok || resultado.estado !== "exito") {
+                console.error(resultado.descripcion || "No se pudieron obtener los datos de la asignación.");
+                return;
+            }
+
+            const datos = resultado.datos;
 
             dialogo_asignacion.showModal();
 
-            input_id_asignacion_v.value = resultado.datos.id;
-            empleado_asignado_v.value = resultado.datos.empleado;
-            cedula_empleado_v.value = resultado.datos.cedula;
-            nombre_equipo_v.value = resultado.datos.equipo;
-            codigo_equipo_v.value = resultado.datos.codigo;
-            fecha_entrega_v.value = resultado.datos.fecha_entrega;
+            input_id_asignacion_v.value = datos.id;
+            empleado_asignado_v.value = datos.empleado;
+            cedula_empleado_v.value = datos.cedula;
+            nombre_equipo_v.value = datos.equipo;
+            codigo_equipo_v.value = datos.codigo;
+            fecha_entrega_v.value = datos.fecha_entrega;
 
-            if (resultado.fecha_devolucion != "") {
-                fecha_devolucion_v.value = resultado.datos.fecha_devolucion;
-            } else {
-                fecha_devolucion_v.value = "N/A";
-            }
+            fecha_devolucion_v.value = datos.fecha_devolucion;
 
-            if (resultado.cantidad_devuelta > 0) {
-                const cantidad = resultado.cantidad_devuelta;
+            if (datos.cantidad_devuelta > 0) {
+                const cantidad = datos.cantidad_devuelta;
 
-                descripcion_cantidad_devuelto = `Devuelto: ${cantidad} ${cantidad === 1 ? "unidad" : "unidades"}.`;
+                descripcion_cantidad_devuelto =
+                    `Devuelto: ${cantidad} ${cantidad === 1 ? "unidad" : "unidades"}.`;
             } else {
                 descripcion_cantidad_devuelto = "No ha devuelto ninguna unidad.";
             }
 
             cantidad_devuelto_v.value = descripcion_cantidad_devuelto;
 
-            const cantidad = resultado.datos.cantidad_asignada;
+            const cantidad = datos.cantidad_asignada;
 
-            input_cantidad_asignada_d.value = `${cantidad} ${cantidad === 1 ? "unidad" : "unidades"}`;
+            input_cantidad_asignada_d.value =
+                `${cantidad} ${cantidad === 1 ? "unidad" : "unidades"}`;
 
-            cantidad_equipo_v.value = resultado.datos.estado === "Error Humano" ? "Se devolvió la cantidad asignada"
-                : `${resultado.datos.cantidad_asignada} ${resultado.datos.cantidad_asignada === 1 ? "unidad" : "unidades"}`;
-            estado_equipo_v.value = resultado.datos.estado;
-            categoria_equipo_v.value = resultado.datos.categoria;
+            cantidad_equipo_v.value = datos.estado === "Error Humano"
+                ? "Se devolvió la cantidad asignada"
+                : `${cantidad} ${cantidad === 1 ? "unidad" : "unidades"}`;
+
+            estado_equipo_v.value = datos.estado;
+            categoria_equipo_v.value = datos.categoria;
+
         } catch (error) {
-            console.error(error);
+            console.error("Error al consultar los datos de la asignación:", error);
         }
     }
 
@@ -578,94 +586,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     btn_cerrar_asignacion.addEventListener("click", () => {
         dialogo_asignacion.close();
-    });
-
-
-    btn_lista_asignacion_pdf.addEventListener("click", async () => {
-        const categoria = select_categoria_equipo.value;
-
-        try {
-            const formulario = new FormData();
-            formulario.append("categoria", categoria);
-
-            const respuesta = await fetch("/asignaciones/lista_asignaciones_pdf/", {
-                method: "POST",
-                headers: {
-                    "X-CSRFToken": csrfToken
-                },
-                body: formulario
-            });
-
-            const tipoContenido = respuesta.headers.get("content-type") || "";
-
-            if (tipoContenido.includes("application/pdf")) {
-                const blob = await respuesta.blob();
-                const url = URL.createObjectURL(blob);
-                window.open(url, "_blank");
-
-                setTimeout(() => URL.revokeObjectURL(url), 60000);
-                return;
-            }
-
-            const resultado = await respuesta.json();
-
-            Swal.fire({
-                icon: resultado.icon || "warning",
-                title: resultado.title || "Advertencia",
-                text: resultado.descripcion || "No se pudo generar el reporte.",
-                confirmButtonText: "Entendido"
-            });
-
-        } catch (error) {
-            console.error(error);
-        }
-    });
-
-    btn_equipo_asignado_pdf.addEventListener("click", async () => {
-        try {
-            const formulario = new FormData();
-            formulario.append("id_asignacion", input_id_asignacion_v.value);
-
-            const respuesta = await fetch("/asignaciones/datos_asignacion_pdf/", {
-                method: "POST",
-                headers: {
-                    "X-CSRFToken": csrfToken
-                },
-                body: formulario
-            });
-
-            const tipo_contenido = respuesta.headers.get("content-type") || "";
-
-            if (tipo_contenido.includes("application/json")) {
-                const resultado = await respuesta.json();
-
-                Swal.fire({
-                    icon: resultado.icon || "error",
-                    title: resultado.title || "Error",
-                    text: resultado.descripcion || "No se pudo generar el reporte."
-                });
-                return;
-            }
-
-            if (!respuesta.ok || !tipo_contenido.includes("application/pdf")) {
-                Swal.fire({
-                    icon: "error",
-                    title: "Error",
-                    text: "No se pudo generar el PDF de la asignación."
-                });
-                return;
-            }
-
-            const pdf = await respuesta.blob();
-            const url_pdf = URL.createObjectURL(pdf);
-
-            window.open(url_pdf, "_blank");
-
-            setTimeout(() => URL.revokeObjectURL(url_pdf), 60000);
-
-        } catch (error) {
-            console.error(error);
-        }
     });
 
 });

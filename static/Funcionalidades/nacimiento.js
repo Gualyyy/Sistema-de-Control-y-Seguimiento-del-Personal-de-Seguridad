@@ -1078,7 +1078,7 @@ document.addEventListener("DOMContentLoaded", function () {
     };
 
     function cargarPaises() {
-        pais_nacimiento.innerHTML = '<option value="" disabled selected hidden>Elija el País</option>';
+        pais_nacimiento.innerHTML = "";
 
         paises.forEach(pais => {
             const opcion = document.createElement("option");
@@ -1086,7 +1086,10 @@ document.addEventListener("DOMContentLoaded", function () {
             opcion.textContent = pais;
             pais_nacimiento.appendChild(opcion);
         });
+
+        pais_nacimiento.value = "Venezuela";
     }
+
     cargarPaises();
 
     pais_nacimiento.addEventListener("change", () => {
@@ -1097,6 +1100,7 @@ document.addEventListener("DOMContentLoaded", function () {
             municipio_nacimiento,
             parroquia_nacimiento
         ];
+
         const controles_otro_pais = [
             estado_nacimiento_nvzla,
             municipio_nacimiento_nvzla,
@@ -1116,28 +1120,27 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // CARGAR ESTADOS DE VENEZUELA
     function cargarEstados() {
-        estado_nacimiento.innerHTML = '<option value="" disabled selected hidden>Elija el Estado</option>';
+        estado_nacimiento.innerHTML = "";
 
         Estado.forEach(estado => {
-
             const opcion = document.createElement("option");
-
             opcion.value = estado;
             opcion.textContent = estado;
-
             estado_nacimiento.appendChild(opcion);
         });
 
+        estado_nacimiento.value = "Barinas";
     }
+
     cargarEstados();
 
     // ESTADO → MUNICIPIO
     function cargarMunicipios() {
         const estado = estado_nacimiento.value;
 
-        // Reiniciar
-        municipio_nacimiento.innerHTML = '<option value="" disabled selected hidden>Elija el Municipio</option>';
-        parroquia_nacimiento.innerHTML = '<option value="" disabled selected hidden>Elija una Parroquia</option>';
+        municipio_nacimiento.innerHTML = "";
+        parroquia_nacimiento.innerHTML = "";
+
         municipio_nacimiento.required = false;
         parroquia_nacimiento.required = false;
 
@@ -1150,6 +1153,14 @@ document.addEventListener("DOMContentLoaded", function () {
             });
 
             municipio_nacimiento.required = true;
+
+            municipio_nacimiento.value =
+                estado === "Barinas" &&
+                    municipiosPorEstado[estado].includes("Barinas")
+                    ? "Barinas"
+                    : municipio_nacimiento.options[0].value;
+
+            municipio_nacimiento.dispatchEvent(new Event("change"));
         }
     }
 
@@ -1160,14 +1171,15 @@ document.addEventListener("DOMContentLoaded", function () {
         const estado = estado_nacimiento.value;
         const municipio = municipio_nacimiento.value;
 
-        parroquia_nacimiento.innerHTML = '<option value="" disabled selected hidden>Elija una Parroquia</option>';
+        parroquia_nacimiento.innerHTML = "";
         parroquia_nacimiento.required = false;
 
-        if (estado &&
+        if (
+            estado &&
             municipio &&
             parroquiasPorMunicipio[estado] &&
-            parroquiasPorMunicipio[estado][municipio]) {
-
+            parroquiasPorMunicipio[estado][municipio]
+        ) {
             parroquiasPorMunicipio[estado][municipio].forEach(parroquia => {
                 const option = document.createElement("option");
                 option.value = parroquia;
@@ -1176,6 +1188,15 @@ document.addEventListener("DOMContentLoaded", function () {
             });
 
             parroquia_nacimiento.required = true;
+
+            parroquia_nacimiento.value =
+                estado === "Barinas" &&
+                    municipio === "Barinas" &&
+                    parroquiasPorMunicipio[estado][municipio].includes("El Carmen")
+                    ? "El Carmen"
+                    : parroquia_nacimiento.options[0].value;
+
+            parroquia_nacimiento.dispatchEvent(new Event("change"));
         }
     }
 
@@ -1183,14 +1204,16 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // PARROQUIA → DIRECCIÓN + FECHA
     parroquia_nacimiento.addEventListener("change", function () {
-        const parroquia = parroquia_nacimiento.value;
-        if (!parroquia) {
+        if (!parroquia_nacimiento.value) {
             return;
         }
 
         direccion_nacimiento.required = true;
-
         fecha_nacimiento_usuario.required = true;
     });
+
+    // APLICAR UBICACIÓN PREDETERMINADA
+    pais_nacimiento.dispatchEvent(new Event("change"));
+    estado_nacimiento.dispatchEvent(new Event("change"));
 
 });

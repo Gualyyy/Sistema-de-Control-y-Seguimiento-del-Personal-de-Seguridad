@@ -1,0 +1,105 @@
+.validacion_reporte {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 48px 20px;
+}
+
+.tarjeta_validacion_reporte {
+    width: min(100%, 680px);
+    box-sizing: border-box;
+    padding: 36px;
+    border: 1px solid #dce8ed;
+    border-radius: 14px;
+    background: #ffffff;
+    box-shadow: 0 8px 26px rgba(0, 68, 95, 0.1);
+    text-align: center;
+}
+
+.icono_validacion_reporte {
+    font-size: 54px;
+}
+
+.icono_validacion_reporte.es_valido,
+.estado_validacion.es_valido {
+    color: #16834b;
+}
+
+.icono_validacion_reporte.no_valido,
+.estado_validacion.no_valido {
+    color: #b42318;
+}
+
+.estado_validacion {
+    margin: 14px 0 6px;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.tarjeta_validacion_reporte h1 {
+    margin: 0;
+    color: #102f4e;
+    font-size: clamp(24px, 5vw, 32px);
+}
+
+.texto_validacion {
+    margin: 14px 0 24px;
+    color: #526875;
+    line-height: 1.7;
+}
+
+.datos_validacion_reporte {
+    margin: 0;
+    border-top: 1px solid #dce8ed;
+    text-align: left;
+}
+
+.datos_validacion_reporte > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 13px 0;
+    border-bottom: 1px solid #dce8ed;
+}
+
+.datos_validacion_reporte dt {
+    color: #526875;
+    font-weight: 600;
+}
+
+.datos_validacion_reporte dd {
+    margin: 0;
+    color: #102f4e;
+    font-weight: 600;
+    text-align: right;
+    overflow-wrap: anywhere;
+}
+
+.nota_validacion_reporte {
+    margin: 22px 0 0;
+    color: #6b7d87;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+@media (max-width: 520px) {
+    .validacion_reporte {
+        padding: 24px 12px;
+    }
+
+    .tarjeta_validacion_reporte {
+        padding: 26px 20px;
+    }
+
+    .datos_validacion_reporte > div {
+        flex-direction: column;
+        gap: 5px;
+    }
+
+    .datos_validacion_reporte dd {
+        text-align: left;
+    }
+}

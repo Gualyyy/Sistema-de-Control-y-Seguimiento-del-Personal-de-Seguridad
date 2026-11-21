@@ -1,0 +1,468 @@
+// @ts-check
+import Graphics from '../../modules/Graphics'
+import Utils from '../../utils/Utils'
+import Helpers from './Helpers'
+import XAxisAnnotations from './XAxisAnnotations'
+import YAxisAnnotations from './YAxisAnnotations'
+import PointsAnnotations from './PointsAnnotations'
+import Options from './../settings/Options'
+
+/**
+ * ApexCharts Annotations Class for drawing lines/rects on both xaxis and yaxis.
+ *
+ * @module Annotations
+ **/
+export default class Annotations {
+  /**
+   * @param {import('../../types/internal').ChartStateW} w
+   */
+  constructor(w, { theme = null, timeScale = null } = {}) {
+    this.w = w
+    /** @type {any} */
+    this.theme = theme
+    /** @type {any} */
+    this.timeScale = timeScale
+    /** @type {boolean | undefined} */
+    this.invertAxis = undefined
+    /** @type {boolean | undefined} */
+    this.inversedReversedAxis = undefined
+    this.graphics = new Graphics(this.w)
+
+    if (this.w.globals.isBarHorizontal) {
+      this.invertAxis = true
+    }
+
+    this.helpers = new Helpers(this)
+    this.xAxisAnnotations = new XAxisAnnotations(this)
+    this.yAxisAnnotations = new YAxisAnnotations(this)
+    this.pointsAnnotations = new PointsAnnotations(this)
+
+    if (this.w.globals.isBarHorizontal && this.w.config.yaxis[0].reversed) {
+      this.inversedReversedAxis = true
+    }
+  }
+
+  drawAxesAnnotations() {
+    const w = this.w
+    // The containers are built unconditionally, even on an empty chart: the
+    // runtime addXaxisAnnotation/addYaxisAnnotation/addPointAnnotation APIs look
+    // their parent group up by selector and used to throw on a null parent when
+    // the chart had no data. Whether an individual annotation can be *placed* is
+    // decided per annotation by Helpers.hasXDomain(), which is what replaced the
+    // blanket `w.globals.dataPoints` check here (#1832): that check also
+    // suppressed y-axis annotations, whose scale is always valid (#5278).
+    if (w.globals.axisCharts) {
+      const yAnnotations = this.yAxisAnnotations.drawYAxisAnnotations()
+      const xAnnotations = this.xAxisAnnotations.drawXAxisAnnotations()
+      const pointAnnotations = this.pointsAnnotations.drawPointAnnotations()
+
+      const initialAnim = w.config.chart.animations.enabled
+
+      const annoArray = [yAnnotations, xAnnotations, pointAnnotations]
+      const annoElArray = [
+        xAnnotations.node,
+        yAnnotations.node,
+        pointAnnotations.node,
+      ]
+      // For line/area/rangeArea, xaxis & point annotations handle their own
+      // per-element opacity timing via applyProgressiveReveal (synced to the
+      // line draw). YAxis annotations span the grid horizontally and have no
+      // meaningful x — they still use the legacy group-level fade-in.
+      const progressiveAnnos =
+        w.config.chart.type === 'line' ||
+        w.config.chart.type === 'area' ||
+        w.config.chart.type === 'rangeArea'
+      // annoElArray index: 0=xAnnotations, 1=yAnnotations, 2=pointAnnotations
+      const skipGroupHide = [progressiveAnnos, false, progressiveAnnos]
+      for (let i = 0; i < 3; i++) {
+        w.dom.elGraphical.add(annoArray[i])
+        // Hidden only while the series still animate in. Once that is over
+        // (animations off for this render, or a canvas series layer, which
+        // paints its final frame at once) the reveal has already run, so a
+        // group hidden now would stay hidden.
+        if (
+          initialAnim &&
+          !w.globals.resized &&
+          !w.globals.dataChanged &&
+          !w.globals.animationEnded
+        ) {
+          // fixes apexcharts/apexcharts.js#685
+          if (
+            w.config.chart.type !== 'scatter' &&
+            w.config.chart.type !== 'bubble' &&
+            w.globals.dataPoints > 1 &&
+            !skipGroupHide[i]
+          ) {
+            annoElArray[i].classList.add('apexcharts-element-hidden')
+          }
+        }
+        w.globals.delayedElements.push({ el: annoElArray[i], index: 0 })
+      }
+
+      // background sizes needs to be calculated after text is drawn, so calling them last
+      this.helpers.annotationsBackground()
+    }
+  }
+
+  drawImageAnnos() {
+    const w = this.w
+
+    /**
+     * @param {Record<string, any>} s
+     */
+    w.config.annotations.images.map((/** @type {Record<string, any>} */ s) => {
+      this.addImage(s)
+    })
+  }
+
+  drawTextAnnos() {
+    const w = this.w
+
+    /**
+     * @param {Record<string, any>} t
+     */
+    w.config.annotations.texts.map((/** @type {Record<string, any>} */ t) => {
+      this.addText(t)
+    })
+  }
+
+  /**
+   * @param {Record<string, any>} anno
+   * @param {Element} parent
+   * @param {number} index
+   */
+  addXaxisAnnotation(anno, parent, index) {
+    this.xAxisAnnotations.addXaxisAnnotation(anno, parent, index)
+  }
+
+  /**
+   * @param {Record<string, any>} anno
+   * @param {Element} parent
+   * @param {number} index
+   */
+  addYaxisAnnotation(anno, parent, index) {
+    this.yAxisAnnotations.addYaxisAnnotation(anno, parent, index)
+  }
+
+  /**
+   * @param {Record<string, any>} anno
+   * @param {Element} parent
+   * @param {number} index
+   */
+  addPointAnnotation(anno, parent, index) {
+    this.pointsAnnotations.addPointAnnotation(anno, parent, index)
+  }
+
+  /**
+   * @param {Record<string, any>} params
+   */
+  addText(params) {
+    const {
+      x,
+      y,
+      text,
+      textAnchor,
+      foreColor,
+      fontSize,
+      fontFamily,
+      fontWeight,
+      cssClass,
+      backgroundColor,
+      borderWidth,
+      strokeDashArray,
+      borderRadius,
+      borderColor,
+      appendTo = '.apexcharts-svg',
+      paddingLeft = 4,
+      paddingRight = 4,
+      paddingBottom = 2,
+      paddingTop = 2,
+    } = params
+
+    const w = this.w
+
+    // An appendTo that matches nothing in this chart skips the text rather
+    // than throwing out of the render.
+    const parent = w.dom.baseEl.querySelector(appendTo)
+    if (!parent) return
+
+    const elText = this.graphics.drawText({
+      x,
+      y,
+      text,
+      textAnchor: textAnchor || 'start',
+      fontSize: fontSize || '12px',
+      fontWeight: fontWeight || 'regular',
+      fontFamily: fontFamily || w.config.chart.fontFamily,
+      foreColor: foreColor || w.config.chart.foreColor,
+      cssClass: cssClass || '',
+    })
+
+    parent.appendChild(elText.node)
+
+    const textRect = elText.bbox()
+
+    if (text) {
+      const elRect = this.graphics.drawRect(
+        textRect.x - paddingLeft,
+        textRect.y - paddingTop,
+        textRect.width + paddingLeft + paddingRight,
+        textRect.height + paddingBottom + paddingTop,
+        borderRadius,
+        backgroundColor ? backgroundColor : 'transparent',
+        1,
+        borderWidth,
+        borderColor,
+        strokeDashArray,
+      )
+
+      parent.insertBefore(elRect.node, elText.node)
+    }
+  }
+
+  /**
+   * @param {Record<string, any>} params
+   */
+  addImage(params) {
+    const w = this.w
+
+    const {
+      path,
+      x = 0,
+      y = 0,
+      width = 20,
+      height = 20,
+      appendTo = '.apexcharts-svg',
+    } = params
+
+    const img = w.dom.Paper.image(path)
+    img.size(width, height).move(x, y)
+
+    const parent = w.dom.baseEl.querySelector(appendTo)
+    if (parent) {
+      parent.appendChild(img.node)
+    }
+
+    return img
+  }
+
+  // The addXaxisAnnotation method requires a parent class, and user calling this method externally on the chart instance may not specify parent, hence a different method
+  /**
+   * @param {Record<string, any>} params
+   * @param {boolean} pushToMemory
+   * @param {any} context
+   */
+  addXaxisAnnotationExternal(params, pushToMemory, context) {
+    this.addAnnotationExternal({
+      params,
+      pushToMemory,
+      context,
+      type: 'xaxis',
+      contextMethod: context.addXaxisAnnotation,
+    })
+    return context
+  }
+
+  /**
+   * @param {Record<string, any>} params
+   * @param {boolean} pushToMemory
+   * @param {any} context
+   */
+  addYaxisAnnotationExternal(params, pushToMemory, context) {
+    this.addAnnotationExternal({
+      params,
+      pushToMemory,
+      context,
+      type: 'yaxis',
+      contextMethod: context.addYaxisAnnotation,
+    })
+    return context
+  }
+
+  /**
+   * @param {Record<string, any>} params
+   * @param {boolean} pushToMemory
+   * @param {any} context
+   */
+  addPointAnnotationExternal(params, pushToMemory, context) {
+    if (typeof this.invertAxis === 'undefined') {
+      this.invertAxis = context.w.globals.isBarHorizontal
+    }
+
+    this.addAnnotationExternal({
+      params,
+      pushToMemory,
+      context,
+      type: 'point',
+      contextMethod: context.addPointAnnotation,
+    })
+    return context
+  }
+
+  /** @param {{params: any, pushToMemory: any, context: any, type: any, contextMethod: any}} opts */
+  addAnnotationExternal({
+    params,
+    pushToMemory,
+    context,
+    type,
+    contextMethod,
+  }) {
+    const me = context
+    const w = me.w
+    const parent = w.dom.baseEl.querySelector(`.apexcharts-${type}-annotations`)
+    const remember = (/** @type {any} */ id) => {
+      if (pushToMemory) {
+        w.globals.memory.methodsToExec.push({
+          context: me,
+          id: id ? id : Utils.randomId(),
+          method: contextMethod,
+          label: 'addAnnotation',
+          params,
+        })
+      }
+    }
+
+    // Only axis charts build the annotation groups (pie, donut, polarArea,
+    // radialBar have no axes to annotate). Keep the annotation as if it had
+    // come in options: not drawn here, drawn again by the render replay if
+    // the chart is switched to an axis type. Only the user's own call warns,
+    // so the replay on every render stays silent.
+    if (!parent) {
+      if (pushToMemory) {
+        console.warn(
+          `ApexCharts: add${type[0].toUpperCase() + type.slice(1)}Annotation() not drawn: ${w.config.chart.type} charts do not draw ${type} annotations. It is kept and drawn if the chart becomes an axis chart.`,
+        )
+      }
+      remember(params?.id)
+      return context
+    }
+    // Config annotations take their array index as rel, and the label is
+    // found again by rel below, so a runtime rel must start past them.
+    // Every drawn annotation adds a child, so later ones stay unique.
+    const index =
+      (w.config.annotations[type === 'point' ? 'points' : type]?.length || 0) +
+      parent.childNodes.length
+
+    const options = new Options()
+    const axesAnno = Object.assign(
+      {},
+      type === 'xaxis'
+        ? options.xAxisAnnotation
+        : type === 'yaxis'
+          ? options.yAxisAnnotation
+          : options.pointAnnotation,
+    )
+
+    const anno = Utils.extend(axesAnno, params)
+
+    switch (type) {
+      case 'xaxis':
+        this.addXaxisAnnotation(anno, parent, index)
+        break
+      case 'yaxis':
+        this.addYaxisAnnotation(anno, parent, index)
+        break
+      case 'point':
+        this.addPointAnnotation(anno, parent, index)
+        break
+    }
+
+    // add background
+    const axesAnnoLabel = w.dom.baseEl.querySelector(
+      `.apexcharts-${type}-annotations .apexcharts-${type}-annotation-label[rel='${index}']`,
+    )
+    const elRect = this.helpers.addBackgroundToAnno(axesAnnoLabel, anno)
+    if (elRect) {
+      parent.insertBefore(elRect.node, axesAnnoLabel)
+    }
+
+    remember(anno.id)
+
+    return context
+  }
+
+  /**
+   * Remove the shared point-annotation hover tooltip node.
+   *
+   * `hidePointTooltip` is wired only to the marker's `mouseleave`; if the marker
+   * is torn down while hovered (clearAnnotations / removeAnnotation / a redraw),
+   * that never fires and the tooltip is left `.apexcharts-active`. A stale active
+   * annotation tooltip then permanently suppresses the series tooltip (see the
+   * guard in Tooltip.drawTooltip added by b1369f5ab). Removing the node clears
+   * both the ghost box and the stale state; it is recreated on the next hover.
+   * @param {any} w
+   */
+  _removeAnnotationTooltip(w) {
+    const el =
+      w.dom.elWrap &&
+      w.dom.elWrap.querySelector('.apexcharts-annotation-tooltip')
+    if (el && el.parentNode) {
+      el.parentNode.removeChild(el)
+    }
+  }
+
+  /**
+   * @param {import('../../types/internal').ChartContext} ctx
+   */
+  clearAnnotations(ctx) {
+    const w = ctx.w
+    this._removeAnnotationTooltip(w)
+    const annos = w.dom.baseEl.querySelectorAll(
+      '.apexcharts-yaxis-annotations, .apexcharts-xaxis-annotations, .apexcharts-point-annotations',
+    )
+
+    // annotations added externally should be cleared out too
+    for (let i = w.globals.memory.methodsToExec.length - 1; i >= 0; i--) {
+      if (
+        w.globals.memory.methodsToExec[i].label === 'addText' ||
+        w.globals.memory.methodsToExec[i].label === 'addAnnotation'
+      ) {
+        w.globals.memory.methodsToExec.splice(i, 1)
+      }
+    }
+
+    // delete the DOM elements
+    /**
+     * @param {any} a
+     */
+    Array.prototype.forEach.call(annos, (a) => {
+      while (a.firstChild) {
+        a.removeChild(a.firstChild)
+      }
+    })
+  }
+
+  /**
+   * @param {import('../../types/internal').ChartContext} ctx
+   * @param {string} id
+   */
+  removeAnnotation(ctx, id) {
+    const w = ctx.w
+    this._removeAnnotationTooltip(w)
+    const annos = w.dom.baseEl.querySelectorAll(`.${id}`)
+
+    if (annos) {
+      // filter(), not a forward splice: that skipped every other entry of a
+      // shared id, and the next render replayed the survivors.
+      w.globals.memory.methodsToExec = w.globals.memory.methodsToExec.filter(
+        (m) => m.id !== id,
+      )
+
+      Object.keys(w.config.annotations).forEach((key) => {
+        const annotationArray = w.config.annotations[key]
+
+        if (Array.isArray(annotationArray)) {
+          // remove entry from the config, so on the next update it doesn't come back
+          w.config.annotations[key] = annotationArray.filter((m) => m.id !== id)
+        }
+      })
+
+      /**
+       * @param {any} a
+       */
+      Array.prototype.forEach.call(annos, (a) => {
+        a.parentElement.removeChild(a)
+      })
+    }
+  }
+}

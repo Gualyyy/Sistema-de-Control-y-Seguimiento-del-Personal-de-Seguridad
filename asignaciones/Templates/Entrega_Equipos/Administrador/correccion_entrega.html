@@ -5,7 +5,7 @@
 {% load static %}
 
 <section class="contenedor_formulario">
-    <div class="contenedor_campos_amplio">
+    <div class="contenedor_campos_intermedio">
         <h2>Corrección de Entrega</h2>
 
         <div class="modulo_equipo">
@@ -31,9 +31,11 @@
                     <label for="tipo_correccion">Tipo de Corrección:</label>
                     <select name="tipo_correccion" id="tipo_correccion">
                         <option value="">Seleccione el Tipo de Corrección</option>
+                        <option value="RETIRAR">Retirar</option>
                         <option value="ACTUALIZAR">Actualizar</option>
                         <option value="ERROR_HUMANO">Error Humano</option>
                     </select>
+                    <small id="contenedor_msg_correccion" class="mensaje-feedback"></small>
                 </div>
 
                 <div class="campo_formulario">

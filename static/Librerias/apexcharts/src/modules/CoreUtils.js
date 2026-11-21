@@ -1,0 +1,888 @@
+// @ts-check
+/** @typedef {import('../../types/apexcharts').ApexYAxis} ApexYAxis */
+/*
+ ** Util functions which are dependent on ApexCharts instance
+ */
+
+class CoreUtils {
+  /**
+   * @param {import('../types/internal').ChartStateW} w
+   */
+  constructor(w) {
+    this.w = w
+  }
+
+  /**
+   * @param {any[]} series
+   * @param {string} chartType
+   */
+  static checkComboSeries(series, chartType) {
+    let comboCharts = false
+    let comboBarCount = 0
+    let comboCount = 0
+
+    if (chartType === undefined) {
+      chartType = 'line'
+    }
+
+    // Check if user specified a type in series that may make us a combo chart.
+    // The default type for chart is "line" and the default for series is the
+    // chart type, therefore, if the types of all series match the chart type,
+    // this should not be considered a combo chart.
+    if (series.length && typeof series[0].type !== 'undefined') {
+      /**
+       * @param {Record<string, any>} s
+       */
+      series.forEach((s) => {
+        if (
+          s.type === 'bar' ||
+          s.type === 'column' ||
+          s.type === 'candlestick' ||
+          s.type === 'boxPlot' ||
+          s.type === 'violin'
+        ) {
+          comboBarCount++
+        }
+        if (typeof s.type !== 'undefined' && s.type !== chartType) {
+          comboCount++
+        }
+      })
+    }
+    if (comboCount > 0) {
+      comboCharts = true
+    }
+
+    return {
+      comboBarCount,
+      comboCharts,
+    }
+  }
+
+  /**
+   * @memberof CoreUtils
+   * returns the sum of all individual values in a multiple stacked series
+   * Eg. w.seriesData.series = [[32,33,43,12], [2,3,5,1]]
+   *  @return [34,36,48,13]
+   * @param {number[]} excludedSeriesIndices
+   **/
+  getStackedSeriesTotals(excludedSeriesIndices = []) {
+    const w = this.w
+    /** @type {any[]} */
+    const total = []
+
+    if (w.seriesData.series.length === 0) return total
+
+    for (
+      let i = 0;
+      i < w.seriesData.series[w.globals.maxValsInArrayIndex].length;
+      i++
+    ) {
+      let t = 0
+      for (let j = 0; j < w.seriesData.series.length; j++) {
+        if (
+          typeof w.seriesData.series[j][i] !== 'undefined' &&
+          excludedSeriesIndices.indexOf(j) === -1
+        ) {
+          t += w.seriesData.series[j][i]
+        }
+      }
+      total.push(t)
+    }
+    return total
+  }
+
+  /**
+   * The total of one series; 0 for an index that names no series.
+   * @param {number} index
+   */
+  getSeriesTotalByIndex(index) {
+    const seriesAtIndex = this.w.seriesData.series[index]
+    if (!Array.isArray(seriesAtIndex)) {
+      // pie/donut/polarArea/radialBar called per-index from legend loop
+      return seriesAtIndex ?? 0
+    }
+    // axis charts - supporting multiple series
+    return seriesAtIndex.reduce(
+      (/** @type {any} */ acc, /** @type {any} */ cur) => acc + cur,
+      0,
+    )
+  }
+
+  /**
+   * @memberof CoreUtils
+   * returns the sum of values in a multiple stacked grouped charts
+   * Eg. w.seriesData.series = [[32,33,43,12], [2,3,5,1], [43, 23, 34, 22]]
+   * series 1 and 2 are in a group, while series 3 is in another group
+   *  @return [[34, 36, 48, 12], [43, 23, 34, 22]]
+   **/
+  getStackedSeriesTotalsByGroups() {
+    const w = this.w
+    /** @type {any[]} */
+    const total = []
+
+    w.labelData.seriesGroups.forEach((_, gi) => {
+      // by index: groups may reuse series names
+      total.push(
+        this.getStackedSeriesTotals(
+          w.seriesData.series
+            .map((_, i) => i)
+            .filter((i) => w.labelData.seriesGroupIndex[i] !== gi),
+        ),
+      )
+    })
+    return total
+  }
+
+  setSeriesYAxisMappings() {
+    const gl = this.w.globals
+    const cnf = this.w.config
+
+    // The old config method to map multiple series to a y axis is to
+    // include one yaxis config per series but set each yaxis seriesName to the
+    // same series name. This relies on indexing equivalence to map series to
+    // an axis: series[n] => yaxis[n]. This needs to be retained for compatibility.
+    // But we introduce an alternative that explicitly configures yaxis elements
+    // with the series that will be referenced to them (seriesName: []). This
+    // only requires including the yaxis elements that will be seen on the chart.
+    // Old way:
+    // ya: s
+    // 0: 0
+    // 1: 1
+    // 2: 1
+    // 3: 1
+    // 4: 1
+    // Axes 0..4 are all scaled and all will be rendered unless the axes are
+    // show: false. If the chart is stacked, it's assumed that series 1..4 are
+    // the contributing series. This is not particularly intuitive.
+    // New way:
+    // ya: s
+    // 0: [0]
+    // 1: [1,2,3,4]
+    // If the chart is stacked, it can be assumed that any axis with multiple
+    // series is stacked.
+    //
+    // If this is an old chart and we are being backward compatible, it will be
+    // expected that each series is associated with it's corresponding yaxis
+    // through their indices, one-to-one.
+    // If yaxis.seriesName matches series.name, we have indices yi and si.
+    // A name match where yi != si is interpretted as yaxis[yi] and yaxis[si]
+    // will both be scaled to fit the combined series[si] and series[yi].
+    // Consider series named: S0,S1,S2 and yaxes A0,A1,A2.
+    //
+    // Example 1: A0 and A1 scaled the same.
+    // A0.seriesName: S0
+    // A1.seriesName: S0
+    // A2.seriesName: S2
+    // Then A1 <-> A0
+    //
+    // Example 2: A0, A1 and A2 all scaled the same.
+    // A0.seriesName: S2
+    // A1.seriesName: S0
+    // A2.seriesName: S1
+    // A0 <-> A2, A1 <-> A0, A2 <-> A1 --->>> A0 <-> A1 <-> A2
+
+    /** @type {any[]} */
+    let axisSeriesMap = []
+    const seriesYAxisReverseMap = []
+    /** @type {any[]} */
+    const unassignedSeriesIndices = []
+    // cnf.series, not seriesData.series: the first call (parseDataAxisCharts)
+    // runs before seriesData.series is filled, and its map sets default groups.
+    const seriesNameArrayStyle =
+      cnf.series.length > cnf.yaxis.length ||
+      /**
+       * @param {ApexYAxis} a
+       */
+      cnf.yaxis.some((a) => Array.isArray(a.seriesName))
+
+    cnf.series.forEach((_s, /** @type {number} */ i) => {
+      unassignedSeriesIndices.push(i)
+      seriesYAxisReverseMap.push(null)
+    })
+    cnf.yaxis.forEach(
+      (/** @type {ApexYAxis} */ _yaxe, /** @type {number} */ yi) => {
+        axisSeriesMap[yi] = []
+      },
+    )
+
+    /** @type {any[]} */
+    const unassignedYAxisIndices = []
+
+    // here, we loop through the yaxis array and find the item which has "seriesName" property
+    /**
+     * @param {ApexYAxis} yaxe
+     * @param {number} yi
+     */
+    cnf.yaxis.forEach((yaxe, yi) => {
+      let assigned = false
+      // Allow seriesName to be either a string (for backward compatibility),
+      // in which case, handle multiple yaxes referencing the same series.
+      // or an array of strings so that a yaxis can reference multiple series.
+      // Feature request #4237
+      if (yaxe.seriesName) {
+        let seriesNames = []
+        if (Array.isArray(yaxe.seriesName)) {
+          seriesNames = yaxe.seriesName
+        } else {
+          seriesNames.push(yaxe.seriesName)
+        }
+        /**
+         * @param {string} name
+         */
+        seriesNames.forEach((/** @type {any} */ name) => {
+          /**
+           * @param {Record<string, any>} s
+           * @param {number} si
+           */
+          cnf.series.forEach((s, si) => {
+            if (/** @type {any} */ (s).name === name) {
+              let remove = si
+              if (yi === si || seriesNameArrayStyle) {
+                // New style, don't allow series to be double referenced
+                if (
+                  !seriesNameArrayStyle ||
+                  unassignedSeriesIndices.indexOf(si) > -1
+                ) {
+                  axisSeriesMap[yi].push([yi, si])
+                } else {
+                  console.warn(
+                    "Series '" +
+                      /** @type {any} */ (s).name +
+                      "' referenced more than once in what looks like the new style." +
+                      ' That is, when using either seriesName: [],' +
+                      ' or when there are more series than yaxes.',
+                  )
+                }
+              } else {
+                // The series index refers to the target yaxis and the current
+                // yaxis index refers to the actual referenced series.
+                axisSeriesMap[si].push([si, yi])
+                remove = yi
+              }
+              assigned = true
+              remove = unassignedSeriesIndices.indexOf(remove)
+              if (remove !== -1) {
+                unassignedSeriesIndices.splice(remove, 1)
+              }
+            }
+          })
+        })
+      }
+      if (!assigned) {
+        unassignedYAxisIndices.push(yi)
+      }
+    })
+    axisSeriesMap = axisSeriesMap.map((yaxe) => {
+      /** @type {any[]} */
+      const ra = []
+      /**
+       * @param {any[]} sa
+       */
+      yaxe.forEach((/** @type {any} */ sa) => {
+        seriesYAxisReverseMap[sa[1]] = sa[0]
+        ra.push(sa[1])
+      })
+      return ra
+    })
+
+    // All series referenced directly by yaxes have been assigned to those axes.
+    // Any series so far unassigned will be assigned to any yaxes that have yet
+    // to reference series directly, one-for-one in order of appearance, with
+    // all left-over series assigned to either the last unassigned yaxis, or the
+    // last yaxis if all have assigned series. This captures the
+    // default single and multiaxis config options which simply includes zero,
+    // one or as many yaxes as there are series but do not reference them by name.
+    let lastUnassignedYAxis = cnf.yaxis.length - 1
+    for (let i = 0; i < unassignedYAxisIndices.length; i++) {
+      lastUnassignedYAxis = unassignedYAxisIndices[i]
+      axisSeriesMap[lastUnassignedYAxis] = []
+      if (unassignedSeriesIndices) {
+        /** @type {any} */
+        const si = unassignedSeriesIndices[0]
+        unassignedSeriesIndices.shift()
+        axisSeriesMap[lastUnassignedYAxis].push(si)
+        seriesYAxisReverseMap[si] = lastUnassignedYAxis
+      } else {
+        break
+      }
+    }
+
+    unassignedSeriesIndices.forEach((i) => {
+      axisSeriesMap[lastUnassignedYAxis].push(i)
+      seriesYAxisReverseMap[i] = lastUnassignedYAxis
+    })
+
+    // For the old-style seriesName-as-string-only, leave the zero-length yaxis
+    // array elements in for compatibility so that series.length == yaxes.length
+    // for multi axis charts.
+    gl.seriesYAxisMap = axisSeriesMap.map((x) => x)
+    gl.seriesYAxisReverseMap = seriesYAxisReverseMap.map((x) => x)
+  }
+
+  /**
+   * Does the series hold no value at all? True for an index that names none.
+   * @param {number} index
+   */
+  isSeriesNull(index) {
+    const seriesAtIndex = this.w.seriesData.series[index]
+    // axis charts hold an array per series; pie/donut/polarArea/radialBar a
+    // single value, read per index from the legend loop
+    return Array.isArray(seriesAtIndex)
+      ? seriesAtIndex.every((/** @type {any} */ d) => d === null)
+      : seriesAtIndex == null
+  }
+
+  /**
+   * @param {number} index
+   */
+  seriesHaveSameValues(index) {
+    const seriesAtIndex = this.w.seriesData.series[index]
+    if (!Array.isArray(seriesAtIndex)) {
+      // pie/donut/polarArea/radialBar — single value per index, trivially "same"
+      return true
+    }
+    /**
+     * @param {number} val
+     * @param {number} i
+     * @param {any[]} arr
+     */
+    return seriesAtIndex.every(
+      (
+        /** @type {any} */ val,
+        /** @type {number} */ i,
+        /** @type {any} */ arr,
+      ) => val === arr[0],
+    )
+  }
+
+  /**
+   * @param {any[]} labels
+   */
+  getCategoryLabels(labels) {
+    const w = this.w
+    let catLabels = labels.slice()
+    if (w.config.xaxis.convertedCatToNumeric) {
+      /**
+       * @param {number} i
+       */
+      catLabels = labels.map((/** @type {number} */ i) => {
+        return w.config.xaxis.labels.formatter(i - w.globals.minX + 1)
+      })
+    }
+    return catLabels
+  }
+  // maxValsInArrayIndex is the index of series[] which has the largest number of items
+  getLargestSeries() {
+    const w = this.w
+    w.globals.maxValsInArrayIndex = w.seriesData.series
+      /**
+       * @param {number[]} a
+       */
+      .map((a) => a.length)
+      .indexOf(
+        Math.max.apply(
+          Math,
+          /**
+           * @param {number[]} a
+           */
+          w.seriesData.series.map((a) => a.length),
+        ),
+      )
+  }
+
+  getLargestMarkerSize() {
+    const w = this.w
+    let size = 0
+
+    w.globals.markers.size.forEach((/** @type {number} */ m) => {
+      size = Math.max(size, m)
+    })
+
+    if (w.config.markers.discrete && w.config.markers.discrete.length) {
+      /**
+       * @param {Record<string, any>} m
+       */
+      w.config.markers.discrete.forEach((/** @type {any} */ m) => {
+        size = Math.max(size, m.size || 0)
+      })
+    }
+
+    if (size > 0) {
+      if (w.config.markers.hover.size > 0) {
+        size = w.config.markers.hover.size
+      } else {
+        size += w.config.markers.hover.sizeOffset
+      }
+    }
+
+    w.globals.markers.largestSize = size
+
+    return size
+  }
+
+  /**
+   * @memberof Core
+   * returns the sum of all values in a series
+   * Eg. w.seriesData.series = [[32,33,43,12], [2,3,5,1]]
+   *  @return [120, 11]
+   **/
+  getSeriesTotals() {
+    const w = this.w
+
+    /**
+     * @param {any[]} ser
+     */
+    w.globals.seriesTotals = w.seriesData.series.map((ser) => {
+      let total = 0
+
+      if (Array.isArray(ser)) {
+        for (let j = 0; j < ser.length; j++) {
+          total += ser[j]
+        }
+      } else {
+        // for pie/donuts/gauges
+        total += ser
+      }
+
+      return total
+    })
+  }
+
+  /**
+   * @param {number} minX
+   * @param {number} maxX
+   */
+  getSeriesTotalsXRange(minX, maxX) {
+    const w = this.w
+
+    /**
+     * @param {any[]} ser
+     * @param {number} index
+     */
+    const seriesTotalsXRange = w.seriesData.series.map((ser, index) => {
+      let total = 0
+
+      for (let j = 0; j < ser.length; j++) {
+        if (
+          w.seriesData.seriesX[index][j] > minX &&
+          w.seriesData.seriesX[index][j] < maxX
+        ) {
+          total += ser[j]
+        }
+      }
+
+      return total
+    })
+
+    return seriesTotalsXRange
+  }
+
+  /**
+   * The x a stacked datum stacks at, within its series group: its x value on
+   * a numeric or datetime axis, where each series carries its own x values
+   * (#4886), else its index. The stacked bar renderer, its total labels, the
+   * 100% shares and the highlight parts all key their stacks by this.
+   * @param {any} w @param {number} realIndex @param {number} j
+   * @returns {any}
+   */
+  static stackKey(w, realIndex, j) {
+    return w.axisFlags.isXNumeric ? w.seriesData.seriesX[realIndex]?.[j] : j
+  }
+
+  /**
+   * Which 100% stack each series is a slice of, from config alone so it is
+   * safe however early it is read (the stacked100 label formatter runs
+   * before any parse): 'bar' for a bar or column series, 'line' or 'area'
+   * for a stacked line or area series, else null. A line or area in a combo
+   * with `stackOnlyBar` does not stack (Line.isStackedSeries), so it is no
+   * slice of anything (#2429), nor is a scatter or a range series.
+   *
+   * Bars, areas and lines are separate stacks, each drawn up from the
+   * baseline by its own renderer, so each normalises to its own total.
+   * @param {any} config
+   * @returns {(string | null)[]}
+   */
+  static percentStackKinds(config) {
+    const series = config.series || []
+    const chartType = config.chart.type
+    // An unmerged user config may leave stackOnlyBar out: its default is on.
+    const lineStacks =
+      config.chart.stackOnlyBar === false ||
+      !CoreUtils.checkComboSeries(series, chartType).comboCharts
+    return series.map((/** @type {any} */ s) => {
+      const t = s?.type || chartType
+      if (t === 'bar' || t === 'column') return 'bar'
+      return (t === 'line' || t === 'area') && lineStacks ? t : null
+    })
+  }
+
+  /**
+   * @memberof CoreUtils
+   * returns the percentage value of all individual values which can be used in a 100% stacked series
+   * Eg. w.seriesData.series = [[32, 33, 43, 12], [2, 3, 5, 1]]
+   *  @return [[94.11, 91.66, 89.58, 92.30], [5.88, 8.33, 10.41, 7.7]]
+   **/
+  getPercentSeries() {
+    const w = this.w
+
+    // Each series takes its share of the stack it is drawn in (#5384): bars
+    // of the bar total, areas of the area total, lines of the line total. A
+    // line drawn unstacked over a 100% bar stack is not one of its slices
+    // (#2429) and is not summed into it.
+    const kinds = CoreUtils.percentStackKinds(w.config)
+    // Each series group is its own stack, so it normalises to its own total.
+    // A bar stacks per group in any chart, a line or area only in a combo
+    // (Core draws each group separately there; otherwise one pass).
+    const combo = CoreUtils.checkComboSeries(
+      w.config.series,
+      w.config.chart.type,
+    ).comboCharts
+    const gi = w.labelData.seriesGroupIndex
+    /** @param {number} i */
+    const stackOf = (i) => {
+      const k = kinds[i] || 'none'
+      return k === 'bar' || combo ? k + ' ' + gi[i] : k
+    }
+    // On a numeric axis each point takes its share of the stack at its own
+    // x (CoreUtils.stackKey), else of the stack at its index.
+    /** @param {number} i @param {number} j */
+    const key = (i, j) => stackOf(i) + ' ' + CoreUtils.stackKey(w, i, j)
+    /** @type {Map<string, number>} */
+    const totals = new Map()
+    w.seriesData.series.forEach((s, i) => {
+      if (Array.isArray(s)) {
+        s.forEach((v, j) => {
+          const k = key(i, j)
+          totals.set(k, (totals.get(k) || 0) + (v || 0))
+        })
+      }
+    })
+
+    /**
+     * @param {any[]} ser
+     * @param {number} i
+     */
+    w.globals.seriesPercent = w.seriesData.series.map((ser, i) => {
+      const seriesPercent = []
+      if (Array.isArray(ser)) {
+        for (let j = 0; j < ser.length; j++) {
+          const total = totals.get(key(i, j))
+          let percent = 0
+          if (total) {
+            percent = (100 * ser[j]) / total
+          }
+          seriesPercent.push(percent)
+        }
+      } else {
+        /**
+         * @param {number} acc
+         * @param {number} val
+         */
+        const total = w.globals.seriesTotals.reduce((acc, val) => acc + val, 0)
+        const percent = (100 * ser) / total
+        seriesPercent.push(percent)
+      }
+
+      return seriesPercent
+    })
+  }
+
+  getCalculatedRatios() {
+    const w = this.w
+    const gl = w.globals
+
+    /** @type {any[]} */
+    const yRatio = []
+    let invertedYRatio = 0
+    let xRatio = 0
+    let invertedXRatio = 0
+    let zRatio = 0
+    let baseLineY = []
+    let baseLineInvertedY = 0.1
+    let baseLineX = 0
+
+    gl.yRange = []
+    if (gl.isMultipleYAxis) {
+      for (let i = 0; i < gl.minYArr.length; i++) {
+        gl.yRange.push(Math.abs(gl.minYArr[i] - gl.maxYArr[i]))
+        baseLineY.push(0)
+      }
+    } else {
+      gl.yRange.push(Math.abs(gl.minY - gl.maxY))
+    }
+    gl.xRange = Math.abs(gl.maxX - gl.minX)
+    gl.zRange = Math.abs(gl.maxZ - gl.minZ)
+
+    // multiple y axis
+    for (let i = 0; i < gl.yRange.length; i++) {
+      yRatio.push(gl.yRange[i] / this.w.layout.gridHeight)
+    }
+
+    xRatio = gl.xRange / this.w.layout.gridWidth
+
+    invertedYRatio = gl.yRange[0] / this.w.layout.gridWidth
+    invertedXRatio = gl.xRange / this.w.layout.gridHeight
+    zRatio = (gl.zRange / this.w.layout.gridHeight) * 16
+
+    if (!zRatio) {
+      zRatio = 1
+    }
+
+    // Negative numbers present in series; reassigned so an update clears it
+    const _hasNegsGl = /** @type {any} */ (gl)
+    _hasNegsGl.hasNegs = gl.minY !== Number.MIN_VALUE && Math.abs(gl.minY) !== 0
+
+    // Check we have a map as series may still to be added/updated.
+    if (w.globals.seriesYAxisReverseMap.length > 0) {
+      /**
+       * @param {number} y
+       * @param {number} i
+       */
+      const scaleBaseLineYScale = (y, i) => {
+        const yAxis = w.config.yaxis[w.globals.seriesYAxisReverseMap[i]]
+        // During realtime/transition states (e.g. series cleared then refilled)
+        // there can be more scaled axes than mapped series, so reverseMap[i] may
+        // point past config.yaxis and leave yAxis undefined. Guard as the other
+        // reverseMap consumers (getLogSeries etc.) already do, so we don't read
+        // logarithmic off undefined. The axis has no series, so its baseline is 0.
+        if (!yAxis) return 0
+        // A log axis needs no baseline shift: getLogSeries normalises its values
+        // so niceMin is already 0. The old code took getBaseLog(y) and divided
+        // it by yRatio[i], a linear data-space ratio, which is a unit mismatch
+        // that only cancels when log(niceMin) happens to be 0. For a domain of
+        // 1e-5..1e-3 it produced -(-5) / 2.92e-6, offsetting the whole series by
+        // 1.7 million pixels off-canvas.
+        if (yAxis.logarithmic) return 0
+        const sign = y < 0 ? -1 : 1
+        y = Math.abs(y)
+        return (-sign * y) / yRatio[i]
+      }
+      if (gl.isMultipleYAxis) {
+        baseLineY = []
+        // baseline variables is the 0 of the yaxis which will be needed when there are negatives
+        for (let i = 0; i < yRatio.length; i++) {
+          baseLineY.push(scaleBaseLineYScale(gl.minYArr[i], i))
+        }
+      } else {
+        baseLineY = []
+        baseLineY.push(scaleBaseLineYScale(gl.minY, 0))
+
+        if (gl.minY !== Number.MIN_VALUE && Math.abs(gl.minY) !== 0) {
+          baseLineInvertedY = -gl.minY / invertedYRatio // this is for bar chart
+          baseLineX = gl.minX / xRatio
+        }
+      }
+    } else {
+      baseLineY = []
+      baseLineY.push(0)
+      baseLineInvertedY = 0
+      baseLineX = 0
+    }
+
+    return {
+      yRatio,
+      invertedYRatio,
+      zRatio,
+      xRatio,
+      invertedXRatio,
+      baseLineInvertedY,
+      baseLineY,
+      baseLineX,
+    }
+  }
+
+  /**
+   * @param {any[]} series
+   * @param {number[]} [realIndices] a combo subset's global series indices
+   */
+  getLogSeries(series, realIndices) {
+    const w = this.w
+
+    /**
+     * @param {number[]} s
+     * @param {number} i
+     */
+    w.globals.seriesLog = series.map((s, i) => {
+      if (realIndices) i = realIndices[i]
+      const yAxisIndex = w.globals.seriesYAxisReverseMap[i]
+      if (
+        w.config.yaxis[yAxisIndex] &&
+        w.config.yaxis[yAxisIndex].logarithmic
+      ) {
+        /**
+         * @param {number | null} d
+         */
+        return s.map((/** @type {any} */ d) => {
+          if (d === null) return null
+          return this.getLogVal(w.config.yaxis[yAxisIndex].logBase, d, i)
+        })
+      } else {
+        return s
+      }
+    })
+
+    return w.globals.invalidLogScale ? series : w.globals.seriesLog
+  }
+
+  /**
+   * @param {number} val
+   * @param {number} seriesIndex
+   * @returns {number}
+   */
+  getLogValAtSeriesIndex(val, seriesIndex) {
+    if (val === null) return /** @type {any} */ (null)
+    const w = this.w
+    const yAxisIndex = w.globals.seriesYAxisReverseMap[seriesIndex]
+    if (w.config.yaxis[yAxisIndex] && w.config.yaxis[yAxisIndex].logarithmic) {
+      return this.getLogVal(
+        w.config.yaxis[yAxisIndex].logBase,
+        val,
+        seriesIndex,
+      )
+    }
+    return val
+  }
+
+  /**
+   * @param {number} base
+   * @param {number} value
+   */
+  getBaseLog(base, value) {
+    return Math.log(value) / Math.log(base)
+  }
+  /**
+   * @param {number} b
+   * @param {number} d
+   * @param {number} seriesIndex
+   */
+  getLogVal(b, d, seriesIndex) {
+    if (d <= 0) {
+      return 0 // Should be Number.NEGATIVE_INFINITY
+    }
+    const w = this.w
+    const boundsIndex = w.globals.isMultipleYAxis ? seriesIndex : 0
+    const min_log_val =
+      w.globals.minYArr[boundsIndex] === 0
+        ? -1 // make sure we dont calculate log of 0
+        : this.getBaseLog(b, w.globals.minYArr[boundsIndex])
+    const max_log_val =
+      w.globals.maxYArr[boundsIndex] === 0
+        ? 0 // make sure we dont calculate log of 0
+        : this.getBaseLog(b, w.globals.maxYArr[boundsIndex])
+    const number_of_height_levels = max_log_val - min_log_val
+    // Values below 1 used to short-circuit to `d / number_of_height_levels`,
+    // returning a raw data value where the caller expects a 0..1 fraction. On a
+    // domain living entirely under 1 (1e-5..1e-3) every point came back as
+    // roughly its own magnitude instead of its position, so the series
+    // flat-lined. The general formula below already handles d < 1 correctly,
+    // because min_log_val is negative there.
+    const log_height_value = this.getBaseLog(b, d) - min_log_val
+    return log_height_value / number_of_height_levels
+  }
+
+  /**
+   * @param {number[]} yRatio
+   */
+  getLogYRatios(yRatio) {
+    const w = this.w
+    const gl = this.w.globals
+    const _gl = /** @type {any} */ (gl)
+    _gl.yLogRatio = yRatio.slice()
+
+    _gl.logYRange = /** @type {any[]} */ (gl.yRange).map(
+      (_, /** @type {number} */ i) => {
+        const yAxisIndex = w.globals.seriesYAxisReverseMap[i]
+        if (
+          w.config.yaxis[yAxisIndex] &&
+          this.w.config.yaxis[yAxisIndex].logarithmic
+        ) {
+          // getLogSeries has already mapped this axis' values onto 0..1, where
+          // 0 is niceMin and 1 is niceMax. One unit of transformed value is
+          // therefore exactly one grid height, whatever the underlying domain.
+          //
+          // The old code derived a range here instead, raising yRange to the
+          // power of (span of transformed extremes / yRange). That mixes 0..1
+          // space with data space and rescales the whole axis: a 1..21 domain
+          // came out 14% short, so the ink missed its own gridlines (#3046),
+          // and it also scanned every log series regardless of which axis owned
+          // it, collapsing two log axes into one range (#5035, #2697, #2800).
+          const range = 1
+          _gl.yLogRatio[i] = range / this.w.layout.gridHeight
+          return range
+        }
+        // A linear axis in a mixed log/linear chart still needs a range here.
+        // Falling out of the callback left logYRange[i] === undefined for every
+        // non-log axis, so anything reading it got NaN downstream.
+        return gl.yRange[i]
+      },
+    )
+
+    return _gl.invalidLogScale ? yRatio.slice() : _gl.yLogRatio
+  }
+
+  // Some config objects can be array - and we need to extend them correctly
+  /**
+   * @param {any} configInstance
+   * @param {Record<string, any>} options
+   * @param {import('../types/internal').ChartStateW} w
+   */
+  static extendArrayProps(configInstance, options, w) {
+    if (options?.yaxis) {
+      options = configInstance.extendYAxis(options, w)
+    }
+    if (options?.annotations) {
+      if (options.annotations.yaxis) {
+        options = configInstance.extendYAxisAnnotations(options)
+      }
+      if (options?.annotations?.xaxis) {
+        options = configInstance.extendXAxisAnnotations(options)
+      }
+      if (options?.annotations?.points) {
+        options = configInstance.extendPointAnnotations(options)
+      }
+    }
+
+    return options
+  }
+
+  // Series of the same group and type can be stacked together distinct from
+  // other series of the same type on the same axis.
+  /**
+   * @param {Record<string, any>} typeSeries
+   * @param {number[]} typeGroups
+   * @param {string} type
+   * @param {string} chartClass
+   */
+  drawSeriesByGroup(typeSeries, typeGroups, type, chartClass) {
+    const w = this.w
+    /** @type {any[]} */
+    const graph = []
+    if (typeSeries.series.length > 0) {
+      // draw each group separately
+      /**
+       * @param {number} gn
+       */
+      typeGroups.forEach((/** @type {any} */ gn) => {
+        /** @type {any[]} */
+        const gs = []
+        /** @type {any[]} */
+        const gi = []
+        /**
+         * @param {number} i
+         * @param {number} ii
+         */
+        typeSeries.i.forEach((/** @type {any} */ i, /** @type {any} */ ii) => {
+          if (w.labelData.seriesGroupIndex[i] === gn) {
+            gs.push(typeSeries.series[ii])
+            gi.push(i)
+          }
+        })
+        gs.length > 0 &&
+          graph.push(/** @type {any} */ (chartClass).draw(gs, type, gi))
+      })
+    }
+    return graph
+  }
+}
+
+export default CoreUtils

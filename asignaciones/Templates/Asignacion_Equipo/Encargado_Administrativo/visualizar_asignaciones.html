@@ -19,7 +19,6 @@
                         <label for="cedula_identidad">Cedula Identidad:</label>
                         <div class="grupo_doble">
                             <select name="nacionalidad" id="nacionalidad" class="campo_select">
-                                <option value="">N</option>
                                 <option value="V">V</option>
                                 <option value="E">E</option>
                             </select>
@@ -36,12 +35,6 @@
         </div>
 
         <div class="modulo_visualizar detalle">
-            <div class="encabezado_registrados">
-                <button type="button" class="btn_pdf" id="lista_asignacion_pdf">
-                    <i class="fa-regular fa-file-pdf"></i>
-                    Reporte
-                </button>
-            </div>
 
             <div class="contenedor_tabla">
                 <table>
@@ -70,22 +63,15 @@
 </section>
 
 <dialog id="dialogo_asignacion" class="dialogo">
-    <div class="contenedor_info_reducido">
+    <div class="contenedor_datos">
         <button type="button" id="btn_cerrar_asignacion" class="btn_cerrar">
             <i class="fa-solid fa-square-xmark"></i>
         </button>
 
         <h2>Detalle de la Asignación del Equipo</h2>
 
-        <div class="contenedor_btn_pdf">
-            <button type="button" class="btn_pdf_dialog" id="detalle_asignado_pdf">
-                <i class="fa-regular fa-file-pdf"></i>
-                Reporte
-            </button>
-        </div>
-
-        <div class="modelo_dialogo_visualizar">
-            <form method="post" class="formulario_dialogo_visualizar">
+        <div class="modulo_dialogo_datos">
+            <form method="post" class="formulario_dialogo_datos">
                 <input type="hidden" name="id_asignacion" id="id_asignacion">
 
                 <div class="campo_formulario">

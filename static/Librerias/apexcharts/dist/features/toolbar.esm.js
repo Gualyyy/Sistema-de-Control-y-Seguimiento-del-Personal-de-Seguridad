@@ -1,0 +1,3263 @@
+var __defProp = Object.defineProperty;
+var __defProps = Object.defineProperties;
+var __getOwnPropDescs = Object.getOwnPropertyDescriptors;
+var __getOwnPropSymbols = Object.getOwnPropertySymbols;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __propIsEnum = Object.prototype.propertyIsEnumerable;
+var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __spreadValues = (a, b) => {
+  for (var prop in b || (b = {}))
+    if (__hasOwnProp.call(b, prop))
+      __defNormalProp(a, prop, b[prop]);
+  if (__getOwnPropSymbols)
+    for (var prop of __getOwnPropSymbols(b)) {
+      if (__propIsEnum.call(b, prop))
+        __defNormalProp(a, prop, b[prop]);
+    }
+  return a;
+};
+var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
+/*!
+ * ApexCharts v8.7.0
+ * (c) 2018-2026 ApexCharts
+ */
+import * as _core from "apexcharts/core";
+import _core__default from "apexcharts/core";
+import { default as default2 } from "apexcharts/core";
+function pe(e) {
+  const t = e.getRootNode ? e.getRootNode() : null;
+  return t && (9 === t.nodeType || 11 === t.nodeType && "host" in t) ? t : e.ownerDocument || document;
+}
+function me(e) {
+  const t = "function" == typeof e.composedPath ? e.composedPath() : null;
+  return (null == t ? void 0 : t.length) ? t[0] : e.target;
+}
+function Me(e) {
+  const t = [];
+  let s = e;
+  for (; s; ) {
+    const e2 = pe(s);
+    t.unshift(e2), s = 11 === e2.nodeType ? e2.host : null;
+  }
+  const n = [];
+  for (const e2 of t) {
+    for (const t3 of Array.from(e2.styleSheets || [])) n.push(t3);
+    const t2 = e2.adoptedStyleSheets;
+    if (t2) for (const e3 of t2) n.push(e3);
+  }
+  return n;
+}
+const Graphics = _core.__apex_Graphics;
+const AxesUtils = _core.__apex_axes_AxesUtils;
+const Defaults = _core.__apex_Defaults;
+const Series = _core.__apex_Series;
+const Utils = _core.__apex_Utils;
+const DateTime = _core.__apex_DateTime;
+const Environment = _core.__apex_Environment_Environment;
+const BrowserAPIs = _core.__apex_BrowserAPIs_BrowserAPIs;
+const SVGNS = _core.__apex_math_SVGNS;
+const fontFetches = {};
+const fetchFont = (url, get) => fontFetches[url] || (fontFetches[url] = get(url).then(
+  (v) => (setTimeout(() => delete fontFetches[url], 6e4), v),
+  (e) => {
+    delete fontFetches[url];
+    throw e;
+  }
+));
+class Exports {
+  /**
+   * @param {import('../types/internal').ChartStateW} w
+   * @param {import('../types/internal').ChartContext} ctx
+   */
+  constructor(w, ctx) {
+    this.w = w;
+    this.ctx = ctx;
+  }
+  /**
+   * @param {string} svgString
+   */
+  svgStringToNode(svgString) {
+    const svgDoc = BrowserAPIs.getDOMParser().parseFromString(
+      svgString,
+      "image/svg+xml"
+    );
+    return svgDoc.documentElement;
+  }
+  /**
+   * @param {any} svg
+   * @param {number} scale
+   */
+  scaleSvgNode(svg, scale) {
+    const svgWidth = parseFloat(svg.getAttributeNS(null, "width"));
+    const svgHeight = parseFloat(svg.getAttributeNS(null, "height"));
+    svg.setAttributeNS(null, "width", svgWidth * scale);
+    svg.setAttributeNS(null, "height", svgHeight * scale);
+    svg.setAttributeNS(null, "viewBox", "0 0 " + svgWidth + " " + svgHeight);
+  }
+  /**
+   * Inline any Strata canvas series layer into the clone as an SVG `<image>`.
+   * A serialized `<canvas>` loses its bitmap, so a canvas-mode export would drop
+   * the series; an `<image>` carrying the canvas `toDataURL()` preserves it in
+   * place. Because it replaces the `<foreignObject>` at the same DOM position,
+   * the grid-behind / annotations-in-front z-order is retained automatically.
+   * No-op in SVG mode (no series canvas present).
+   * @param {any} clonedNode the cloned elWrap about to be serialized
+   */
+  inlineCanvasLayers(clonedNode) {
+    const w = this.w;
+    const XLINK = "http://www.w3.org/1999/xlink";
+    const origCanvases = w.dom.elWrap.querySelectorAll(
+      ".apexcharts-series-canvas"
+    );
+    if (!origCanvases.length) return;
+    const clonedFOs = clonedNode.querySelectorAll(".apexcharts-canvas-series");
+    for (let i = 0; i < origCanvases.length && i < clonedFOs.length; i++) {
+      let dataURL;
+      try {
+        dataURL = /** @type {HTMLCanvasElement} */
+        origCanvases[i].toDataURL();
+      } catch (e) {
+        continue;
+      }
+      const fo = clonedFOs[i];
+      const img = BrowserAPIs.createElementNS(SVGNS, "image");
+      img.setAttribute("x", fo.getAttribute("x") || "0");
+      img.setAttribute("y", fo.getAttribute("y") || "0");
+      img.setAttribute("width", fo.getAttribute("width") || "0");
+      img.setAttribute("height", fo.getAttribute("height") || "0");
+      img.setAttribute("href", dataURL);
+      img.setAttributeNS(XLINK, "xlink:href", dataURL);
+      if (fo.parentNode) fo.parentNode.replaceChild(img, fo);
+    }
+  }
+  /**
+   * `querySelectorAll` as a typed array. Both HTML and SVG elements carry
+   * `style` / `classList`, but `NodeListOf<Element>` does not.
+   * @param {ParentNode} root
+   * @param {string} selector
+   * @returns {Array<HTMLElement | SVGElement>}
+   */
+  queryStyleable(root, selector) {
+    return (
+      /** @type {Array<HTMLElement | SVGElement>} */
+      Array.prototype.slice.call(root.querySelectorAll(selector))
+    );
+  }
+  /**
+   * Applies `styles` only where the element has no inline value for that
+   * property yet.
+   *
+   * The rules being re-applied here came from a stylesheet, so anything a
+   * module set inline has to keep winning exactly like it does in the live
+   * DOM: `legend.fontSize` (Legend.js) and the heatmap gradient legend's
+   * deliberate `display`/`overflow`/`padding` overrides on the legend wrap
+   * (HeatmapGradientLegend.js) would otherwise be clobbered in the export.
+   * @param {HTMLElement | SVGElement} el
+   * @param {Record<string, string>} styles
+   */
+  setStyleDefaults(el, styles) {
+    Object.keys(styles).forEach((prop) => {
+      if (el.style.getPropertyValue(prop) === "") {
+        el.style.setProperty(prop, styles[prop]);
+      }
+    });
+  }
+  /**
+   * Bake CSS variables into the clone. A fill like `var(--brand)` or
+   * `color-mix(in srgb, var(--brand) 85%, transparent)` only means something
+   * under the page that defines the variable; in a saved SVG or PNG it has
+   * nothing to resolve against and the mark loses its colour. Each such
+   * attribute or inline style is replaced with the live element's computed
+   * value. Runs on the fresh clone, before anything changes its shape, so
+   * the two trees line up element for element.
+   * @param {Element} live the chart's elWrap
+   * @param {Element} clone its deep clone
+   */
+  resolveCssVars(live, clone) {
+    const liveEls = [live, ...Array.from(live.querySelectorAll("*"))];
+    const cloneEls = [clone, ...Array.from(clone.querySelectorAll("*"))];
+    if (liveEls.length !== cloneEls.length) return;
+    const attrs = ["fill", "stroke", "stop-color", "flood-color", "color"];
+    cloneEls.forEach((el, k) => {
+      let cs = null;
+      const value = (prop) => {
+        cs = cs || BrowserAPIs.getComputedStyle(
+          /** @type {any} */
+          liveEls[k]
+        );
+        return cs && cs.getPropertyValue ? cs.getPropertyValue(prop) : "";
+      };
+      attrs.forEach((a) => {
+        const v = el.getAttribute(a);
+        if (v && v.indexOf("var(") !== -1) {
+          const resolved = value(a);
+          if (resolved) el.setAttribute(a, resolved);
+        }
+      });
+      const style = (
+        /** @type {any} */
+        el.style
+      );
+      if (!style || style.cssText.indexOf("var(") === -1) return;
+      Array.from(style).forEach((prop) => {
+        if (style.getPropertyValue(prop).indexOf("var(") !== -1) {
+          const resolved = value(prop);
+          if (resolved) style.setProperty(prop, resolved);
+        }
+      });
+    });
+  }
+  /**
+   * Re-applies, as inline styles on the clone, the rules that used to reach
+   * the exported SVG through an injected `<style>` block. A strict
+   * Content-Security-Policy without `'unsafe-inline'` blocks that block and
+   * breaks the export, so the export must not depend on one. See #5146.
+   *
+   * Mirrors `src/assets/apexcharts-legend.css`. Interaction-only rules
+   * (`cursor`, `pointer-events`) are carried over for parity even though they
+   * do nothing in a static image; the layout rules are what matter.
+   * @param {HTMLElement} clonedNode the cloned elWrap about to be serialized
+   */
+  applyExportStyles(clonedNode) {
+    const w = this.w;
+    this.queryStyleable(clonedNode, "style").forEach((el) => el.remove());
+    this.queryStyleable(
+      clonedNode,
+      [
+        ".apexcharts-tooltip",
+        ".apexcharts-toolbar",
+        ".apexcharts-xaxistooltip",
+        ".apexcharts-yaxistooltip",
+        ".apexcharts-xcrosshairs",
+        ".apexcharts-ycrosshairs",
+        ".apexcharts-zoom-rect",
+        ".apexcharts-selection-rect"
+      ].join(", ")
+    ).forEach((el) => {
+      el.style.setProperty("display", "none", "important");
+    });
+    this.queryStyleable(clonedNode, ".apexcharts-flip-y").forEach((el) => {
+      this.setStyleDefaults(el, {
+        transform: "scaleY(-1) translateY(-100%)",
+        "transform-origin": "top",
+        "transform-box": "fill-box"
+      });
+    });
+    this.queryStyleable(clonedNode, ".apexcharts-flip-x").forEach((el) => {
+      this.setStyleDefaults(el, {
+        transform: "scaleX(-1)",
+        "transform-origin": "center",
+        "transform-box": "fill-box"
+      });
+    });
+    if (!w.config.legend.show || !w.dom.elLegendWrap || !w.dom.elLegendWrap.children.length) {
+      return;
+    }
+    this.queryStyleable(clonedNode, ".apexcharts-legend").forEach((el) => {
+      this.setStyleDefaults(el, {
+        display: "flex",
+        overflow: "auto",
+        padding: "0 10px"
+      });
+      const cl = el.classList;
+      const isSide = cl.contains("apx-legend-position-left") || cl.contains("apx-legend-position-right");
+      const isTopOrBottom = cl.contains("apx-legend-position-top") || cl.contains("apx-legend-position-bottom");
+      if (cl.contains("apexcharts-legend-group-horizontal")) {
+        this.setStyleDefaults(el, { "flex-direction": "column" });
+      }
+      if (isSide) {
+        this.setStyleDefaults(el, { "flex-direction": "column", bottom: "0" });
+      }
+      if (isTopOrBottom) {
+        this.setStyleDefaults(el, { "flex-wrap": "wrap" });
+      }
+      if (isSide || isTopOrBottom && cl.contains("apexcharts-align-left")) {
+        this.setStyleDefaults(el, {
+          "justify-content": "flex-start",
+          "align-items": "flex-start"
+        });
+      } else if (isTopOrBottom && cl.contains("apexcharts-align-center")) {
+        this.setStyleDefaults(el, {
+          "justify-content": "center",
+          "align-items": "center"
+        });
+      } else if (isTopOrBottom && cl.contains("apexcharts-align-right")) {
+        this.setStyleDefaults(el, {
+          "justify-content": "flex-end",
+          "align-items": "flex-end"
+        });
+      }
+    });
+    this.queryStyleable(clonedNode, ".apexcharts-legend-group").forEach(
+      (el) => {
+        this.setStyleDefaults(el, { display: "flex" });
+      }
+    );
+    this.queryStyleable(
+      clonedNode,
+      ".apexcharts-legend-group-vertical"
+    ).forEach((el) => {
+      this.setStyleDefaults(el, { "flex-direction": "column-reverse" });
+    });
+    this.queryStyleable(clonedNode, ".apexcharts-legend-series").forEach(
+      (el) => {
+        this.setStyleDefaults(el, {
+          cursor: el.classList.contains("apexcharts-no-click") ? "auto" : "pointer",
+          "line-height": "normal",
+          display: "flex",
+          "align-items": "center"
+        });
+      }
+    );
+    this.queryStyleable(clonedNode, ".apexcharts-legend-text").forEach((el) => {
+      this.setStyleDefaults(el, {
+        position: "relative",
+        "font-size": "14px"
+      });
+    });
+    this.queryStyleable(clonedNode, ".apexcharts-legend-marker").forEach(
+      (el) => {
+        this.setStyleDefaults(el, {
+          position: "relative",
+          display: "flex",
+          "align-items": "center",
+          "justify-content": "center",
+          cursor: "pointer",
+          "margin-right": "1px"
+        });
+      }
+    );
+    this.queryStyleable(clonedNode, ".apexcharts-inactive-legend").forEach(
+      (el) => {
+        this.setStyleDefaults(el, { opacity: "0.45" });
+      }
+    );
+    this.queryStyleable(
+      clonedNode,
+      ".apexcharts-legend .apexcharts-hidden-zero-series, .apexcharts-legend .apexcharts-hidden-null-series"
+    ).forEach((el) => {
+      el.style.setProperty("display", "none", "important");
+    });
+  }
+  /**
+   * The colour a raster export paints under the chart.
+   *
+   * A PNG needs an opaque base, so `dataURI` fills the canvas before drawing
+   * the SVG onto it. That fill used to be `#fff` whenever `chart.background`
+   * was unset *or* `'transparent'`, which is wrong for a dark theme:
+   * `theme.mode: 'dark'` moves `chart.foreColor` to a near-white `#f6f7f8` but
+   * leaves the background alone, so `background: 'transparent'` produced
+   * near-white labels, axes and legend on white — a PNG that looked like it had
+   * lost all its text. See #2920.
+   *
+   * The unset-background case was already covered: `Core.setupElements` paints
+   * the SVG paper `#343A3F` for a dark theme, and the clone carries that inline
+   * style into the export. `'transparent'` is the gap, because it makes that
+   * paper style transparent too and nothing is left to cover the white fill.
+   *
+   * An explicit non-transparent `chart.background` still wins, including one
+   * written by the Facet `--apx-surface` token (Theme assigns it into the same
+   * field).
+   * @returns {string}
+   */
+  resolveExportBackground() {
+    const w = this.w;
+    const bg = w.config.chart.background;
+    if (bg && bg !== "transparent") return bg;
+    return w.config.theme.mode === "dark" ? "#343A3F" : "#fff";
+  }
+  /**
+   * Font families the rendered chart actually paints with.
+   *
+   * Read off the live DOM rather than the config: computed styles resolve
+   * `chart.fontFamily`, every per-element `style.fontFamily` override, and any
+   * family the chart inherits from the page, none of which are reliably
+   * enumerable from config alone. The clone is not in the document, so its
+   * computed styles would come back empty.
+   * @returns {Set<string>}
+   */
+  collectFontFamilies() {
+    const families = /* @__PURE__ */ new Set();
+    const w = this.w;
+    if (!Environment.isBrowser() || !w.dom.elWrap) return families;
+    const els = this.queryStyleable(
+      w.dom.elWrap,
+      "text, tspan, .apexcharts-legend-text, .apexcharts-title-text, .apexcharts-subtitle-text"
+    );
+    const all = [w.dom.elWrap, ...els];
+    all.forEach((el) => {
+      const cs = (
+        /** @type {any} */
+        BrowserAPIs.getComputedStyle(
+          /** @type {any} */
+          el
+        )
+      );
+      const ff = cs && cs.fontFamily;
+      if (!ff) return;
+      ff.split(",").forEach((name) => {
+        const clean = name.trim().replace(/^['"]|['"]$/g, "");
+        if (clean) families.add(clean.toLowerCase());
+      });
+    });
+    return families;
+  }
+  /**
+   * Every `@font-face` rule reachable from the document, as
+   * `{ family, css, base }`, where `base` is the URL the rule's relative
+   * `url()`s resolve against: its stylesheet, not the page.
+   *
+   * Same-origin sheets are read through `cssRules`, descending into `@import`
+   * and grouping rules (`@media`, `@supports`, `@layer`). A cross-origin sheet
+   * throws on that access, so it is re-fetched by href and its `@font-face`
+   * blocks are pulled out of the text: that is the path that matters in
+   * practice, since hosted webfonts (the subject of #3617) are exactly the
+   * cross-origin case.
+   * @returns {Promise<Array<{family: string, css: string, base: string}>>}
+   */
+  collectFontFaceRules() {
+    if (!Environment.isBrowser()) return Promise.resolve([]);
+    const found = [];
+    const remote = [];
+    const pushFromText = (cssText, base) => {
+      const blocks = cssText.match(/@font-face\s*\{[^}]*\}/gi) || [];
+      blocks.forEach((css) => {
+        const m = css.match(/font-family\s*:\s*([^;}]+)/i);
+        if (!m) return;
+        const family = m[1].trim().replace(/^['"]|['"]$/g, "");
+        found.push({ family: family.toLowerCase(), css, base });
+      });
+    };
+    const walkRules = (rules, base) => {
+      Array.from(rules).forEach((rule) => {
+        if (rule.type === 5) {
+          if (rule.cssText) pushFromText(rule.cssText, base);
+        } else if (rule.styleSheet) {
+          walkSheet(rule.styleSheet);
+        } else if (rule.cssRules) {
+          walkRules(rule.cssRules, base);
+        }
+      });
+    };
+    const walkSheet = (sheet) => {
+      let rules = null;
+      try {
+        rules = sheet.cssRules;
+      } catch (e) {
+      }
+      if (rules) {
+        walkRules(rules, sheet.href || document.baseURI);
+      } else if (sheet.href) {
+        remote.push(
+          fetchFont(
+            sheet.href,
+            (u) => fetch(u).then((r) => r.ok ? r.text() : Promise.reject())
+          ).then((text) => pushFromText(text, sheet.href)).catch(() => {
+          })
+        );
+      }
+    };
+    const el = this.w.dom.elWrap;
+    (el ? Me(el) : Array.from(document.styleSheets || [])).forEach(
+      walkSheet
+    );
+    return Promise.all(remote).then(() => found);
+  }
+  /**
+   * Inline the `@font-face` rules for the families the chart uses, with the
+   * font files themselves as base64 data URIs, into the exported SVG.
+   *
+   * Needed because the export is a standalone document: rasterizing it through
+   * `<img src="data:image/svg+xml,...">` gives it no access to the page's
+   * stylesheets *or* its loaded fonts, and an SVG-as-image may not fetch
+   * external resources at all. Without this the text silently reflows into a
+   * generic fallback face. See #3617.
+   *
+   * `@font-face` only exists as a stylesheet construct, so unlike the rules in
+   * `applyExportStyles` this cannot be expressed as inline styles and has to
+   * ship as a `<style>` element. A page whose CSP forbids inline styles will
+   * drop it and fall back to today's behaviour, which is why the whole thing is
+   * best-effort: any failure leaves the export exactly as it was.
+   * @param {any} svgNode the parsed outer <svg> about to be serialized
+   * @returns {Promise<void>}
+   */
+  embedFonts(svgNode) {
+    const w = this.w;
+    if (!Environment.isBrowser() || !w.config.chart.toolbar.export.embedFonts || typeof fetch !== "function") {
+      return Promise.resolve();
+    }
+    const used = this.collectFontFamilies();
+    if (!used.size) return Promise.resolve();
+    return this.collectFontFaceRules().then((faces) => {
+      const wanted = faces.filter((f) => used.has(f.family));
+      if (!wanted.length) return Promise.resolve([]);
+      return Promise.all(
+        wanted.map(
+          (face) => this.inlineFontFaceUrls(face.css, face.base).catch(() => null)
+        )
+      );
+    }).then((cssBlocks) => {
+      const css = (cssBlocks || []).filter(Boolean).join("\n");
+      if (!css) return;
+      const style = BrowserAPIs.createElementNS(SVGNS, "style");
+      style.textContent = css;
+      svgNode.insertBefore(style, svgNode.firstChild);
+    }).catch(() => {
+    });
+  }
+  /**
+   * Replace every remote `url(...)` in one `@font-face` block with a base64
+   * data URI. Resolves to null if no url could be fetched, so the caller can
+   * drop a block that would only reference unreachable files.
+   * @param {string} css
+   * @param {string} [base] the URL relative `url()`s resolve against
+   * @returns {Promise<string | null>}
+   */
+  inlineFontFaceUrls(css, base) {
+    const urls = [];
+    const re = /url\(\s*(['"]?)([^'")]+)\1\s*\)/gi;
+    let m;
+    while ((m = re.exec(css)) !== null) {
+      if (!m[2].startsWith("data:")) urls.push(m[2]);
+    }
+    if (!urls.length) return Promise.resolve(css.includes("data:") ? css : null);
+    return Promise.all(
+      urls.map((url) => {
+        const href = base ? new URL(url, base).href : url;
+        return fetchFont(href, (u) => this.fetchAsDataUri(u)).catch(() => {
+        });
+      })
+    ).then((dataUris) => {
+      let out = css;
+      urls.forEach((url, i) => {
+        if (dataUris[i]) out = out.split(url).join(dataUris[i]);
+      });
+      return out === css ? null : out;
+    });
+  }
+  /**
+   * Fetch a binary asset as a base64 data URI.
+   *
+   * Uses `fetch` rather than the `<img>`+canvas route in `getBase64FromUrl`:
+   * that route only works for raster images and taints the canvas for any
+   * response without CORS headers, whereas this works for fonts too and fails
+   * cleanly when CORS denies it.
+   * @param {string} url
+   * @returns {Promise<string>}
+   */
+  fetchAsDataUri(url) {
+    if (typeof fetch !== "function" || typeof btoa !== "function") {
+      return Promise.reject(new Error("fetch unavailable"));
+    }
+    return fetch(url).then((res) => {
+      if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
+      const type = res.headers.get("content-type") || "application/octet-stream";
+      return res.arrayBuffer().then((buf) => {
+        const bytes = new Uint8Array(buf);
+        let binary = "";
+        const CHUNK = 32768;
+        for (let i = 0; i < bytes.length; i += CHUNK) {
+          binary += String.fromCharCode.apply(
+            null,
+            /** @type {any} */
+            bytes.subarray(i, i + CHUNK)
+          );
+        }
+        return `data:${type};base64,${btoa(binary)}`;
+      });
+    });
+  }
+  /**
+   * Browser only: it reads the live chart's computed styles, fonts and
+   * stylesheets. Parsing and serializing go through BrowserAPIs like the
+   * rest of its DOM access.
+   * @param {number} [_scale]
+   */
+  getSvgString(_scale) {
+    return new Promise((resolve) => {
+      var _a, _b, _c;
+      const w = this.w;
+      let scale = _scale || w.config.chart.toolbar.export.scale || w.config.chart.toolbar.export.width / w.globals.svgWidth;
+      if (!scale) {
+        scale = 1;
+      }
+      const width = w.globals.svgWidth * scale;
+      const height = w.globals.svgHeight * scale;
+      (_a = w.globals.layoutTween) == null ? void 0 : _a.finish();
+      (_b = w.globals.circleTween) == null ? void 0 : _b.finish();
+      (_c = w.globals.highlightTween) == null ? void 0 : _c.finish();
+      [...w.globals.chromeTweens || []].forEach((finish) => finish());
+      const clonedNode = (
+        /** @type {HTMLElement} */
+        w.dom.elWrap.cloneNode(true)
+      );
+      this.resolveCssVars(w.dom.elWrap, clonedNode);
+      clonedNode.style.width = width + "px";
+      clonedNode.style.height = height + "px";
+      this.inlineCanvasLayers(clonedNode);
+      this.applyExportStyles(clonedNode);
+      const serializedNode = BrowserAPIs.getXMLSerializer().serializeToString(clonedNode);
+      let svgString = `
+        <svg xmlns="http://www.w3.org/2000/svg"
+          version="1.1"
+          xmlns:xlink="http://www.w3.org/1999/xlink"
+          class="apexcharts-svg"
+          xmlns:data="ApexChartsNS"
+          transform="translate(0, 0)"
+          width="${w.globals.svgWidth}px" height="${w.globals.svgHeight}px">
+          <foreignObject width="100%" height="100%">
+            <div xmlns="http://www.w3.org/1999/xhtml" style="width:${width}px; height:${height}px;">
+              ${serializedNode}
+            </div>
+          </foreignObject>
+        </svg>
+      `;
+      const svgNode = this.svgStringToNode(svgString);
+      if (scale !== 1) {
+        this.scaleSvgNode(svgNode, scale);
+      }
+      Promise.all([
+        this.convertImagesToBase64(svgNode),
+        this.embedFonts(svgNode)
+      ]).then(() => {
+        svgString = BrowserAPIs.getXMLSerializer().serializeToString(svgNode);
+        resolve(svgString.replace(/&nbsp;/g, "&#160;"));
+      });
+    });
+  }
+  /**
+   * Turn every remote `<image>` in the export into an inline data URI.
+   *
+   * This is not an optimisation: an SVG rasterized through `<img src="data:...">`
+   * is not allowed to fetch external resources, so any href left pointing at a
+   * URL vanishes from the PNG entirely. Image annotations and `hollow.image`
+   * were disappearing from downloads for exactly this reason. See #3170.
+   *
+   * Two things were missing before. `SVGContainer.image()` writes `xlink:href`,
+   * but Strata's inlined canvas layers and hand-authored `customSVG` markup use
+   * the plain `href` form, and only the namespaced attribute was being read.
+   * And conversion went through `<img>`+canvas, which taints (and therefore
+   * throws) for any response without CORS headers, so a cross-origin icon,
+   * the common case, silently failed. `fetch` is tried first and only falls
+   * back to the canvas route, which still helps for a same-origin image on a
+   * page whose CSP blocks `connect-src`.
+   * @param {any} svgNode
+   */
+  convertImagesToBase64(svgNode) {
+    const XLINK = "http://www.w3.org/1999/xlink";
+    const images = svgNode.getElementsByTagName("image");
+    const promises = Array.from(images).map((img) => {
+      const nsHref = img.getAttributeNS(XLINK, "href");
+      const plainHref = img.getAttribute("href");
+      const href = nsHref || plainHref;
+      if (!href || href.startsWith("data:")) return Promise.resolve();
+      const write = (base64) => {
+        if (nsHref) img.setAttributeNS(XLINK, "href", base64);
+        if (plainHref || !nsHref) img.setAttribute("href", base64);
+      };
+      return this.fetchAsDataUri(href).then(write).catch(
+        () => this.getBase64FromUrl(href).then(write).catch((error) => {
+          console.error("Error converting image to base64:", error);
+        })
+      );
+    });
+    return Promise.all(promises);
+  }
+  /**
+   * @param {string} url
+   */
+  getBase64FromUrl(url) {
+    if (Environment.isSSR()) return Promise.resolve(url);
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = "Anonymous";
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext("2d");
+        if (ctx) ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL());
+      };
+      img.onerror = reject;
+      img.src = url;
+    });
+  }
+  svgUrl() {
+    return new Promise((resolve) => {
+      this.getSvgString().then((svgData) => {
+        const svgBlob = new Blob([svgData], {
+          type: "image/svg+xml;charset=utf-8"
+        });
+        resolve(URL.createObjectURL(svgBlob));
+      });
+    });
+  }
+  /**
+   * Resolves `{ imgURI: '' }` when the PNG cannot be made (no 2d context for
+   * a canvas that size, an SVG the browser will not decode, a tainted
+   * canvas), so a caller is never left waiting.
+   * @param {Record<string, any> | undefined} options
+   */
+  dataURI(options) {
+    if (Environment.isSSR()) return Promise.resolve({ imgURI: "" });
+    return new Promise((resolve) => {
+      const w = this.w;
+      const fail = () => {
+        console.warn("ApexCharts: the PNG export could not be rendered");
+        resolve({ imgURI: "" });
+      };
+      const scale = options ? options.scale || options.width / w.globals.svgWidth : 1;
+      const canvas = document.createElement("canvas");
+      canvas.width = w.globals.svgWidth * scale;
+      canvas.height = parseInt(w.dom.elWrap.style.height, 10) * scale;
+      const canvasBg = this.resolveExportBackground();
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return fail();
+      ctx.fillStyle = canvasBg;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      this.getSvgString(scale).then((svgData) => {
+        const svgUrl = "data:image/svg+xml," + encodeURIComponent(svgData);
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => {
+          try {
+            ctx.drawImage(img, 0, 0);
+            const edgeCanvas = canvas;
+            if (edgeCanvas.msToBlob) {
+              const blob = edgeCanvas.msToBlob();
+              resolve({ blob });
+            } else {
+              const imgURI = canvas.toDataURL("image/png");
+              resolve({ imgURI });
+            }
+          } catch (e) {
+            fail();
+          }
+        };
+        img.onerror = fail;
+        img.src = svgUrl;
+      }).catch(fail);
+    });
+  }
+  exportToSVG() {
+    this.svgUrl().then((url) => {
+      this.triggerDownload(
+        url,
+        this.w.config.chart.toolbar.export.svg.filename,
+        ".svg"
+      );
+    });
+  }
+  exportToPng() {
+    const scale = this.w.config.chart.toolbar.export.scale;
+    const width = this.w.config.chart.toolbar.export.width;
+    const option = scale ? { scale } : width ? { width } : void 0;
+    this.dataURI(option).then(({ imgURI, blob }) => {
+      if (blob) {
+        navigator.msSaveOrOpenBlob(blob, this.w.globals.chartID + ".png");
+      } else if (imgURI) {
+        this.triggerDownload(
+          imgURI,
+          this.w.config.chart.toolbar.export.png.filename,
+          ".png"
+        );
+      }
+    });
+  }
+  /** @param {{ series?: any, fileName?: any, columnDelimiter?: string, lineDelimiter?: string }} opts */
+  exportToCSV({
+    series,
+    fileName,
+    columnDelimiter = ",",
+    lineDelimiter = "\n"
+  }) {
+    const w = this.w;
+    const gl = w.globals;
+    const csvCfg = w.config.chart.toolbar.export.csv;
+    const raw = !series && (gl.streamgraphRawSeries || gl.waterfallRawSeries || gl.dumbbellRawSeries);
+    if (!series) series = raw || w.config.series;
+    const hidden = new Set(
+      raw && raw === gl.dumbbellRawSeries ? w.dumbbellData.hidden : gl.collapsedSeriesIndices
+    );
+    const rows = [];
+    const body = [];
+    const isDatetime = w.config.xaxis.type === "datetime";
+    const utc = w.config.xaxis.labels.datetimeUTC;
+    const csvSafe = (val) => {
+      if (val == null || Utils.isNumber(val)) return val;
+      const s = String(val);
+      return /^[=+\-@\t\r]/.test(s) && isNaN(+s) ? `'${s}` : s;
+    };
+    const isDateCat = (cat) => isDatetime && String(cat).length >= 10 && !isNaN(new Date(cat).getTime());
+    const datetimeText = (cat, withTime2) => {
+      const d = new Date(cat);
+      if (!utc) d.setTime(d.getTime() - d.getTimezoneOffset() * 6e4);
+      if (withTime2) {
+        return d.toISOString().slice(0, 23).replace("T", " ").replace(".000", "");
+      }
+      const [day, date, month, year] = d.toUTCString().split(" ");
+      return `${day.slice(0, 3)} ${month} ${date} ${year}`;
+    };
+    const getFormattedCategory = (cat, withTime2) => {
+      if (typeof csvCfg.categoryFormatter === "function") {
+        return csvCfg.categoryFormatter(cat);
+      }
+      if (cat == null) return "";
+      if (isDateCat(cat)) return datetimeText(cat, withTime2);
+      return Utils.isNumber(cat) ? cat : csvSafe(String(cat).split(columnDelimiter).join(""));
+    };
+    const getFormattedValue = (value) => {
+      return typeof csvCfg.valueFormatter === "function" ? csvCfg.valueFormatter(value) : csvSafe(value);
+    };
+    const axesUtils = new AxesUtils(this.w, {
+      theme: this.ctx.theme,
+      timeScale: this.ctx.timeScale
+    });
+    const xFromScale = w.axisFlags.isXNumeric && !w.labelData.timescaleLabels.length;
+    const xFormatter = w.config.xaxis.labels.formatter;
+    const formatScaleX = typeof xFormatter === "function" && !Defaults.isFloorXLabelFormatter(w.config.xaxis);
+    const dateFormatter = new DateTime(w).formatDate;
+    const rowX = (i) => {
+      if (!w.axisFlags.dataFormatXNumeric) return i + 1;
+      const d = series.map((s) => {
+        var _a;
+        return (_a = s.data) == null ? void 0 : _a[i];
+      }).find((d2) => d2 != null && typeof d2 === "object");
+      const x = d == null ? void 0 : Array.isArray(d) ? d[0] : d.x;
+      return x instanceof Date ? x.getTime() : x;
+    };
+    const scaleCat = (i) => {
+      const x = rowX(i);
+      if (x == null) return "";
+      if (!formatScaleX) return String(x);
+      const label = xFormatter(x, x, { i, dateFormatter, w });
+      if (label == null) return "";
+      return Array.isArray(label) ? label : String(label);
+    };
+    const getCat = (i) => {
+      let cat = "";
+      if (!gl.axisCharts) {
+        cat = w.config.labels[i];
+      } else {
+        if (w.config.xaxis.type === "category" || w.config.xaxis.convertedCatToNumeric) {
+          if (gl.isBarHorizontal) {
+            const lbFormatter = w.formatters.yLabelFormatters[0];
+            const sr = new Series(this.ctx.w);
+            const activeSeries = sr.getActiveConfigSeriesIndex();
+            cat = lbFormatter(w.labelData.labels[i], {
+              seriesIndex: activeSeries,
+              dataPointIndex: i,
+              w
+            });
+          } else if (xFromScale) {
+            cat = scaleCat(i);
+          } else {
+            cat = axesUtils.getLabel(
+              w.labelData.labels,
+              w.labelData.timescaleLabels,
+              0,
+              i
+            ).text;
+          }
+        }
+        if (isDatetime) {
+          if (w.config.xaxis.categories.length) {
+            cat = w.config.xaxis.categories[i];
+          } else if (w.config.labels.length) {
+            cat = w.config.labels[i];
+          }
+        }
+      }
+      return Array.isArray(cat) ? cat.join(" ") : cat;
+    };
+    const cd = w.candleData;
+    const rd = w.rangeData;
+    const vd = w.violinData;
+    const multi = series.length > 1;
+    const cols = series.map((s, sI) => {
+      const type = raw ? "" : s.type || w.config.chart.type;
+      const fields = type === "candlestick" ? {
+        open: cd.seriesCandleO,
+        high: cd.seriesCandleH,
+        low: cd.seriesCandleL,
+        close: cd.seriesCandleC
+      } : type === "boxPlot" ? {
+        minimum: cd.seriesCandleO,
+        q1: cd.seriesCandleH,
+        median: cd.seriesCandleM,
+        q3: cd.seriesCandleL,
+        maximum: cd.seriesCandleC
+      } : type === "rangeBar" || type === "rangeArea" ? { minimum: rd.seriesRangeStart, maximum: rd.seriesRangeEnd } : type === "violin" ? {
+        minimum: vd.seriesViolinMin,
+        maximum: vd.seriesViolinMax,
+        observations: vd.seriesViolinPoints
+      } : null;
+      const name = String(s.name || `series-${sI}`).split(columnDelimiter).join("") || `series-${sI}`;
+      const keys = fields ? Object.keys(fields) : [name];
+      return {
+        head: fields && multi ? keys.map((k) => `${name} ${k}`) : keys,
+        /** @param {number} i */
+        cells: (i) => {
+          var _a;
+          const off = hidden.has(sI);
+          if (!fields) {
+            const d = off ? void 0 : (_a = s.data) == null ? void 0 : _a[i];
+            return [
+              getFormattedValue(
+                d && typeof d === "object" ? Array.isArray(d) ? d[1] : d.y : d
+              )
+            ];
+          }
+          return Object.values(fields).map((src) => {
+            var _a2;
+            const v = off ? void 0 : (_a2 = src == null ? void 0 : src[sI]) == null ? void 0 : _a2[i];
+            return getFormattedValue(Array.isArray(v) ? v.length : v);
+          });
+        }
+      };
+    });
+    if (!gl.axisCharts) {
+      rows.push(
+        [csvCfg.headerCategory, csvCfg.headerValue].join(columnDelimiter)
+      );
+      series.forEach((_, sI) => {
+        rows.push(
+          [
+            getFormattedCategory(w.labelData.labels[sI]),
+            getFormattedValue(hidden.has(sI) ? "" : w.seriesData.series[sI])
+          ].join(columnDelimiter)
+        );
+      });
+    } else {
+      rows.push(
+        [csvCfg.headerCategory, ...cols.flatMap((c) => c.head)].join(
+          columnDelimiter
+        )
+      );
+      if (!gl.allSeriesHasEqualX && !w.config.xaxis.categories.length && !w.config.labels.length) {
+        const byCategory = /* @__PURE__ */ new Map();
+        series.forEach((s, sI) => {
+          var _a;
+          const seen = /* @__PURE__ */ new Map();
+          (_a = s == null ? void 0 : s.data) == null ? void 0 : _a.forEach((d, i) => {
+            if (!d || typeof d !== "object") return;
+            const cat = Array.isArray(d) ? d[0] : d.x;
+            const x = String(cat);
+            const n = seen.get(x) || 0;
+            seen.set(x, n + 1);
+            const key = `${n}:${x}`;
+            let row = byCategory.get(key);
+            if (!row) {
+              row = { cat, values: cols.map((c) => c.head.map(() => "")) };
+              byCategory.set(key, row);
+            }
+            row.values[sI] = cols[sI].cells(i);
+          });
+        });
+        Array.from(byCategory.values()).sort((a, b) => {
+          const aText = typeof a.cat === "string";
+          const bText = typeof b.cat === "string";
+          if (aText !== bText) return aText ? 1 : -1;
+          if (!aText) return a.cat - b.cat;
+          if (!w.axisFlags.isXNumeric) return 0;
+          return a.cat < b.cat ? -1 : a.cat > b.cat ? 1 : 0;
+        }).forEach(({ cat, values }) => body.push([cat, ...values.flat()]));
+      } else {
+        const len = Math.max(
+          0,
+          ...series.map((s) => {
+            var _a;
+            return ((_a = s.data) == null ? void 0 : _a.length) || 0;
+          })
+        );
+        for (let i = 0; i < len; i++) {
+          let cat = getCat(i);
+          if (cat === null) continue;
+          if (!cat) {
+            const d = series.map((s) => {
+              var _a;
+              return (_a = s.data) == null ? void 0 : _a[i];
+            }).find((d2) => d2 != null);
+            cat = d == null ? "" : Array.isArray(d) ? d[0] : d.x;
+          }
+          body.push([cat, ...cols.flatMap((c) => c.cells(i))]);
+        }
+      }
+    }
+    const dates = body.map((r) => r[0]).filter(isDateCat);
+    const stamps = new Set(dates.map((c) => +new Date(c)));
+    const withTime = new Set([...stamps].map((t) => datetimeText(t))).size < stamps.size;
+    body.forEach(
+      (r) => rows.push(
+        [getFormattedCategory(r[0], withTime), ...r.slice(1)].join(
+          columnDelimiter
+        )
+      )
+    );
+    this.triggerDownload(
+      "data:text/csv; charset=utf-8," + encodeURIComponent("\uFEFF" + rows.join(lineDelimiter)),
+      fileName ? fileName : csvCfg.filename,
+      ".csv"
+    );
+  }
+  /**
+   * @param {string} href
+   * @param {string} filename
+   * @param {string} ext
+   */
+  triggerDownload(href, filename, ext) {
+    if (Environment.isSSR()) return;
+    const downloadLink = document.createElement("a");
+    downloadLink.href = href;
+    downloadLink.download = (filename ? filename : this.w.globals.chartID) + ext;
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
+  }
+}
+const icoPan = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">\n    <path d="M5 9 2 12l3 3"/>\n    <path d="M9 5l3-3 3 3"/>\n    <path d="M15 19l-3 3-3-3"/>\n    <path d="M19 9l3 3-3 3"/>\n    <path d="M2 12h20"/>\n    <path d="M12 2v20"/>\n</svg>\n';
+const icoZoom = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">\n    <circle cx="11" cy="11" r="7"/>\n    <path d="m21 21-4.3-4.3M8 11h6M11 8v6"/>\n</svg>\n';
+const icoReset = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">\n    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>\n    <path d="M3 3v5h5"/>\n</svg>\n';
+const icoZoomIn = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">\n    <path d="M12 5v14M5 12h14"/>\n</svg>\n';
+const icoZoomOut = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">\n    <path d="M5 12h14"/>\n</svg>\n';
+const icoSelect = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">\n    <path d="M5 3a2 2 0 0 0-2 2"/>\n    <path d="M19 3a2 2 0 0 1 2 2"/>\n    <path d="M21 19a2 2 0 0 1-2 2"/>\n    <path d="M5 21a2 2 0 0 1-2-2"/>\n    <path d="M9 3h1M14 3h1M9 21h1M14 21h1M3 9v1M3 14v1M21 9v1M21 14v1"/>\n</svg>\n';
+const icoMeasure = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">\n    <path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.4 2.4 0 0 1 0-3.4l2.6-2.6a2.4 2.4 0 0 1 3.4 0Z"/>\n    <path d="m14.5 12.5 2-2"/>\n    <path d="m11.5 9.5 2-2"/>\n    <path d="m8.5 6.5 2-2"/>\n    <path d="m17.5 15.5 2-2"/>\n</svg>\n';
+const icoMenu = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">\n    <path d="M4 6h16M4 12h16M4 18h16"/>\n</svg>\n';
+class Toolbar {
+  /**
+   * @param {import('../types/internal').ChartStateW} w
+   * @param {import('../types/internal').ChartContext} ctx
+   */
+  constructor(w, ctx) {
+    this.w = w;
+    this.ctx = ctx;
+    this.ev = this.w.config.chart.events;
+    this.selectedClass = "apexcharts-selected";
+    this.localeValues = this.w.globals.locale.toolbar;
+    this.elZoom = null;
+    this.elZoomIn = null;
+    this.elZoomOut = null;
+    this.elPan = null;
+    this.elSelection = null;
+    this.elMeasure = null;
+    this.elZoomReset = null;
+    this.elMenuIcon = null;
+    this.elMenu = null;
+    this.elMenuItems = [];
+    this.t = null;
+    this._drawnForZoom = null;
+  }
+  /**
+   * Whether this chart's built-in ways back out of a zoom are switched on.
+   *
+   * The gate `chart.zoom.resetControl` opens, and the one the Escape shortcut
+   * reads too, so a page that says it supplies its own reset gets neither.
+   * 'auto' means "supply one when nothing else on screen can": a toolbar
+   * showing its reset tool is a way back, and anything else is not.
+   *
+   * @returns {boolean}
+   */
+  resetControlAllowed() {
+    const c = this.w.config.chart;
+    if (!c.zoom || !c.zoom.enabled) return false;
+    const setting = c.zoom.resetControl === void 0 ? "auto" : c.zoom.resetControl;
+    if (setting !== "auto") return !!setting;
+    const onScreen = c.toolbar && c.toolbar.show && c.toolbar.tools && c.toolbar.tools.reset;
+    return !onScreen;
+  }
+  /**
+   * Whether a reset control has to be drawn for the state the chart is in now.
+   *
+   * Only while the chart is actually zoomed, which is the whole idea: the
+   * control appears at the moment the viewer changed the view, where they are
+   * already looking, and goes again when the range does. A page that never
+   * zooms never sees it, so `toolbar: { show: false }` still means an empty
+   * chart for everyone who does not zoom.
+   *
+   * @returns {boolean}
+   */
+  resetControlDue() {
+    return !!this.w.interact.zoomed && this.resetControlAllowed();
+  }
+  /**
+   * @param {{ resetOnly?: boolean }} [opts] `resetOnly` draws the on-demand
+   *   reset control and nothing else, for a chart whose page asked for no
+   *   toolbar at all. See {@link Toolbar#resetControlDue}.
+   */
+  createToolbar(opts = {}) {
+    var _a, _b, _c;
+    const w = this.w;
+    const resetOnly = !!opts.resetOnly;
+    const createDiv = () => {
+      return BrowserAPIs.createElementNS("http://www.w3.org/1999/xhtml", "div");
+    };
+    const createBtn = () => {
+      const btn = (
+        /** @type {HTMLButtonElement} */
+        BrowserAPIs.createElementNS("http://www.w3.org/1999/xhtml", "button")
+      );
+      btn.setAttribute("type", "button");
+      return btn;
+    };
+    const elToolbarWrap = createDiv();
+    elToolbarWrap.setAttribute("class", "apexcharts-toolbar");
+    elToolbarWrap.style.top = w.config.chart.toolbar.offsetY + "px";
+    elToolbarWrap.style.right = -w.config.chart.toolbar.offsetX + 3 + "px";
+    w.dom.elWrap.appendChild(elToolbarWrap);
+    this.elZoom = createBtn();
+    this.elZoomIn = createBtn();
+    this.elZoomOut = createBtn();
+    this.elPan = createBtn();
+    this.elSelection = createBtn();
+    this.elMeasure = createBtn();
+    this.elZoomReset = createBtn();
+    this.elMenuIcon = createBtn();
+    this.elMenu = createDiv();
+    this.elCustomIcons = [];
+    this.t = w.config.chart.toolbar.tools;
+    this._drawnForZoom = null;
+    if (resetOnly) {
+      this.t = {
+        zoom: false,
+        zoomin: false,
+        zoomout: false,
+        selection: false,
+        pan: false,
+        measure: false,
+        download: false,
+        customIcons: [],
+        reset: true
+      };
+      this._drawnForZoom = "wrap";
+    } else if (!this.t.reset && this.resetControlDue()) {
+      this.t = __spreadProps(__spreadValues({}, this.t), { reset: true });
+      this._drawnForZoom = "control";
+    }
+    if (Array.isArray(this.t.customIcons)) {
+      for (let i = 0; i < this.t.customIcons.length; i++) {
+        this.elCustomIcons.push(createBtn());
+      }
+    }
+    const toolbarControls = [];
+    const appendZoomControl = (type, el, ico) => {
+      const tool = type.toLowerCase();
+      if (this.t[tool] && w.config.chart.zoom.enabled) {
+        toolbarControls.push({
+          el,
+          icon: typeof this.t[tool] === "string" ? this.t[tool] : ico,
+          title: (
+            /** @type {any} */
+            this.localeValues[type]
+          ),
+          class: `apexcharts-${tool}-icon`
+        });
+      }
+    };
+    appendZoomControl("zoomIn", this.elZoomIn, icoZoomIn);
+    appendZoomControl("zoomOut", this.elZoomOut, icoZoomOut);
+    const zoomSelectionCtrls = (z) => {
+      if (this.t[z] && w.config.chart[z].enabled) {
+        toolbarControls.push({
+          el: z === "zoom" ? this.elZoom : this.elSelection,
+          icon: typeof this.t[z] === "string" ? this.t[z] : z === "zoom" ? icoZoom : icoSelect,
+          title: (
+            /** @type {any} */
+            this.localeValues[z === "zoom" ? "selectionZoom" : "selection"]
+          ),
+          class: `apexcharts-${z}-icon`
+        });
+      }
+    };
+    zoomSelectionCtrls("zoom");
+    zoomSelectionCtrls("selection");
+    if (this.t.pan && w.config.chart.zoom.enabled) {
+      toolbarControls.push({
+        el: this.elPan,
+        icon: typeof this.t.pan === "string" ? this.t.pan : icoPan,
+        title: this.localeValues.pan,
+        class: "apexcharts-pan-icon"
+      });
+    }
+    if (this.t.measure && w.config.chart.measure && w.config.chart.measure.enabled) {
+      toolbarControls.push({
+        el: this.elMeasure,
+        icon: typeof this.t.measure === "string" ? this.t.measure : icoMeasure,
+        title: (
+          /** @type {any} */
+          this.localeValues.measure || "Measure"
+        ),
+        class: "apexcharts-measure-icon"
+      });
+    }
+    appendZoomControl("reset", this.elZoomReset, icoReset);
+    if (this.t.download) {
+      toolbarControls.push({
+        el: this.elMenuIcon,
+        icon: typeof this.t.download === "string" ? this.t.download : icoMenu,
+        title: this.localeValues.menu,
+        class: "apexcharts-menu-icon"
+      });
+    }
+    for (let i = 0; i < this.elCustomIcons.length; i++) {
+      toolbarControls.push({
+        el: this.elCustomIcons[i],
+        icon: this.t.customIcons[i].icon,
+        title: this.t.customIcons[i].title,
+        index: this.t.customIcons[i].index,
+        class: "apexcharts-toolbar-custom-icon " + this.t.customIcons[i].class
+      });
+    }
+    toolbarControls.forEach((t, index) => {
+      if (t.index) {
+        Utils.moveIndexInArray(toolbarControls, index, t.index);
+      }
+    });
+    for (let i = 0; i < toolbarControls.length; i++) {
+      Graphics.setAttrs(toolbarControls[i].el, {
+        class: toolbarControls[i].class,
+        title: toolbarControls[i].title,
+        "aria-label": toolbarControls[i].title
+      });
+      toolbarControls[i].el.innerHTML = toolbarControls[i].icon;
+      elToolbarWrap.appendChild(toolbarControls[i].el);
+    }
+    if (this.elZoom.parentNode) {
+      this.elZoom.setAttribute("aria-pressed", String(!!w.interact.zoomEnabled));
+    }
+    if (this.elSelection.parentNode) {
+      this.elSelection.setAttribute(
+        "aria-pressed",
+        String(!!w.interact.selectionEnabled)
+      );
+    }
+    if (this.elPan.parentNode) {
+      this.elPan.setAttribute("aria-pressed", String(!!w.interact.panEnabled));
+    }
+    if (this.elMeasure.parentNode) {
+      this.elMeasure.setAttribute(
+        "aria-pressed",
+        String(!!w.interact.measureEnabled)
+      );
+    }
+    if (this.elMenuIcon.parentNode) {
+      this.elMenuIcon.setAttribute("aria-haspopup", "true");
+      this.elMenuIcon.setAttribute("aria-expanded", "false");
+    }
+    if (!resetOnly) this._createHamburgerMenu(elToolbarWrap);
+    if (resetOnly) {
+      (_a = this.elZoomReset) == null ? void 0 : _a.addEventListener(
+        "click",
+        this.handleZoomReset.bind(this)
+      );
+      return;
+    }
+    if (w.interact.zoomEnabled) {
+      this.elZoom.classList.add(this.selectedClass);
+    } else if (w.interact.panEnabled) {
+      this.elPan.classList.add(this.selectedClass);
+    } else if (w.interact.selectionEnabled) {
+      this.elSelection.classList.add(this.selectedClass);
+    } else if (w.interact.measureEnabled && this.elMeasure) {
+      this.elMeasure.classList.add(this.selectedClass);
+      (_c = (_b = this.ctx.measure) == null ? void 0 : _b.startMeasure) == null ? void 0 : _c.call(_b);
+    }
+    this.addToolbarEventListeners();
+  }
+  /**
+   * @param {Element} parent
+   */
+  _createHamburgerMenu(parent) {
+    this.elMenuItems = [];
+    parent.appendChild(
+      /** @type {Node} */
+      this.elMenu
+    );
+    Graphics.setAttrs(this.elMenu, {
+      class: "apexcharts-menu",
+      role: "menu"
+    });
+    const menuItems = [
+      {
+        name: "exportSVG",
+        title: this.localeValues.exportToSVG
+      },
+      {
+        name: "exportPNG",
+        title: this.localeValues.exportToPNG
+      },
+      {
+        name: "exportCSV",
+        title: this.localeValues.exportToCSV
+      }
+    ];
+    for (let i = 0; i < menuItems.length; i++) {
+      this.elMenuItems.push(
+        BrowserAPIs.createElementNS("http://www.w3.org/1999/xhtml", "div")
+      );
+      this.elMenuItems[i].innerHTML = menuItems[i].title;
+      Graphics.setAttrs(this.elMenuItems[i], {
+        class: `apexcharts-menu-item ${menuItems[i].name}`,
+        title: menuItems[i].title,
+        role: "menuitem",
+        tabindex: "-1"
+      });
+      this.elMenu.appendChild(this.elMenuItems[i]);
+    }
+  }
+  addToolbarEventListeners() {
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i;
+    (_a = this.elZoomReset) == null ? void 0 : _a.addEventListener("click", this.handleZoomReset.bind(this));
+    (_b = this.elSelection) == null ? void 0 : _b.addEventListener(
+      "click",
+      this.toggleZoomSelection.bind(this, "selection")
+    );
+    (_c = this.elZoom) == null ? void 0 : _c.addEventListener(
+      "click",
+      this.toggleZoomSelection.bind(this, "zoom")
+    );
+    (_d = this.elZoomIn) == null ? void 0 : _d.addEventListener("click", this.handleZoomIn.bind(this));
+    (_e = this.elZoomOut) == null ? void 0 : _e.addEventListener("click", this.handleZoomOut.bind(this));
+    (_f = this.elPan) == null ? void 0 : _f.addEventListener("click", this.togglePanning.bind(this));
+    (_g = this.elMeasure) == null ? void 0 : _g.addEventListener("click", this.toggleMeasure.bind(this));
+    (_h = this.elMenuIcon) == null ? void 0 : _h.addEventListener("click", this.toggleMenu.bind(this));
+    this.elMenuItems.forEach((m) => {
+      if (m.classList.contains("exportSVG")) {
+        m.addEventListener("click", this.handleDownload.bind(this, "svg"));
+      } else if (m.classList.contains("exportPNG")) {
+        m.addEventListener("click", this.handleDownload.bind(this, "png"));
+      } else if (m.classList.contains("exportCSV")) {
+        m.addEventListener("click", this.handleDownload.bind(this, "csv"));
+      }
+    });
+    for (let i = 0; i < this.t.customIcons.length; i++) {
+      this.elCustomIcons[i].addEventListener(
+        "click",
+        this.t.customIcons[i].click.bind(this, this.ctx, this.ctx.w)
+      );
+    }
+    const toolbarButtons = [
+      this.elZoomReset,
+      this.elSelection,
+      this.elZoom,
+      this.elZoomIn,
+      this.elZoomOut,
+      this.elPan,
+      this.elMeasure,
+      this.elMenuIcon,
+      ...this.elCustomIcons
+    ];
+    toolbarButtons.forEach((btn) => {
+      btn.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          const btnClass = btn.className;
+          btn.click();
+          requestAnimationFrame(() => {
+            const baseEl = this.w.dom.baseEl;
+            if (!baseEl) return;
+            const apexClass = btnClass.split(" ").find((c) => c.startsWith("apexcharts-"));
+            if (!apexClass) return;
+            const restored = baseEl.querySelector(`.${apexClass}`);
+            if (restored) restored.focus();
+          });
+        }
+      });
+    });
+    (_i = this.elMenuIcon) == null ? void 0 : _i.addEventListener(
+      "keydown",
+      (e) => {
+        var _a2;
+        if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+          e.preventDefault();
+          if (!((_a2 = this.elMenu) == null ? void 0 : _a2.classList.contains("apexcharts-menu-open"))) {
+            this.toggleMenu();
+          }
+          window.setTimeout(() => {
+            const idx = e.key === "ArrowDown" ? 0 : this.elMenuItems.length - 1;
+            if (this.elMenuItems[idx])
+              this.elMenuItems[idx].focus();
+          }, 20);
+        }
+      }
+    );
+    this.elMenuItems.forEach((m, idx) => {
+      m.addEventListener("keydown", (e) => {
+        var _a2;
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          const next = this.elMenuItems[idx + 1] || this.elMenuItems[0];
+          next.focus();
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          const prev = this.elMenuItems[idx - 1] || this.elMenuItems[this.elMenuItems.length - 1];
+          prev.focus();
+        } else if (e.key === "Escape" || e.key === "Tab") {
+          this._closeMenu();
+          (_a2 = this.elMenuIcon) == null ? void 0 : _a2.focus();
+          if (e.key === "Tab") ;
+          else {
+            e.preventDefault();
+          }
+        } else if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          m.click();
+        }
+      });
+    });
+  }
+  /**
+   * @param {string} type
+   */
+  toggleZoomSelection(type) {
+    const charts = this.ctx.getSyncedCharts();
+    charts.forEach((ch) => {
+      const tb = ch.ctx.toolbar;
+      const enabledType = type === "selection" ? "selectionEnabled" : "zoomEnabled";
+      const wasEnabled = !!ch.w.interact[enabledType];
+      tb.toggleOtherControls();
+      const el = type === "selection" ? tb.elSelection : tb.elZoom;
+      if (!wasEnabled) {
+        ch.w.interact[enabledType] = true;
+        el == null ? void 0 : el.classList.add(tb.selectedClass);
+      }
+      el == null ? void 0 : el.setAttribute("aria-pressed", String(!!ch.w.interact[enabledType]));
+    });
+  }
+  /**
+   * Toggle the measure ruler tool. Mutually exclusive with zoom/pan/selection
+   * (toggleOtherControls deselects those and disarms any active measure), so a
+   * fresh enable arms the ruler via the Measure module's sticky mode.
+   */
+  toggleMeasure() {
+    var _a, _b, _c, _d;
+    const w = this.w;
+    const enabling = !w.interact.measureEnabled;
+    this.toggleOtherControls();
+    if (enabling) {
+      w.interact.measureEnabled = true;
+      (_a = this.elMeasure) == null ? void 0 : _a.classList.add(this.selectedClass);
+      (_c = (_b = this.ctx.measure) == null ? void 0 : _b.startMeasure) == null ? void 0 : _c.call(_b);
+    }
+    (_d = this.elMeasure) == null ? void 0 : _d.setAttribute(
+      "aria-pressed",
+      String(w.interact.measureEnabled)
+    );
+  }
+  getToolbarIconsReference() {
+    const w = this.w;
+    if (!this.elZoom) {
+      this.elZoom = w.dom.baseEl.querySelector(".apexcharts-zoom-icon");
+    }
+    if (!this.elPan) {
+      this.elPan = w.dom.baseEl.querySelector(".apexcharts-pan-icon");
+    }
+    if (!this.elSelection) {
+      this.elSelection = w.dom.baseEl.querySelector(
+        ".apexcharts-selection-icon"
+      );
+    }
+    if (!this.elMeasure) {
+      this.elMeasure = w.dom.baseEl.querySelector(".apexcharts-measure-icon");
+    }
+  }
+  /**
+   * @param {string} type
+   */
+  enableZoomPanFromToolbar(type) {
+    this.toggleOtherControls();
+    type === "pan" ? this.w.interact.panEnabled = true : this.w.interact.zoomEnabled = true;
+    const el = type === "pan" ? this.elPan : this.elZoom;
+    const el2 = type === "pan" ? this.elZoom : this.elPan;
+    if (el) {
+      el.classList.add(this.selectedClass);
+    }
+    if (el2) {
+      el2.classList.remove(this.selectedClass);
+    }
+  }
+  togglePanning() {
+    const charts = this.ctx.getSyncedCharts();
+    charts.forEach((ch) => {
+      var _a, _b;
+      const tb = ch.ctx.toolbar;
+      const wasEnabled = !!ch.w.interact.panEnabled;
+      tb.toggleOtherControls();
+      if (!wasEnabled) {
+        ch.w.interact.panEnabled = true;
+        (_a = tb.elPan) == null ? void 0 : _a.classList.add(tb.selectedClass);
+      }
+      (_b = tb.elPan) == null ? void 0 : _b.setAttribute("aria-pressed", String(!!ch.w.interact.panEnabled));
+    });
+  }
+  toggleOtherControls() {
+    var _a, _b, _c;
+    const w = this.w;
+    w.interact.panEnabled = false;
+    w.interact.zoomEnabled = false;
+    w.interact.selectionEnabled = false;
+    if (w.interact.measureEnabled) {
+      w.interact.measureEnabled = false;
+      (_b = (_a = this.ctx.measure) == null ? void 0 : _a.stopMeasure) == null ? void 0 : _b.call(_a);
+      (_c = this.elMeasure) == null ? void 0 : _c.setAttribute("aria-pressed", "false");
+    }
+    this.getToolbarIconsReference();
+    const toggleEls = [this.elPan, this.elSelection, this.elZoom, this.elMeasure];
+    toggleEls.forEach((el) => {
+      if (el) {
+        el.classList.remove(this.selectedClass);
+      }
+    });
+  }
+  /**
+   * Read the current x-range from globals at click time.
+   * Toolbar instance is kept alive across updates (Phase 8 lazy
+   * instantiation), so a range cached on it would go stale after a zoom.
+   * @returns {{minX: number, maxX: number}}
+   */
+  _currentXRange() {
+    const w = this.w;
+    if (w.axisFlags.isRangeBar) {
+      return { minX: w.globals.minY, maxX: w.globals.maxY };
+    }
+    return { minX: w.globals.minX, maxX: w.globals.maxX };
+  }
+  handleZoomIn() {
+    const w = this.w;
+    const { minX, maxX } = this._currentXRange();
+    const centerX = (minX + maxX) / 2;
+    const newMinX = (minX + centerX) / 2;
+    const newMaxX = (maxX + centerX) / 2;
+    const newMinXMaxX = this._getNewMinXMaxX(newMinX, newMaxX);
+    if (!w.interact.disableZoomIn) {
+      this.zoomUpdateOptions(newMinXMaxX.minX, newMinXMaxX.maxX);
+    }
+  }
+  handleZoomOut() {
+    const w = this.w;
+    const { minX, maxX } = this._currentXRange();
+    if (w.config.xaxis.type === "datetime" && new Date(minX).getUTCFullYear() < 1e3) {
+      return;
+    }
+    const centerX = (minX + maxX) / 2;
+    const newMinX = minX - (centerX - minX);
+    const newMaxX = maxX - (centerX - maxX);
+    const newMinXMaxX = this._getNewMinXMaxX(newMinX, newMaxX);
+    if (!w.interact.disableZoomOut) {
+      this.zoomUpdateOptions(newMinXMaxX.minX, newMinXMaxX.maxX);
+    }
+  }
+  /**
+   * @param {number} newMinX
+   * @param {number} newMaxX
+   */
+  _getNewMinXMaxX(newMinX, newMaxX) {
+    const shouldFloor = this.w.config.xaxis.convertedCatToNumeric;
+    return {
+      minX: shouldFloor ? Math.floor(newMinX) : newMinX,
+      maxX: shouldFloor ? Math.floor(newMaxX) : newMaxX
+    };
+  }
+  /**
+   * The y axes an x-window change (zoom buttons, zoomX, keyboard +/-, pan,
+   * wheel, pinch, pixel pan) renders with and reports in `zoomed`. Rebuilt
+   * from the initial config, except that the y window a zoom box chose on a
+   * 'xy' or 'y' chart is kept: moving x must not throw the y half of the zoom
+   * away (#5369). autoScaleYaxis fits y to the x window itself, so it keeps
+   * starting from the initial config.
+   * @returns {any[]}
+   */
+  yaxisForXWindow() {
+    const w = this.w;
+    const initial = w.globals.initialConfig;
+    if (!initial) return [];
+    const yaxis = Utils.clone(initial.yaxis);
+    const zoom = w.config.chart.zoom || {};
+    if (!w.interact.zoomed || zoom.autoScaleYaxis || zoom.type !== "xy" && zoom.type !== "y" || !Array.isArray(yaxis)) {
+      return yaxis;
+    }
+    yaxis.forEach((y, i) => {
+      const cur = w.config.yaxis[i];
+      if (!y || !cur) return;
+      y.min = cur.min;
+      y.max = cur.max;
+    });
+    return yaxis;
+  }
+  /**
+   * @param {number} newMinX
+   * @param {number} newMaxX
+   */
+  zoomUpdateOptions(newMinX, newMaxX) {
+    const w = this.w;
+    if (newMinX === void 0 && newMaxX === void 0) {
+      this.handleZoomReset();
+      return;
+    }
+    if (w.config.xaxis.convertedCatToNumeric) {
+      if (newMinX < 1) {
+        newMinX = 1;
+        newMaxX = w.globals.dataPoints;
+      }
+      if (newMaxX - newMinX < 2) {
+        return;
+      }
+    }
+    let xaxis = {
+      min: newMinX,
+      max: newMaxX
+    };
+    const beforeZoomRange = this.getBeforeZoomRange(
+      xaxis,
+      /** @type {any} */
+      void 0
+    );
+    if (beforeZoomRange) {
+      xaxis = beforeZoomRange.xaxis;
+    }
+    const options = {
+      xaxis
+    };
+    if (!w.globals.initialConfig) return;
+    const yaxis = this.yaxisForXWindow();
+    if (!w.config.chart.group) {
+      options.yaxis = yaxis;
+    }
+    this.w.interact.zoomed = true;
+    this.ctx.updateHelpers._updateOptions(
+      options,
+      false,
+      this.w.config.chart.animations.dynamicAnimation.enabled
+    );
+    this.zoomCallback(xaxis, yaxis);
+  }
+  /**
+   * @param {Record<string, any>} xaxis
+   * @param {Record<string, any>} yaxis
+   */
+  zoomCallback(xaxis, yaxis) {
+    if (typeof this.ev.zoomed === "function") {
+      this.ev.zoomed(this.ctx, { xaxis, yaxis });
+      this.ctx.events.fireEvent("zoomed", { xaxis, yaxis });
+    }
+  }
+  /**
+   * @param {Record<string, any>} xaxis
+   * @param {Record<string, any>} yaxis
+   */
+  getBeforeZoomRange(xaxis, yaxis) {
+    let newRange = null;
+    if (typeof this.ev.beforeZoom === "function") {
+      newRange = this.ev.beforeZoom(this, { xaxis, yaxis });
+    }
+    return newRange;
+  }
+  toggleMenu() {
+    window.setTimeout(() => {
+      var _a, _b, _c;
+      if ((_a = this.elMenu) == null ? void 0 : _a.classList.contains("apexcharts-menu-open")) {
+        this._closeMenu();
+      } else {
+        (_b = this.elMenu) == null ? void 0 : _b.classList.add("apexcharts-menu-open");
+        (_c = this.elMenuIcon) == null ? void 0 : _c.setAttribute("aria-expanded", "true");
+        this._watchOutside();
+      }
+    }, 0);
+  }
+  _closeMenu() {
+    var _a, _b;
+    (_a = this.elMenu) == null ? void 0 : _a.classList.remove("apexcharts-menu-open");
+    (_b = this.elMenuIcon) == null ? void 0 : _b.setAttribute("aria-expanded", "false");
+    this._unwatchOutside();
+  }
+  /**
+   * Close the open menu on a press anywhere on the page outside it. The chart's
+   * own click listener only hears presses inside the chart, so a click on the
+   * page around it left the menu open. Bound only while the menu is open, and
+   * read through eventOrigin so a press inside a shadow root is not mistaken
+   * for one outside.
+   */
+  _watchOutside() {
+    var _a;
+    const doc = (_a = this.elMenu) == null ? void 0 : _a.ownerDocument;
+    if (!doc || this._onOutside) return;
+    this._onOutside = (e) => {
+      var _a2, _b;
+      const origin = (
+        /** @type {Node} */
+        me(e)
+      );
+      if (((_a2 = this.elMenu) == null ? void 0 : _a2.contains(origin)) || ((_b = this.elMenuIcon) == null ? void 0 : _b.contains(origin))) {
+        return;
+      }
+      this._closeMenu();
+    };
+    this._outsideDoc = doc;
+    doc.addEventListener("pointerdown", this._onOutside, true);
+  }
+  _unwatchOutside() {
+    if (!this._onOutside || !this._outsideDoc) return;
+    this._outsideDoc.removeEventListener("pointerdown", this._onOutside, true);
+    this._onOutside = null;
+    this._outsideDoc = null;
+  }
+  /**
+   * @param {string} type
+   */
+  handleDownload(type) {
+    const w = this.w;
+    const exprt = new Exports(this.w, this.ctx);
+    switch (type) {
+      case "svg":
+        exprt.exportToSVG();
+        break;
+      case "png":
+        exprt.exportToPng();
+        break;
+      case "csv":
+        exprt.exportToCSV({
+          series: w.config.series,
+          columnDelimiter: w.config.chart.toolbar.export.csv.columnDelimiter
+        });
+        break;
+    }
+  }
+  /**
+   * Take down whatever the zoom alone put on screen.
+   *
+   * By hand, and not left to the next render, because of the order in
+   * {@link Toolbar#handleZoomReset}: the re-render happens while
+   * `interact.zoomed` is still true, so the control is drawn once more and then
+   * the flag clears with no further pass to notice. Reversing that order would
+   * change what every listener downstream of the update sees, which is a much
+   * larger promise than this control is worth.
+   */
+  clearZoomAffordance() {
+    const drawn = this._drawnForZoom;
+    this._drawnForZoom = null;
+    if (!drawn || !this.elZoomReset) return;
+    const parent = this.elZoomReset.parentNode;
+    const gone = drawn === "wrap" ? parent : this.elZoomReset;
+    if (gone && gone.parentNode) gone.parentNode.removeChild(gone);
+  }
+  handleZoomReset() {
+    const charts = this.ctx.getSyncedCharts();
+    charts.forEach((ch) => {
+      var _a;
+      const w = ch.w;
+      if (!w.interact.zoomed) return;
+      w.globals.lastXAxis.min = w.globals.initialConfig.xaxis.min;
+      w.globals.lastXAxis.max = w.globals.initialConfig.xaxis.max;
+      ch.updateHelpers.revertDefaultAxisMinMax();
+      if (typeof w.config.chart.events.beforeResetZoom === "function") {
+        const resetZoomRange = w.config.chart.events.beforeResetZoom(ch, w);
+        if (resetZoomRange) {
+          ch.updateHelpers.revertDefaultAxisMinMax(resetZoomRange);
+        }
+      }
+      if (typeof w.config.chart.events.zoomed === "function") {
+        ch.ctx.toolbar.zoomCallback({
+          min: w.config.xaxis.min,
+          max: w.config.xaxis.max
+        });
+      }
+      const series = ch.ctx.series.emptyCollapsedSeries(
+        Utils.clone(w.globals._initialSeriesPeek)
+      );
+      ch.updateHelpers._updateSeries(
+        series,
+        w.config.chart.animations.dynamicAnimation.enabled
+      );
+      w.interact.zoomed = false;
+      (_a = ch.ctx.toolbar) == null ? void 0 : _a.clearZoomAffordance();
+    });
+  }
+  destroy() {
+    this.elZoom = null;
+    this.elZoomIn = null;
+    this.elZoomOut = null;
+    this.elPan = null;
+    this.elSelection = null;
+    this.elMeasure = null;
+    this.elZoomReset = null;
+    this.elMenuIcon = null;
+  }
+}
+class AxisMapping {
+  /**
+   * Pixels per data-unit on the x-axis. Derived from `minX..maxX` so it is the
+   * exact inverse used by both {@link dataXToPx} and {@link pxToDataX}.
+   * @param {import('../types/internal').ChartStateW} w
+   * @returns {number}
+   */
+  static xRatio(w) {
+    const gw = w.layout.gridWidth || 1;
+    return (w.globals.maxX - w.globals.minX) / gw;
+  }
+  /**
+   * Data-x -> pixels from the plot origin (usable as an SVG `x` attribute).
+   * @param {import('../types/internal').ChartStateW} w
+   * @param {number} dataX
+   * @returns {number}
+   */
+  static dataXToPx(w, dataX) {
+    return (dataX - w.globals.minX) / AxisMapping.xRatio(w);
+  }
+  /**
+   * Pixels from the plot origin -> data-x. Feed it `screenX - svgLeft - translateX`.
+   * @param {import('../types/internal').ChartStateW} w
+   * @param {number} px
+   * @returns {number}
+   */
+  static pxToDataX(w, px) {
+    return w.globals.minX + px * AxisMapping.xRatio(w);
+  }
+  /**
+   * The plot area on screen, in client px: its corner is where the plot's
+   * group is translated to (translateX, translateY into the svg), and it is
+   * gridWidth by gridHeight. The one screen-to-plot measurement: the tooltip,
+   * zoom, selection and every other pointer reader map through it, so x and y
+   * cannot disagree under CSS zoom.
+   *
+   * Never the `.apexcharts-grid` group's box: a group measures to the union
+   * of what it happens to draw (fact 2 above). The plot's outline starts a
+   * pixel down (`Grid.drawGridArea`), so unless gridlines or row bands reach
+   * the top edge the box starts a pixel below the plot, and on a numeric-x bar
+   * chart the horizontal gridlines run `barPadForNumericAxis` out past both
+   * sides.
+   *
+   * `zoom` is the CSS zoom of any container the chart sits in (screen px per
+   * plot px): the measured svg width over `svgWidth`, the unscaled width it
+   * was drawn at. A distance measured on screen from this corner is divided
+   * by it to land in plot px, the space the series are laid out and painted in.
+   * With nothing mounted to measure, screen px are taken as svg px.
+   *
+   * @param {import('../types/internal').ChartStateW} w
+   * @returns {{ left: number, top: number, width: number, height: number, zoom: number }}
+   */
+  static plotRect(w) {
+    var _a, _b, _c;
+    const svg = ((_a = w.dom.Paper) == null ? void 0 : _a.node) || ((_b = w.dom.baseEl) == null ? void 0 : _b.querySelector(".apexcharts-svg"));
+    const box = ((_c = svg || w.dom.elWrap) == null ? void 0 : _c.getBoundingClientRect()) || {
+      left: 0,
+      top: 0,
+      width: 0
+    };
+    const zoom = (svg && w.globals.svgWidth ? box.width / w.globals.svgWidth : 1) || 1;
+    return {
+      left: box.left + w.layout.translateX * zoom,
+      top: box.top + w.layout.translateY * zoom,
+      width: w.layout.gridWidth * zoom,
+      height: w.layout.gridHeight * zoom,
+      zoom
+    };
+  }
+  /**
+   * Client (screen) x -> pixels from the plot origin of {@link plotRect}.
+   * Pass the rect when the caller has already measured it.
+   * @param {import('../types/internal').ChartStateW} w
+   * @param {number} screenX
+   * @param {{ left: number, zoom: number }} [plot]
+   * @returns {number}
+   */
+  static screenXToPlotPx(w, screenX, plot = AxisMapping.plotRect(w)) {
+    return (screenX - plot.left) / plot.zoom;
+  }
+}
+const TooltipUtils = _core.__apex_tooltip_Utils;
+const Box = _core.__apex_index_Box;
+const WHEEL_ZOOM_PIXELS_PER_2X = 240;
+const INERTIA_MIN_RELEASE_VELOCITY = 0.05;
+const INERTIA_DEFAULT_FRICTION = 0.92;
+const INERTIA_STOP_VELOCITY = 0.02;
+const FRAME_MS_60FPS = 16.6667;
+const PAN_NUDGE_DIVISOR = 15;
+const PLOT_ORIGIN_PX = 0;
+class ZoomPanSelection extends Toolbar {
+  /**
+   * @param {import('../types/internal').ChartStateW} w
+   * @param {import('../types/internal').ChartContext} ctx
+   */
+  constructor(w, ctx) {
+    super(w, ctx);
+    this.w = w;
+    this.ctx = ctx;
+    this.dragged = false;
+    this.graphics = new Graphics(this.w);
+    this.eventList = [
+      "mousedown",
+      "mouseleave",
+      "mousemove",
+      "touchstart",
+      "touchmove",
+      "mouseup",
+      "touchend"
+    ];
+    this.clientX = 0;
+    this.clientY = 0;
+    this.startX = 0;
+    this.endX = 0;
+    this.dragX = 0;
+    this.startY = 0;
+    this.endY = 0;
+    this.dragY = 0;
+    this.moveDirection = "none";
+  }
+  /** @param {{xyRatios: any}} opts */
+  init({ xyRatios }) {
+    const w = this.w;
+    const me2 = this;
+    this.xyRatios = xyRatios;
+    this.zoomRect = this.graphics.drawRect(0, 0, 0, 0);
+    this.selectionRect = this.graphics.drawRect(0, 0, 0, 0);
+    this.constraints = new Box(0, 0, w.layout.gridWidth, w.layout.gridHeight);
+    this.zoomRect.node.classList.add("apexcharts-zoom-rect");
+    this.selectionRect.node.classList.add("apexcharts-selection-rect");
+    w.dom.Paper.add(this.zoomRect);
+    w.dom.Paper.add(this.selectionRect);
+    if (w.config.chart.selection.type === "x") {
+      this.slDraggableRect = this.selectionRect.draggable({
+        minX: 0,
+        minY: 0,
+        maxX: w.layout.gridWidth,
+        maxY: w.layout.gridHeight
+      }).on("dragmove.namespace", this.selectionDragging.bind(this, "dragging"));
+    } else if (w.config.chart.selection.type === "y") {
+      this.slDraggableRect = this.selectionRect.draggable({
+        minX: 0,
+        maxX: w.layout.gridWidth
+      }).on("dragmove.namespace", this.selectionDragging.bind(this, "dragging"));
+    } else {
+      this.slDraggableRect = this.selectionRect.draggable().on("dragmove.namespace", this.selectionDragging.bind(this, "dragging"));
+    }
+    this.preselectedSelection();
+    this.hoverArea = /** @type {Element} */
+    w.dom.baseEl.querySelector(`${w.globals.chartClass} .apexcharts-svg`);
+    if (!this.hoverArea) return;
+    this.hoverArea.classList.add("apexcharts-zoomable");
+    this.eventList.forEach((event) => {
+      var _a;
+      (_a = this.hoverArea) == null ? void 0 : _a.addEventListener(event, me2.svgMouseEvents.bind(me2), {
+        capture: false,
+        passive: true
+      });
+    });
+    if (this._wheelZoomEnabled()) {
+      this.hoverArea.addEventListener("wheel", me2.mouseWheelEvent.bind(me2), {
+        capture: false,
+        passive: false
+      });
+    }
+    this.hoverArea.addEventListener("keydown", me2.escapeResetEvent.bind(me2), {
+      capture: false,
+      passive: true
+    });
+    if (this._momentumEnabled()) {
+      ["touchstart", "touchmove", "touchend", "touchcancel"].forEach(
+        (event) => {
+          var _a;
+          (_a = this.hoverArea) == null ? void 0 : _a.addEventListener(event, me2.momentumTouch.bind(me2), {
+            capture: false,
+            passive: false
+          });
+        }
+      );
+    }
+  }
+  // remove the event listeners which were previously added on hover area
+  destroy() {
+    if (this.w.globals.isDestroyed) {
+      const it = this.w.interact;
+      const st = this._wheel();
+      BrowserAPIs.cancelAnimationFrame(st.rafId);
+      clearTimeout(st.endTimer);
+      this._hideWheelHint();
+      this._cancelInertia();
+      it.wheel = it.momentum = void 0;
+    }
+    if (this.slDraggableRect) {
+      this.slDraggableRect.draggable(false);
+      this.slDraggableRect.off();
+      this.selectionRect.off();
+    }
+    this.selectionRect = null;
+    this.zoomRect = null;
+  }
+  /**
+   * @param {any} e
+   */
+  svgMouseEvents(e) {
+    const w = this.w;
+    const toolbar = this.ctx.toolbar;
+    if (w.interact.momentum && w.interact.momentum.busy) return;
+    if (this._momentumEnabled() && e.touches && e.touches.length > 1) {
+      return;
+    }
+    const zoomtype = w.interact.zoomEnabled ? w.config.chart.zoom.type : w.config.chart.selection.type;
+    const autoSelected = w.config.chart.toolbar.autoSelected;
+    if (autoSelected !== "measure") {
+      if (e.shiftKey) {
+        w.interact.shiftWasPressed = true;
+        toolbar.enableZoomPanFromToolbar(autoSelected === "pan" ? "zoom" : "pan");
+      } else {
+        if (w.interact.shiftWasPressed) {
+          toolbar.enableZoomPanFromToolbar(autoSelected);
+          w.interact.shiftWasPressed = false;
+        }
+      }
+    }
+    if (!e.target) return;
+    const tc = e.target.classList;
+    let pc;
+    if (e.target.parentNode && e.target.parentNode !== null) {
+      pc = e.target.parentNode.classList;
+    }
+    const falsePositives = tc.contains("apexcharts-legend-marker") || tc.contains("apexcharts-legend-text") || pc && pc.contains("apexcharts-toolbar");
+    if (falsePositives) return;
+    this.clientX = e.type === "touchmove" || e.type === "touchstart" ? e.touches[0].clientX : e.type === "touchend" ? e.changedTouches[0].clientX : e.clientX;
+    this.clientY = e.type === "touchmove" || e.type === "touchstart" ? e.touches[0].clientY : e.type === "touchend" ? e.changedTouches[0].clientY : e.clientY;
+    if (e.type === "mousedown" && e.which === 1 || e.type === "touchstart") {
+      if (!this._hasPlot()) return;
+      this.startX = this._screenXToPlotPx(this.clientX);
+      this.startY = this._screenYToPlotPx(this.clientY);
+      this.dragged = false;
+      this.w.interact.wasDragged = false;
+      this.w.interact.mousedown = true;
+    }
+    if (e.type === "mousemove" && e.which === 1 || e.type === "touchmove") {
+      this.dragged = true;
+      if (w.interact.panEnabled) {
+        w.interact.selection = null;
+        if (this.w.interact.mousedown) {
+          this.panDragging({
+            context: this,
+            zoomtype,
+            xyRatios: this.xyRatios
+          });
+        }
+      } else {
+        if (this.w.interact.mousedown && w.interact.zoomEnabled || this.w.interact.mousedown && w.interact.selectionEnabled) {
+          this.selection = this.selectionDrawing({
+            context: this,
+            zoomtype
+          });
+        }
+      }
+    }
+    if (e.type === "mouseup" || e.type === "touchend" || e.type === "mouseleave") {
+      this.handleMouseUp({ zoomtype, eventType: e.type });
+    }
+    this.makeSelectionRectDraggable();
+  }
+  /** @param {{ zoomtype?: any, isResized?: any, eventType?: string }} opts */
+  handleMouseUp({ zoomtype, isResized, eventType }) {
+    const w = this.w;
+    if (this._hasPlot() && (this.w.interact.mousedown || isResized)) {
+      this.endX = this._screenXToPlotPx(this.clientX);
+      this.endY = this._screenYToPlotPx(this.clientY);
+      this.dragX = Math.abs(this.endX - this.startX);
+      this.dragY = Math.abs(this.endY - this.startY);
+      if ((eventType === "mouseup" || eventType === "touchend") && (w.interact.zoomEnabled || w.interact.selectionEnabled) && this.dragged && (this.dragX > 10 || this.dragY > 10)) {
+        w.interact.wasDragged = true;
+      }
+      if (w.interact.zoomEnabled || w.interact.selectionEnabled) {
+        this.selectionDrawn({
+          context: this,
+          zoomtype
+        });
+      }
+    }
+    if (w.interact.zoomEnabled) {
+      this.hideSelectionRect(this.selectionRect);
+    }
+    this.dragged = false;
+    this.w.interact.mousedown = false;
+  }
+  // ---------------------------------------------------------------------------
+  // Wheel zoom: continuous, cursor-anchored zoom on mouse wheel / trackpad.
+  //
+  // Each wheel event multiplies a pending zoom factor scaled to its deltaY (so
+  // a trackpad's stream of tiny deltas and a discrete wheel's ±100 notches both
+  // feel proportional), and the accumulated factor is applied at most once per
+  // animation frame through the same immediate, animation-free fast path the
+  // touch pinch uses (_applyXRange). Deliberately instant, trading-chart style:
+  // no per-step morph and no easing between steps (an animated variant was
+  // tried and rejected). The original implementation instead ran a fixed
+  // 0.5x/1.5x animated update at most once per 400ms and dropped every wheel
+  // event in between, which read as lag on continuous scrolling.
+  //
+  // Like Momentum (see the comment above momentumTouch), applying a frame
+  // triggers _updateOptions, which destroys and recreates this instance
+  // mid-gesture, so all wheel-gesture state lives on w.interact.wheel rather
+  // than on the instance.
+  // ---------------------------------------------------------------------------
+  /**
+   * A wheel or pinch zoom is an incidental gesture: the viewer can land in a
+   * zoomed window without meaning to (a page scroll over the chart, a two-finger
+   * swipe), so it is only offered when there is a way back out of it. 'auto'
+   * (the default for both allowMouseWheelZoom and pinch) resolves against a
+   * reset button that is already on screen. A page that builds its own reset
+   * control sets the option to true and gets the gesture with no toolbar.
+   * Drag-to-zoom is deliberate, so it is not gated this way.
+   *
+   * `chart.zoom.resetControl` supplies a reset of its own once a chart IS
+   * zoomed, and deliberately does NOT open this gate. It arrives after the
+   * fact, and what an incidental wheel zoom takes from the viewer first is the
+   * page scroll it swallowed, which no button hands back.
+   *
+   * @param {boolean|'auto'} setting
+   */
+  _incidentalZoomEnabled(setting) {
+    var _a, _b, _c;
+    const c = this.w.config.chart;
+    if (!c.zoom || !c.zoom.enabled) return false;
+    if (setting !== "auto") return !!setting;
+    return !!(((_a = c.toolbar) == null ? void 0 : _a.show) && ((_c = (_b = c.toolbar) == null ? void 0 : _b.tools) == null ? void 0 : _c.reset));
+  }
+  _wheelZoomEnabled() {
+    const { zoom } = this.w.config.chart;
+    return this._incidentalZoomEnabled(zoom && zoom.allowMouseWheelZoom);
+  }
+  /** An explicit `true` zooms on every wheel; 'auto' needs Ctrl/Cmd. */
+  _wheelZoomGreedy() {
+    return this.w.config.chart.zoom.allowMouseWheelZoom === true;
+  }
+  /**
+   * Tell a viewer whose bare wheel just scrolled past the chart how to zoom it.
+   * Shown over the chart while the scroll goes on and faded out shortly after
+   * it stops. Only for a mostly vertical wheel: a sideways trackpad swipe is
+   * not someone reaching for zoom.
+   *
+   * The node lives in elWrap and the timer on w.interact, since a re-render can
+   * replace both this instance and the wrapper's contents while it is up.
+   *
+   * @param {any} e
+   */
+  _showWheelHint(e) {
+    const w = this.w;
+    if (w.config.chart.zoom.wheelHint === false) return;
+    if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+    const wrap = w.dom.elWrap;
+    if (!wrap) return;
+    let el = wrap.querySelector(".apexcharts-wheel-hint");
+    if (!el) {
+      const win = BrowserAPIs.getWindow();
+      const nav = win && win.navigator;
+      const mac = !!nav && /Mac|iPhone|iPad/.test(nav.platform || nav.userAgent);
+      const text = (w.globals.locale.toolbar.wheelZoomHint || "").replace(
+        "{key}",
+        mac ? "⌘" : "Ctrl"
+      );
+      el = BrowserAPIs.createElement("div");
+      el.className = "apexcharts-wheel-hint";
+      el.setAttribute("aria-hidden", "true");
+      const label = BrowserAPIs.createElement("span");
+      label.textContent = text;
+      label.style.fontFamily = w.config.chart.fontFamily;
+      el.appendChild(label);
+      wrap.appendChild(el);
+      void /** @type {HTMLElement} */
+      el.offsetWidth;
+    }
+    el.classList.add("apexcharts-wheel-hint-visible");
+    const it = w.interact;
+    if (it.wheelHintTimer) clearTimeout(it.wheelHintTimer);
+    it.wheelHintTimer = setTimeout(() => this._hideWheelHint(), 1200);
+  }
+  _hideWheelHint() {
+    var _a;
+    const w = this.w;
+    const it = w.interact;
+    if (it.wheelHintTimer) {
+      clearTimeout(it.wheelHintTimer);
+      it.wheelHintTimer = null;
+    }
+    const el = (_a = w.dom.elWrap) == null ? void 0 : _a.querySelector(".apexcharts-wheel-hint");
+    if (el) el.classList.remove("apexcharts-wheel-hint-visible");
+  }
+  /**
+   * Put keyboard focus on the chart, where the chart is focusable at all.
+   *
+   * A drag is swallowed by the zoom handlers before the browser can move focus,
+   * so a viewer who has just zoomed by hand leaves nothing focused, and every
+   * key the chart offers is out of reach: Escape to reset (see
+   * {@link ZoomPanSelection#escapeResetEvent}) and the +, - and 0 the keyboard
+   * module already binds. Focusing what they just acted on puts those in reach.
+   *
+   * Pointer-driven focus, which keyboard navigation expects and does not read
+   * as a request to start navigating, and which the stylesheet draws no ring
+   * around (`svg:focus:not(:focus-visible)`).
+   *
+   * Only where the accessibility module has made the SVG focusable, which is
+   * the default: a page that turned keyboard support off is not handed a tab
+   * stop it never asked for, and still has the reset control as its way back.
+   */
+  _focusForKeyboard() {
+    var _a, _b;
+    const node = this.w.dom.Paper && this.w.dom.Paper.node;
+    if (!node || typeof node.focus !== "function") return;
+    if (node.getAttribute("tabindex") === null) return;
+    (_b = (_a = this.ctx.keyboardNavigation) == null ? void 0 : _a.notePointerFocus) == null ? void 0 : _b.call(_a);
+    try {
+      node.focus({ preventScroll: true });
+    } catch (e) {
+      node.focus();
+    }
+  }
+  /**
+   * Escape, on a zoomed chart, puts the range back.
+   *
+   * The quiet half of the same answer the on-demand reset control gives, and
+   * gated on it, so a page that says it supplies its own way back gets neither.
+   *
+   * It defers to keyboard navigation, whose Escape dismisses the tooltip and
+   * which offers `0` for this, so the key means one thing at a time. It does
+   * not stop the event either, so a page listening for Escape still hears it.
+   *
+   * Reachable because a completed drag-zoom puts focus on the chart; see
+   * {@link ZoomPanSelection#_focusForKeyboard}.
+   *
+   * @param {any} e
+   */
+  escapeResetEvent(e) {
+    if (e.key !== "Escape" && e.key !== "Esc") return;
+    if (!this.w.interact.zoomed) return;
+    const nav = this.ctx.keyboardNavigation;
+    if (nav && nav.active) return;
+    if (!this.resetControlAllowed()) return;
+    this.handleZoomReset();
+  }
+  /** Lazily-created, re-render-surviving wheel-gesture state. */
+  _wheel() {
+    const it = this.w.interact;
+    if (!it.wheel) {
+      it.wheel = {
+        factor: 1,
+        clientX: 0,
+        /** @type {number|null} */
+        rafId: null,
+        /** @type {any} */
+        endTimer: null
+      };
+    }
+    return it.wheel;
+  }
+  /**
+   * @param {any} e
+   */
+  mouseWheelEvent(e) {
+    const st = this._wheel();
+    if (!this._wheelZoomGreedy() && !e.ctrlKey && !e.metaKey && st.endTimer == null) {
+      this._showWheelHint(e);
+      return;
+    }
+    e.preventDefault();
+    this._hideWheelHint();
+    let dy = e.deltaY;
+    if (e.deltaMode === 1) dy *= 33;
+    else if (e.deltaMode === 2) dy *= 330;
+    st.factor *= Math.pow(2, dy / WHEEL_ZOOM_PIXELS_PER_2X);
+    st.clientX = e.clientX;
+    if (st.rafId == null) {
+      st.rafId = requestAnimationFrame(() => this._applyWheelZoom());
+    }
+    if (st.endTimer) clearTimeout(st.endTimer);
+    st.endTimer = setTimeout(() => this._endWheelZoom(), 150);
+  }
+  /**
+   * Apply the zoom factor accumulated since the last animation frame, keeping
+   * the data value under the cursor pinned (both zooming in and out).
+   */
+  _applyWheelZoom() {
+    const w = this.w;
+    const st = this._wheel();
+    st.rafId = null;
+    const scale = st.factor;
+    st.factor = 1;
+    if (scale === 1 || w.globals.isDestroyed) return;
+    const gridWidth = w.layout.gridWidth;
+    if (!this._hasPlot() || !gridWidth) return;
+    const { min, max } = this._currentXWindow();
+    const range = max - min;
+    const mouseX = Math.min(
+      Math.max(this._screenXToPlotPx(st.clientX) / gridWidth, 0),
+      1
+    );
+    let newRange = range * scale;
+    const bounds = this._clampBounds();
+    if (bounds) {
+      const minXDiff = w.globals.minXDiff > 0 && isFinite(w.globals.minXDiff) ? w.globals.minXDiff : 0;
+      const minRange = Math.max(minXDiff * 2, (bounds.max - bounds.min) * 1e-6);
+      if (newRange < minRange) newRange = minRange;
+      if (newRange > bounds.max - bounds.min) newRange = bounds.max - bounds.min;
+    }
+    const anchor = min + mouseX * range;
+    let newMinX = anchor - mouseX * newRange;
+    let newMaxX = newMinX + newRange;
+    const eps = range * 1e-9;
+    if (Math.abs(newMinX - min) < eps && Math.abs(newMaxX - max) < eps) return;
+    if (isNaN(newMinX) || isNaN(newMaxX)) return;
+    const beforeZoomRange = this.getBeforeZoomRange(
+      { min: newMinX, max: newMaxX },
+      /** @type {any} */
+      void 0
+    );
+    if (beforeZoomRange && beforeZoomRange.xaxis) {
+      newMinX = beforeZoomRange.xaxis.min;
+      newMaxX = beforeZoomRange.xaxis.max;
+    }
+    this._applyXRange(newMinX, newMaxX, true);
+  }
+  /** Fire the zoomed callback once the wheel gesture settles (mirrors _endPinch). */
+  _endWheelZoom() {
+    const w = this.w;
+    const st = this._wheel();
+    st.endTimer = null;
+    if (w.globals.isDestroyed || !w.interact.zoomed) return;
+    const { min, max } = this._currentXWindow();
+    const yaxis = this.yaxisForXWindow();
+    const toolbar = this.ctx.toolbar;
+    if (toolbar) toolbar.zoomCallback({ min, max }, yaxis);
+  }
+  makeSelectionRectDraggable() {
+    const w = this.w;
+    if (!this.selectionRect) return;
+    const rectDim = this.selectionRect.node.getBoundingClientRect();
+    if (rectDim.width > 0 && rectDim.height > 0) {
+      this.selectionRect.select(false).resize(false);
+      this.selectionRect.select({
+        createRot: () => {
+        },
+        updateRot: () => {
+        },
+        createHandle: (group, p, index, pointArr, handleName) => {
+          if (handleName === "l" || handleName === "r")
+            return group.circle(8).css({ "stroke-width": 1, stroke: "#333", fill: "#fff" });
+          return group.circle(0);
+        },
+        updateHandle: (group, p) => {
+          return group.center(p[0], p[1]);
+        }
+      }).resize().on("resize", () => {
+        var _a;
+        this._clampSelectionRectToPlot();
+        if (w.interact.selectionEnabled) {
+          w.interact.selection = {
+            x: parseFloat(this.selectionRect.node.getAttribute("x")),
+            y: parseFloat(this.selectionRect.node.getAttribute("y")),
+            width: parseFloat(this.selectionRect.node.getAttribute("width")),
+            height: parseFloat(this.selectionRect.node.getAttribute("height"))
+          };
+          clearTimeout((_a = this.w.globals.selectionResizeTimer) != null ? _a : void 0);
+          this.w.globals.selectionResizeTimer = window.setTimeout(() => {
+            this._emitSelectionFromRect();
+          }, 30);
+        } else {
+          const zoomtype = w.interact.zoomEnabled ? w.config.chart.zoom.type : w.config.chart.selection.type;
+          this.handleMouseUp({ zoomtype, isResized: true });
+        }
+      });
+    }
+  }
+  preselectedSelection() {
+    const w = this.w;
+    const xyRatios = this.xyRatios;
+    if (!w.interact.zoomEnabled) {
+      if (typeof w.interact.selection !== "undefined" && w.interact.selection !== null) {
+        this.drawSelectionRect(__spreadProps(__spreadValues({}, w.interact.selection), {
+          translateX: w.layout.translateX,
+          translateY: w.layout.translateY
+        }));
+      } else {
+        if (w.config.chart.selection.xaxis.min !== void 0 && w.config.chart.selection.xaxis.max !== void 0) {
+          let x = AxisMapping.dataXToPx(w, w.config.chart.selection.xaxis.min);
+          let width = AxisMapping.dataXToPx(w, w.config.chart.selection.xaxis.max) - x;
+          if (w.axisFlags.isRangeBar) {
+            x = (w.config.chart.selection.xaxis.min - w.globals.yAxisScale[0].niceMin) / xyRatios.invertedYRatio;
+            width = (w.config.chart.selection.xaxis.max - w.config.chart.selection.xaxis.min) / xyRatios.invertedYRatio;
+          }
+          const selectionRect = {
+            x,
+            y: 0,
+            width,
+            height: w.layout.gridHeight,
+            translateX: w.layout.translateX,
+            translateY: w.layout.translateY,
+            selectionEnabled: true
+          };
+          this.drawSelectionRect(selectionRect);
+          this.makeSelectionRectDraggable();
+          if (typeof w.config.chart.events.selection === "function") {
+            w.config.chart.events.selection(this.ctx, {
+              xaxis: {
+                min: w.config.chart.selection.xaxis.min,
+                max: w.config.chart.selection.xaxis.max
+              },
+              yaxis: {}
+            });
+          }
+        }
+      }
+    }
+  }
+  /** @param {{x: any, y: any, width: any, height: any, translateX: any, translateY: any}} opts */
+  drawSelectionRect({ x, y, width, height, translateX = 0, translateY = 0 }) {
+    const w = this.w;
+    const zoomRect = this.zoomRect;
+    const selectionRect = this.selectionRect;
+    if (this.dragged || w.interact.selection !== null) {
+      const scalingAttrs = {
+        transform: "translate(" + translateX + ", " + translateY + ")"
+      };
+      if (w.interact.zoomEnabled && this.dragged) {
+        if (width < 0) width = 1;
+        zoomRect.attr({
+          x,
+          y,
+          width,
+          height,
+          fill: w.config.chart.zoom.zoomedArea.fill.color,
+          "fill-opacity": w.config.chart.zoom.zoomedArea.fill.opacity,
+          stroke: w.config.chart.zoom.zoomedArea.stroke.color,
+          "stroke-width": w.config.chart.zoom.zoomedArea.stroke.width,
+          "stroke-opacity": w.config.chart.zoom.zoomedArea.stroke.opacity
+        });
+        Graphics.setAttrs(zoomRect.node, scalingAttrs);
+      }
+      if (w.interact.selectionEnabled) {
+        selectionRect.attr({
+          x,
+          y,
+          width: width > 0 ? width : 0,
+          height: height > 0 ? height : 0,
+          fill: w.config.chart.selection.fill.color,
+          "fill-opacity": w.config.chart.selection.fill.opacity,
+          stroke: w.config.chart.selection.stroke.color,
+          "stroke-width": w.config.chart.selection.stroke.width,
+          "stroke-dasharray": w.config.chart.selection.stroke.dashArray,
+          "stroke-opacity": w.config.chart.selection.stroke.opacity
+        });
+        Graphics.setAttrs(selectionRect.node, scalingAttrs);
+      }
+    }
+  }
+  /**
+   * Clamp the persistent selection rect to the pixel span the x-domain occupies,
+   * i.e. PLOT_ORIGIN_PX..gridWidth, which under AxisMapping is exactly
+   * minX..maxX. A body drag has always obeyed this box through `this.constraints`;
+   * this puts a handle resize on the same footing.
+   *
+   * The rect itself is rewritten rather than only the numbers reported to
+   * listeners, so the range every consumer receives keeps matching the rect the
+   * user sees (the one-mapping invariant selection-geometry.spec.js guards), and
+   * the handles are repositioned onto the clamped edge so a handle held past the
+   * boundary stays visually pinned there.
+   */
+  _clampSelectionRectToPlot() {
+    const rect = this.selectionRect;
+    if (!rect || !rect.node) return;
+    const maxPx = this.w.layout.gridWidth;
+    if (!(maxPx > PLOT_ORIGIN_PX)) return;
+    const x = parseFloat(rect.node.getAttribute("x")) || 0;
+    const width = parseFloat(rect.node.getAttribute("width")) || 0;
+    const clamp = (px) => Math.min(Math.max(px, PLOT_ORIGIN_PX), maxPx);
+    const left = clamp(x);
+    const right = clamp(x + width);
+    if (left === x && right === x + width) return;
+    rect.attr({ x: left, width: right - left });
+    if (rect._updateSelectPositions) rect._updateSelectPositions();
+  }
+  /**
+   * @param {any} rect
+   */
+  hideSelectionRect(rect) {
+    if (rect) {
+      rect.attr({
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0
+      });
+    }
+  }
+  selectionDrawing({ context, zoomtype }) {
+    const w = this.w;
+    const me2 = context;
+    if (!this._hasPlot()) return;
+    const startX = me2.startX;
+    const startY = me2.startY;
+    let inversedX = false;
+    let inversedY = false;
+    const left = this._screenXToPlotPx(me2.clientX);
+    const top = this._screenYToPlotPx(me2.clientY);
+    let selectionWidth = left - startX;
+    let selectionHeight = top - startY;
+    let selectionRect = {
+      translateX: w.layout.translateX,
+      translateY: w.layout.translateY
+    };
+    if (Math.abs(selectionWidth + startX) > w.layout.gridWidth) {
+      selectionWidth = w.layout.gridWidth - startX;
+    } else if (left < 0) {
+      selectionWidth = startX;
+    }
+    if (startX > left) {
+      inversedX = true;
+      selectionWidth = Math.abs(selectionWidth);
+    }
+    if (startY > top) {
+      inversedY = true;
+      selectionHeight = Math.abs(selectionHeight);
+    }
+    if (zoomtype === "x") {
+      selectionRect = {
+        x: inversedX ? startX - selectionWidth : startX,
+        y: 0,
+        width: selectionWidth,
+        height: w.layout.gridHeight
+      };
+    } else if (zoomtype === "y") {
+      selectionRect = {
+        x: 0,
+        y: inversedY ? startY - selectionHeight : startY,
+        width: w.layout.gridWidth,
+        height: selectionHeight
+      };
+    } else {
+      selectionRect = {
+        x: inversedX ? startX - selectionWidth : startX,
+        y: inversedY ? startY - selectionHeight : startY,
+        width: selectionWidth,
+        height: selectionHeight
+      };
+    }
+    selectionRect = __spreadProps(__spreadValues({}, selectionRect), {
+      translateX: w.layout.translateX,
+      translateY: w.layout.translateY
+    });
+    me2.drawSelectionRect(selectionRect);
+    me2.selectionDragging("resizing");
+    return selectionRect;
+  }
+  /**
+   * @param {string} type
+   * @param {CustomEvent} e
+   */
+  selectionDragging(type, e) {
+    var _a;
+    const w = this.w;
+    if (!e) return;
+    e.preventDefault();
+    const { handler, box } = e.detail;
+    const constraints = (
+      /** @type {any} */
+      this.constraints
+    );
+    let { x, y } = box;
+    if (x < constraints.x) {
+      x = constraints.x;
+    }
+    if (y < constraints.y) {
+      y = constraints.y;
+    }
+    if (box.x2 > constraints.x2) {
+      x = constraints.x2 - box.w;
+    }
+    if (box.y2 > constraints.y2) {
+      y = constraints.y2 - box.h;
+    }
+    handler.move(x, y);
+    const selRect = this.selectionRect;
+    let timerInterval = 0;
+    if (type === "resizing") {
+      timerInterval = 30;
+    }
+    const getSelAttr = (attr) => {
+      return parseFloat(selRect.node.getAttribute(attr));
+    };
+    const draggedProps = {
+      x: getSelAttr("x"),
+      y: getSelAttr("y"),
+      width: getSelAttr("width"),
+      height: getSelAttr("height")
+    };
+    w.interact.selection = draggedProps;
+    const link = w.config.chart.link;
+    const linkActive = !!(link && (link.enabled || typeof link.dimension === "function"));
+    if ((typeof w.config.chart.events.selection === "function" || linkActive) && w.interact.selectionEnabled) {
+      clearTimeout((_a = this.w.globals.selectionResizeTimer) != null ? _a : void 0);
+      this.w.globals.selectionResizeTimer = window.setTimeout(() => {
+        this._emitSelectionFromRect();
+      }, timerInterval);
+    }
+  }
+  /**
+   * Recompute the reported x/y range from the CURRENT persistent selection rect
+   * (via the shared AxisMapping) and notify listeners: chart.events.selection,
+   * brushScrolled, and the crossfilter coordinator. Shared by the rect-body drag
+   * (selectionDragging) and the handle resize (makeSelectionRectDraggable) so
+   * every gesture re-reports through ONE mapping and the reported range always
+   * matches the rect the user sees. No dragged/threshold gate: reaching here
+   * already means the user moved or resized the persistent rect.
+   */
+  _emitSelectionFromRect() {
+    var _a;
+    const w = this.w;
+    if (!w.interact.selectionEnabled) return;
+    const link = w.config.chart.link;
+    const linkActive = !!(link && (link.enabled || typeof link.dimension === "function"));
+    if (typeof w.config.chart.events.selection !== "function" && !linkActive) {
+      return;
+    }
+    if (!this._hasPlot()) return;
+    const selectionRect = this.selectionRect.node.getBoundingClientRect();
+    const xyRatios = this.xyRatios;
+    let minX, maxX, minY, maxY;
+    const relLeft = this._screenXToPlotPx(selectionRect.left);
+    const relRight = this._screenXToPlotPx(selectionRect.right);
+    if (!w.axisFlags.isRangeBar) {
+      if (!w.globals.xAxisScale) return;
+      minX = AxisMapping.pxToDataX(w, relLeft);
+      maxX = AxisMapping.pxToDataX(w, relRight);
+      minY = w.globals.yAxisScale[0].niceMin + (w.layout.gridHeight - this._screenYToPlotPx(selectionRect.bottom)) * xyRatios.yRatio[0];
+      maxY = w.globals.yAxisScale[0].niceMax - this._screenYToPlotPx(selectionRect.top) * xyRatios.yRatio[0];
+    } else {
+      minX = w.globals.yAxisScale[0].niceMin + relLeft * xyRatios.invertedYRatio;
+      maxX = w.globals.yAxisScale[0].niceMin + relRight * xyRatios.invertedYRatio;
+      minY = 0;
+      maxY = 1;
+    }
+    const xyAxis = {
+      xaxis: { min: minX, max: maxX },
+      yaxis: { min: minY, max: maxY }
+    };
+    if (typeof w.config.chart.events.selection === "function") {
+      w.config.chart.events.selection(this.ctx, xyAxis);
+    }
+    if (w.config.chart.brush.enabled && w.config.chart.events.brushScrolled !== void 0) {
+      w.config.chart.events.brushScrolled(this.ctx, xyAxis);
+    }
+    (_a = this.ctx.linkedViews) == null ? void 0 : _a.onSourceSelection(xyAxis.xaxis);
+  }
+  /** @param {{context: any, zoomtype: any}} opts */
+  selectionDrawn({ context, zoomtype }) {
+    var _a;
+    const w = this.w;
+    const me2 = context;
+    const xyRatios = this.xyRatios;
+    const toolbar = this.ctx.toolbar;
+    const selRect = w.interact.zoomEnabled ? me2.zoomRect.node.getBoundingClientRect() : me2.selectionRect.node.getBoundingClientRect();
+    if (!me2._hasPlot()) return;
+    const localStartX = this._screenXToPlotPx(selRect.left);
+    const localEndX = this._screenXToPlotPx(selRect.right);
+    const localStartY = this._screenYToPlotPx(selRect.top);
+    const localEndY = this._screenYToPlotPx(selRect.bottom);
+    let xLowestValue, xHighestValue;
+    if (!w.axisFlags.isRangeBar) {
+      xLowestValue = AxisMapping.pxToDataX(w, localStartX);
+      xHighestValue = AxisMapping.pxToDataX(w, localEndX);
+    } else {
+      xLowestValue = w.globals.yAxisScale[0].niceMin + localStartX * xyRatios.invertedYRatio;
+      xHighestValue = w.globals.yAxisScale[0].niceMin + localEndX * xyRatios.invertedYRatio;
+    }
+    const yHighestValue = [];
+    const yLowestValue = [];
+    w.config.yaxis.forEach((_, index) => {
+      const seriesIndex = w.globals.seriesYAxisMap[index][0];
+      const highestVal = w.globals.yAxisScale[index].niceMax - xyRatios.yRatio[seriesIndex] * localStartY;
+      const lowestVal = w.globals.yAxisScale[index].niceMax - xyRatios.yRatio[seriesIndex] * localEndY;
+      yHighestValue.push(highestVal);
+      yLowestValue.push(lowestVal);
+    });
+    if (me2.dragged && (me2.dragX > 10 || me2.dragY > 10) && xLowestValue !== xHighestValue) {
+      if (w.interact.zoomEnabled) {
+        if (!w.globals.initialConfig) return;
+        let yaxis = Utils.clone(w.globals.initialConfig.yaxis);
+        let xaxis = Utils.clone(w.globals.initialConfig.xaxis);
+        w.interact.zoomed = true;
+        if (w.config.xaxis.convertedCatToNumeric) {
+          xLowestValue = Math.floor(xLowestValue);
+          xHighestValue = Math.floor(xHighestValue);
+          if (xLowestValue < 1) {
+            xLowestValue = 1;
+            xHighestValue = w.globals.dataPoints;
+          }
+          if (xHighestValue - xLowestValue < 2) {
+            xHighestValue = xLowestValue + 1;
+          }
+        }
+        if (zoomtype === "xy" || zoomtype === "x") {
+          xaxis = {
+            min: xLowestValue,
+            max: xHighestValue
+          };
+        }
+        if (zoomtype === "xy" || zoomtype === "y") {
+          yaxis.forEach((yaxe, index) => {
+            yaxe.min = yLowestValue[index];
+            yaxe.max = yHighestValue[index];
+          });
+        }
+        if (toolbar) {
+          const beforeZoomRange = toolbar.getBeforeZoomRange(xaxis, yaxis);
+          if (beforeZoomRange) {
+            xaxis = beforeZoomRange.xaxis ? beforeZoomRange.xaxis : xaxis;
+            yaxis = beforeZoomRange.yaxis ? beforeZoomRange.yaxis : yaxis;
+          }
+        }
+        const options = {
+          xaxis
+        };
+        if (!w.config.chart.group) {
+          options.yaxis = yaxis;
+        }
+        const applied = me2.ctx.updateHelpers._updateOptions(
+          options,
+          false,
+          me2.w.config.chart.animations.dynamicAnimation.enabled
+        );
+        if (applied && typeof applied.then === "function") {
+          applied.then(() => me2._focusForKeyboard());
+        } else {
+          me2._focusForKeyboard();
+        }
+        if (typeof w.config.chart.events.zoomed === "function") {
+          toolbar.zoomCallback(xaxis, yaxis);
+        }
+      } else if (w.interact.selectionEnabled) {
+        let yaxis = null;
+        let xaxis = null;
+        xaxis = {
+          min: xLowestValue,
+          max: xHighestValue
+        };
+        if (zoomtype === "xy" || zoomtype === "y") {
+          const yaxisCopy = (
+            /** @type {ApexYAxis[]} */
+            Utils.clone(w.config.yaxis)
+          );
+          yaxis = yaxisCopy;
+          yaxisCopy.forEach((yaxe, index) => {
+            yaxe.min = yLowestValue[index];
+            yaxe.max = yHighestValue[index];
+          });
+        }
+        w.interact.selection = me2.selection;
+        if (typeof w.config.chart.events.selection === "function") {
+          w.config.chart.events.selection(me2.ctx, {
+            xaxis,
+            yaxis
+          });
+        }
+        (_a = me2.ctx.linkedViews) == null ? void 0 : _a.onSourceSelection(xaxis);
+      }
+    }
+  }
+  /** @param {{ context?: any, zoomtype?: any, xyRatios?: any }} opts */
+  panDragging({ context }) {
+    var _a;
+    const w = this.w;
+    const me2 = context;
+    if (typeof w.interact.lastClientPosition.x !== "undefined") {
+      const deltaX = w.interact.lastClientPosition.x - me2.clientX;
+      const deltaY = ((_a = w.interact.lastClientPosition.y) != null ? _a : 0) - me2.clientY;
+      if (Math.abs(deltaX) > Math.abs(deltaY) && deltaX > 0) {
+        this.moveDirection = "left";
+      } else if (Math.abs(deltaX) > Math.abs(deltaY) && deltaX < 0) {
+        this.moveDirection = "right";
+      } else if (Math.abs(deltaY) > Math.abs(deltaX) && deltaY > 0) {
+        this.moveDirection = "up";
+      } else if (Math.abs(deltaY) > Math.abs(deltaX) && deltaY < 0) {
+        this.moveDirection = "down";
+      }
+    }
+    w.interact.lastClientPosition = {
+      x: me2.clientX,
+      y: me2.clientY
+    };
+    const xLowestValue = w.axisFlags.isRangeBar ? w.globals.minY : w.globals.minX;
+    const xHighestValue = w.axisFlags.isRangeBar ? w.globals.maxY : w.globals.maxX;
+    me2.panScrolled(xLowestValue, xHighestValue);
+  }
+  /**
+   * @param {number} xLowestValue
+   * @param {number} xHighestValue
+   */
+  panScrolled(xLowestValue, xHighestValue) {
+    var _a, _b;
+    const w = this.w;
+    const xyRatios = this.xyRatios;
+    if (!w.globals.initialConfig) return;
+    const yaxis = this.yaxisForXWindow();
+    let xRatio = xyRatios.xRatio;
+    let minX = w.globals.minX;
+    let maxX = w.globals.maxX;
+    if (w.axisFlags.isRangeBar) {
+      xRatio = xyRatios.invertedYRatio;
+      minX = w.globals.minY;
+      maxX = w.globals.maxY;
+    }
+    if (this.moveDirection === "left") {
+      xLowestValue = minX + w.layout.gridWidth / PAN_NUDGE_DIVISOR * xRatio;
+      xHighestValue = maxX + w.layout.gridWidth / PAN_NUDGE_DIVISOR * xRatio;
+    } else if (this.moveDirection === "right") {
+      xLowestValue = minX - w.layout.gridWidth / PAN_NUDGE_DIVISOR * xRatio;
+      xHighestValue = maxX - w.layout.gridWidth / PAN_NUDGE_DIVISOR * xRatio;
+    }
+    if (!w.axisFlags.isRangeBar) {
+      const clampMin = (_a = w.globals.dataReducerRawMinX) != null ? _a : w.globals.initialMinX;
+      const clampMax = (_b = w.globals.dataReducerRawMaxX) != null ? _b : w.globals.initialMaxX;
+      if (xLowestValue < clampMin || xHighestValue > clampMax) {
+        xLowestValue = minX;
+        xHighestValue = maxX;
+      }
+    }
+    if (xLowestValue === minX && xHighestValue === maxX) return;
+    const xaxis = {
+      min: xLowestValue,
+      max: xHighestValue
+    };
+    const options = {
+      xaxis
+    };
+    if (!w.config.chart.group) {
+      options.yaxis = yaxis;
+    }
+    this.updateScrolledChart(options, xLowestValue, xHighestValue);
+  }
+  /**
+   * @param {object} options
+   * @param {number} xLowestValue
+   * @param {number} xHighestValue
+   */
+  updateScrolledChart(options, xLowestValue, xHighestValue) {
+    const w = this.w;
+    this.ctx.updateHelpers._updateOptions(options, false, false);
+    if (typeof w.config.chart.events.scrolled === "function") {
+      const args = {
+        xaxis: {
+          min: xLowestValue,
+          max: xHighestValue
+        }
+      };
+      w.config.chart.events.scrolled(this.ctx, args);
+      this.ctx.events.fireEvent("scrolled", args);
+    }
+  }
+  // ---------------------------------------------------------------------------
+  // Momentum: multi-touch pinch-zoom, two-finger pan and kinetic inertia.
+  //
+  // Every _updateOptions destroys and recreates this instance, and applying a
+  // gesture frame IS an _updateOptions, so the gesture must not depend on the
+  // instance surviving. All runtime state lives on w.interact.momentum (the
+  // interaction slice that persists across re-renders, like the crude pan's
+  // lastClientPosition). The instance that received touchstart keeps driving
+  // the gesture off the persistent state; inertia is a self-contained rAF loop
+  // that only a real destroy cancels (see destroy()).
+  // ---------------------------------------------------------------------------
+  _momentumEnabled() {
+    return this._pinchEnabled() || this._panInertiaEnabled();
+  }
+  _pinchEnabled() {
+    return this._incidentalZoomEnabled(this.w.config.chart.zoom.pinch);
+  }
+  _panInertiaEnabled() {
+    const c = this.w.config.chart;
+    return !!(c.pan && c.pan.inertia);
+  }
+  /** Lazily-created, re-render-surviving gesture state on the interaction slice. */
+  _m() {
+    const it = this.w.interact;
+    if (!it.momentum) {
+      it.momentum = {
+        busy: false,
+        /** @type {any} */
+        pinch: null,
+        /** @type {any} */
+        panState: null,
+        /** @type {{x:number,t:number}[]} */
+        samples: [],
+        /** @type {number|null} */
+        inertiaRAF: null
+      };
+    }
+    return it.momentum;
+  }
+  /** Current x data-window (rangeBars carry the datetime domain on y). */
+  _currentXWindow() {
+    const w = this.w;
+    return w.axisFlags.isRangeBar ? { min: w.globals.minY, max: w.globals.maxY } : { min: w.globals.minX, max: w.globals.maxX };
+  }
+  /** Is there a chart on screen to measure the pointer against? */
+  _hasPlot() {
+    const baseEl = this.w.dom.baseEl;
+    return !!(baseEl && baseEl.querySelector(".apexcharts-svg"));
+  }
+  /**
+   * Convert an absolute (client) y pixel to the plot-origin coordinate space,
+   * the y twin of {@link _screenXToPlotPx}. Measured per event from the svg
+   * (TooltipUtils.plotRect), never from the `.apexcharts-grid` box: unless
+   * gridlines reach the plot's top edge that box starts a pixel below it, so
+   * a drag rect stood a pixel above the pointer and the zoomed y range came
+   * back two pixels high. Dividing by the CSS zoom keeps a chart inside a
+   * zoomed container from reading screen pixels as plot pixels.
+   * @param {number} screenY
+   * @returns {number}
+   */
+  _screenYToPlotPx(screenY) {
+    const plot = TooltipUtils.plotRect(this.w);
+    return (screenY - plot.top) / plot.zoom;
+  }
+  /**
+   * Convert an absolute (client) x pixel to the plot-origin coordinate space
+   * that bar placement and the selection rect transform both use:
+   * `screenX - svgLeft - translateX`. This is the ONLY correct reference for the
+   * numeric/datetime x mapping (see AxisMapping): do NOT measure from the
+   * `.apexcharts-grid` box and subtract barPadForNumericAxis, because on a
+   * numeric bar chart that box extends barPad to the LEFT of the plot origin, so
+   * the two corrections are a fragile pair that only cancels while the grid box
+   * happens to extend exactly barPad. Anchoring on translateX (the same origin
+   * the bars use) is stable regardless of grid padding.
+   * @param {number} screenX
+   * @returns {number}
+   */
+  _screenXToPlotPx(screenX) {
+    return AxisMapping.screenXToPlotPx(this.w, screenX);
+  }
+  /**
+   * Raw data bounds to clamp against. When zoom-aware downsampling is active,
+   * the raw stash tracks the full domain; fall back to the initial window.
+   * Returns null for rangeBars (no raw-x clamp available).
+   * @returns {{min:number, max:number}|null}
+   */
+  _clampBounds() {
+    var _a, _b;
+    const w = this.w;
+    if (w.axisFlags.isRangeBar) return null;
+    return {
+      min: (_a = w.globals.dataReducerRawMinX) != null ? _a : w.globals.initialMinX,
+      max: (_b = w.globals.dataReducerRawMaxX) != null ? _b : w.globals.initialMaxX
+    };
+  }
+  /**
+   * Apply an x-window immediately (no animation), mirroring panScrolled but
+   * pixel-accurate: clamp to the raw bounds (preserving window width so a pan
+   * stops flush at the edge rather than shrinking), floor for category axes,
+   * then route through the fast _updateOptions path.
+   * @param {number} newMinX @param {number} newMaxX @param {boolean} isZoom
+   * @returns {{minX:number, maxX:number}|false} applied window, or false if rejected
+   */
+  _applyXRange(newMinX, newMaxX, isZoom) {
+    const w = this.w;
+    if (!w.globals.initialConfig) return false;
+    const cur = this._currentXWindow();
+    const zoomingOut = isZoom && newMaxX - newMinX > cur.max - cur.min;
+    const bounds = this._clampBounds();
+    if (bounds) {
+      const range = newMaxX - newMinX;
+      if (newMinX < bounds.min) {
+        newMinX = bounds.min;
+        newMaxX = newMinX + range;
+      }
+      if (newMaxX > bounds.max) {
+        newMaxX = bounds.max;
+        newMinX = newMaxX - range;
+      }
+      if (newMinX < bounds.min) newMinX = bounds.min;
+    }
+    if (w.config.xaxis.convertedCatToNumeric) {
+      newMinX = Math.floor(newMinX);
+      newMaxX = zoomingOut ? Math.ceil(newMaxX) : Math.floor(newMaxX);
+      if (newMinX < 1) newMinX = 1;
+      if (bounds && newMaxX > bounds.max) newMaxX = Math.floor(bounds.max);
+      if (newMaxX - newMinX < 2) return false;
+    }
+    if (!(newMaxX > newMinX)) return false;
+    const options = { xaxis: { min: newMinX, max: newMaxX } };
+    if (!w.config.chart.group) {
+      options.yaxis = this.yaxisForXWindow();
+    }
+    if (isZoom) w.interact.zoomed = true;
+    this.ctx.updateHelpers._updateOptions(options, false, false);
+    return { minX: newMinX, maxX: newMaxX };
+  }
+  _cancelInertia() {
+    const m = this._m();
+    if (m.inertiaRAF != null) {
+      cancelAnimationFrame(m.inertiaRAF);
+      m.inertiaRAF = null;
+    }
+  }
+  _fireScrolled() {
+    const w = this.w;
+    if (typeof w.config.chart.events.scrolled !== "function") return;
+    const { min, max } = this._currentXWindow();
+    const args = { xaxis: { min, max } };
+    w.config.chart.events.scrolled(this.ctx, args);
+    this.ctx.events.fireEvent("scrolled", args);
+  }
+  /**
+   * Pan a zoomed x-window by `fraction` of its width (keyboard Shift+Arrow),
+   * clamped to the data as a drag pan is, and reported as one (`scrolled`).
+   * @param {number} fraction
+   */
+  panBy(fraction) {
+    const w = this.w;
+    if (!w.interact.zoomed) return;
+    const { min, max } = this._currentXWindow();
+    let d = (max - min) * fraction;
+    if (w.config.xaxis.convertedCatToNumeric) {
+      d = d > 0 ? Math.ceil(d) : Math.floor(d);
+    }
+    if (w.axisFlags.isRangeBar) {
+      const r = w.rangeData;
+      let lo = Infinity;
+      let hi = -Infinity;
+      r.seriesRangeStart.concat(r.seriesRangeEnd).flat().forEach((y) => {
+        if (y != null) {
+          lo = Math.min(lo, y);
+          hi = Math.max(hi, y);
+        }
+      });
+      d = d > 0 ? Math.min(d, Math.max(0, hi - max)) : Math.max(d, Math.min(0, lo - min));
+      if (!d) return;
+    }
+    if (this._applyXRange(min + d, max + d, false)) this._fireScrolled();
+  }
+  /** @param {number} x @param {number} t */
+  _pushSample(x, t) {
+    const s = this._m().samples;
+    s.push({ x, t });
+    while (s.length > 6) s.shift();
+  }
+  /**
+   * Single passive:false handler for all touch phases. Two fingers => pinch /
+   * two-finger pan (zoom). One finger, in pan mode => kinetic pan with inertia.
+   * @param {any} e
+   */
+  momentumTouch(e) {
+    const w = this.w;
+    const m = this._m();
+    const type = e.type;
+    if (type === "touchstart") {
+      this._cancelInertia();
+      if (!this._hasPlot()) return;
+      if (e.touches.length >= 2 && this._pinchEnabled()) {
+        e.preventDefault();
+        m.busy = true;
+        m.panState = null;
+        this._beginPinch(e);
+      } else if (e.touches.length === 1 && this._panInertiaEnabled() && w.interact.panEnabled) {
+        m.busy = true;
+        m.pinch = null;
+        const t = e.touches[0];
+        const win = this._currentXWindow();
+        const gw = w.layout.gridWidth || 1;
+        const zoom = TooltipUtils.plotRect(w).zoom;
+        m.panState = {
+          startX: t.clientX,
+          startY: t.clientY,
+          axis: null,
+          // decided on first move (rails)
+          minX0: win.min,
+          maxX0: win.max,
+          zoom,
+          // data per screen px
+          ratio0: (win.max - win.min) / gw / zoom
+        };
+        m.samples = [{ x: t.clientX, t: e.timeStamp }];
+      }
+      return;
+    }
+    if (type === "touchmove") {
+      if (m.pinch && e.touches.length >= 2) {
+        e.preventDefault();
+        this._movePinch(e);
+      } else if (m.panState && e.touches.length === 1) {
+        this._movePan(e);
+      }
+      return;
+    }
+    if (m.pinch) {
+      if (e.touches.length < 2) this._endPinch();
+    } else if (m.panState) {
+      if (e.touches.length === 0) this._endPan();
+    }
+    if (e.touches.length === 0) {
+      w.interact.mousedown = false;
+      this.dragged = false;
+      if (m.inertiaRAF == null && !m.pinch && !m.panState) {
+        m.busy = false;
+      }
+    }
+  }
+  /**
+   * The centroid is taken in plot px through the shared AxisMapping, the
+   * space `gridWidth` and the x window are in. It used to be the grid box's
+   * left edge less barPadForNumericAxis, which only lands on the plot's left
+   * edge while the gridlines happen to reach exactly barPad past it (with
+   * `grid.show: false` they do not, and the anchor slid a bar's width), and
+   * stayed in screen px, so a chart in a CSS-zoomed container drifted under
+   * the fingers.
+   * @param {any} e
+   */
+  _beginPinch(e) {
+    const w = this.w;
+    const t0 = e.touches[0];
+    const t1 = e.touches[1];
+    const dist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY) || 1;
+    const cx = this._screenXToPlotPx((t0.clientX + t1.clientX) / 2);
+    const { min, max } = this._currentXWindow();
+    this._m().pinch = {
+      d0: dist,
+      cx0: cx,
+      minX0: min,
+      maxX0: max,
+      gridWidth: w.layout.gridWidth || 1
+    };
+  }
+  /** @param {any} e */
+  _movePinch(e) {
+    const w = this.w;
+    const p = this._m().pinch;
+    if (!p || !this._hasPlot()) return;
+    const t0 = e.touches[0];
+    const t1 = e.touches[1];
+    const dist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY) || 1;
+    const cx = this._screenXToPlotPx((t0.clientX + t1.clientX) / 2);
+    const range0 = p.maxX0 - p.minX0;
+    const newRange = range0 * (p.d0 / dist);
+    const anchorData = p.minX0 + p.cx0 / p.gridWidth * range0;
+    let newMinX = anchorData - cx / p.gridWidth * newRange;
+    let newMaxX = newMinX + newRange;
+    const bounds = this._clampBounds();
+    if (bounds) {
+      const minXDiff = w.globals.minXDiff > 0 && isFinite(w.globals.minXDiff) ? w.globals.minXDiff : 0;
+      const minRange = Math.max(minXDiff * 2, (bounds.max - bounds.min) * 1e-6);
+      if (newMaxX - newMinX < minRange) {
+        const mid = (newMinX + newMaxX) / 2;
+        newMinX = mid - minRange / 2;
+        newMaxX = mid + minRange / 2;
+      }
+    }
+    this._applyXRange(newMinX, newMaxX, true);
+  }
+  _endPinch() {
+    const m = this._m();
+    m.pinch = null;
+    const { min, max } = this._currentXWindow();
+    const xaxis = { min, max };
+    const yaxis = this.yaxisForXWindow();
+    const toolbar = this.ctx.toolbar;
+    if (toolbar) toolbar.zoomCallback(xaxis, yaxis);
+  }
+  /** @param {any} e */
+  _movePan(e) {
+    const m = this._m();
+    const s = m.panState;
+    const t = e.touches[0];
+    if (!s.axis) {
+      const dx = Math.abs(t.clientX - s.startX);
+      const dy = Math.abs(t.clientY - s.startY);
+      if (dx < 6 && dy < 6) {
+        this._pushSample(t.clientX, e.timeStamp);
+        return;
+      }
+      if (dy > dx) {
+        m.busy = false;
+        m.panState = null;
+        return;
+      }
+      s.axis = "x";
+    }
+    if (s.axis !== "x") return;
+    e.preventDefault();
+    const totalDeltaPx = t.clientX - s.startX;
+    const deltaData = totalDeltaPx * s.ratio0;
+    this._pushSample(t.clientX, e.timeStamp);
+    this._applyXRange(s.minX0 - deltaData, s.maxX0 - deltaData, false);
+  }
+  _endPan() {
+    const m = this._m();
+    const s = m.panState;
+    m.panState = null;
+    let vel = 0;
+    const samples = m.samples;
+    if (samples.length >= 2) {
+      const a = samples[0];
+      const b = samples[samples.length - 1];
+      const dt = b.t - a.t;
+      if (dt > 0) vel = (b.x - a.x) / dt;
+    }
+    m.samples = [];
+    if (s && s.axis === "x" && this._panInertiaEnabled() && Math.abs(vel) > INERTIA_MIN_RELEASE_VELOCITY) {
+      this._startInertia(vel / s.zoom);
+    } else {
+      m.busy = false;
+      this._fireScrolled();
+    }
+  }
+  /**
+   * Kinetic glide after a one-finger pan release: decay the velocity by
+   * `friction` each frame and shift the window, stopping at the data edge
+   * (clamp, not elastic overshoot). The loop is w-driven, so it keeps running
+   * across the re-renders each frame triggers and stops only on a real destroy.
+   * @param {number} vel0 plot px/ms, sign is the finger direction
+   */
+  _startInertia(vel0) {
+    const w = this.w;
+    const m = this._m();
+    const cfgFriction = w.config.chart.pan && w.config.chart.pan.friction;
+    const friction = typeof cfgFriction === "number" ? Math.min(Math.max(cfgFriction, 0.5), 0.999) : INERTIA_DEFAULT_FRICTION;
+    let vel = vel0;
+    let lastT = null;
+    m.busy = true;
+    const step = (ts) => {
+      if (w.globals.isDestroyed) {
+        m.inertiaRAF = null;
+        m.busy = false;
+        return;
+      }
+      if (lastT == null) {
+        lastT = ts;
+        m.inertiaRAF = requestAnimationFrame(step);
+        return;
+      }
+      const dt = ts - lastT;
+      lastT = ts;
+      vel *= Math.pow(friction, dt / FRAME_MS_60FPS);
+      if (Math.abs(vel) < INERTIA_STOP_VELOCITY) {
+        m.inertiaRAF = null;
+        m.busy = false;
+        this._fireScrolled();
+        return;
+      }
+      const win = this._currentXWindow();
+      const gw = w.layout.gridWidth || 1;
+      const ratio = (win.max - win.min) / gw;
+      const deltaData = vel * dt * ratio;
+      const applied = this._applyXRange(
+        win.min - deltaData,
+        win.max - deltaData,
+        false
+      );
+      const bounds = this._clampBounds();
+      const hitEdge = !applied || bounds && (deltaData > 0 && applied.minX <= bounds.min + (bounds.max - bounds.min) * 1e-6 || deltaData < 0 && applied.maxX >= bounds.max - (bounds.max - bounds.min) * 1e-6);
+      if (hitEdge) {
+        m.inertiaRAF = null;
+        m.busy = false;
+        this._fireScrolled();
+        return;
+      }
+      m.inertiaRAF = requestAnimationFrame(step);
+    };
+    m.inertiaRAF = requestAnimationFrame(step);
+  }
+}
+_core__default.registerFeatures({
+  toolbar: Toolbar,
+  zoomPanSelection: ZoomPanSelection
+});
+export {
+  default2 as default
+};

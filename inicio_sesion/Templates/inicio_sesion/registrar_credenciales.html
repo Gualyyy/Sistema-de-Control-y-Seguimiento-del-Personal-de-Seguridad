@@ -1,0 +1,191 @@
+{% extends 'Estructura/Base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="pagina_registro_credenciales">
+
+    <div class="contenedor_retroceso">
+        <a href="{% url 'menu_acceso' %}">
+            <i class="fa-solid fa-arrow-left"></i>
+            Regresar
+        </a>
+    </div>
+
+    <div class="modulo_credenciales">
+
+        <div class="seccion_busqueda_empleado">
+
+            <div class="contenedor_img">
+                <img src="{% static 'Imagenes/buscar_empleado.png' %}"
+                    alt="Ilustración de búsqueda de empleados y registro de credenciales">
+
+                <div class="contenido_img_busqueda">
+                    <h2>Credenciales del Empleado</h2>
+                    <p>Busqueda Empleado</p>
+                </div>
+            </div>
+
+            <div class="encabezado_formulario">
+                <h3>Búsqueda de Empleado</h3>
+                <p>
+                    Verifique la existencia del empleado para habilitar
+                    el acceso al sistema administrativo.
+                </p>
+            </div>
+
+            <form method="post" id="formulario_busqueda">
+                {% csrf_token %}
+
+                <div class="campo_reducido">
+                    <label for="cedula_identidad">Cédula de Identidad:</label>
+
+                    <div class="grupo_doble">
+                        <select name="nacionalidad" id="nacionalidad" class="campo_select" aria-label="Nacionalidad"
+                            required>
+                            <option value="V">V</option>
+                            <option value="E">E</option>
+                        </select>
+
+                        <input type="text" name="num_cedula" id="cedula_identidad"
+                            placeholder="Ingrese el número de cédula" autocomplete="off" required>
+                    </div>
+                </div>
+
+                <div class="contenedor_boton_submit">
+                    <button type="submit" class="btn_sumbit">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        Buscar
+                    </button>
+                </div>
+            </form>
+
+        </div>
+
+        <div class="seccion_registro_credenciales" hidden>
+
+            <div class="contenedor_img">
+                <img src="{% static 'Imagenes/registrar_credenciales.png' %}"
+                    alt="Ilustración de búsqueda de empleados y registro de credenciales">
+
+                <div class="contenido_img_busqueda">
+                    <h2>Credenciales del Empleado</h2>
+                    <p>Registrar Credenciales</p>
+                </div>
+            </div>
+
+            <div class="encabezado_formulario">
+                <h3>Registrar Credenciales</h3>
+                <p>
+                    Cree el nombre de usuario y la contraseña
+                    para el acceso autorizado del empleado.
+                </p>
+            </div>
+
+            <form method="post" id="formulario_registrar">
+                {% csrf_token %}
+                <input type="hidden" name="id_usuario" id="id_usuario">
+
+                <div class="campo_login">
+                    <label for="nombre_usuario">Nombre de usuario:</label>
+                    <input name="nombre_usuario" id="nombre_usuario" type="text"
+                        placeholder="Ingrese su nombre de usuario (15 caracteres maximo)" autocomplete="off"
+                        maxlength="15" required>
+                    <small id="contenedor_mensaje_user" class="mensaje-feedback"></small>
+                </div>
+
+                <div class="campo_login">
+                    <label for="clave">Contraseña:</label>
+
+                    <div class="password_contenedor">
+                        <input name="contrasenia" id="clave" type="password"
+                            placeholder="Ingrese su contraseña (15 caracteres maximo)" autocomplete="off" maxlength="15"
+                            required>
+
+                        <input type="checkbox" id="mostrar_contrasenia" class="checkbox_ojo"
+                            aria-label="Mostrar contraseña">
+
+                        <label for="mostrar_contrasenia" class="icono_ojo" title="Mostrar u ocultar contraseña">
+                            <i class="fa-regular fa-eye icono_mostrar"></i>
+                            <i class="fa-regular fa-eye-slash icono_ocultar"></i>
+                        </label>
+                    </div>
+
+                    <small id="contenedor_mensaje_password" class="mensaje-feedback"></small>
+                </div>
+
+                <div class="indicadores_password" id="indicadores_password" aria-live="polite">
+                    <p class="titulo_indicadores">La contraseña debe cumplir con:</p>
+
+                    <ul class="lista_indicadores">
+                        <li class="indicador_password" data-regla="longitud">
+                            <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>
+                            <span>Entre 8 y 15 caracteres.</span>
+                        </li>
+
+                        <li class="indicador_password" data-regla="alfabetico">
+                            <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>
+                            <span>Al menos un carácter alfabético válido.</span>
+                        </li>
+
+                        <li class="indicador_password" data-regla="especial">
+                            <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>
+                            <span>Al menos un carácter especial.</span>
+                        </li>
+
+                        <li class="indicador_password" data-regla="numero">
+                            <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>
+                            <span>Al menos un número.</span>
+                        </li>
+
+                        <li class="indicador_password" data-regla="repetidos">
+                            <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>
+                            <span>No incluir tres caracteres o números iguales consecutivos.</span>
+                        </li>
+
+                        <li class="indicador_password" data-regla="nacimiento">
+                            <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>
+                            <span>No contener una fecha de nacimiento.</span>
+                        </li>
+
+                        <li class="indicador_password" data-regla="telefono">
+                            <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>
+                            <span>No contener el número telefónico.</span>
+                        </li>
+
+                        <li class="indicador_password" data-regla="cedula">
+                            <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>
+                            <span>No contener la cédula de identidad.</span>
+                        </li>
+
+                        <li class="indicador_password" data-regla="nombre">
+                            <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>
+                            <span>No contener el nombre.</span>
+                        </li>
+
+                        <li class="indicador_password" data-regla="apellido">
+                            <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>
+                            <span>No contener el apellido.</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="contenedor_boton_submit">
+                    <button type="submit" class="btn_submit" id="btn_registrar">
+                        <i class="fa-solid fa-user-lock"></i>
+                        Registrar
+                    </button>
+                </div>
+            </form>
+
+        </div>
+
+    </div>
+</section>
+
+<script src="{% static 'Funcionalidades/cedula_identidad.js' %}"></script>
+<script src="{% static 'Funcionalidades/contrasenia.js' %}"></script>
+<script src="{% static 'Funcionalidades_Asincronas/inicio_sesion/registrar_credenciales.js' %}"></script>
+
+{% endblock %}

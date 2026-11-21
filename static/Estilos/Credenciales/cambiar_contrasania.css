@@ -1,0 +1,528 @@
+.pagina_cambiar_contrasenia {
+    display: grid;
+    grid-template-columns: minmax(0, 1.0fr) minmax(0, 1.0fr);
+    align-items: stretch;
+
+    width: 90%;
+    max-width: 1000px;
+    min-width: 0;
+    margin: 30px auto;
+    padding: 0;
+
+    overflow: hidden;
+    border: 1px solid #dce5eb;
+    border-radius: 16px;
+    background: #ffffff;
+    color: #102f4e;
+
+    box-shadow: 0 10px 28px rgba(16, 47, 78, 0.12);
+    box-sizing: border-box;
+}
+
+.pagina_cambiar_contrasenia *,
+.pagina_cambiar_contrasenia *::before,
+.pagina_cambiar_contrasenia *::after {
+    box-sizing: border-box;
+}
+
+/* PANEL DE IMAGEN */
+.pagina_cambiar_contrasenia .contenedor_actualizar_contrasenia {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-end;
+    align-self: stretch;
+
+    grid-column: 1;
+    grid-row: 1;
+
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 650px;
+
+    margin: 0;
+    padding: 35px 28px;
+
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    text-align: left;
+}
+
+.pagina_cambiar_contrasenia .contenedor_actualizar_contrasenia img {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+
+    display: block;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+
+    margin: 0;
+    padding: 0;
+
+    border: 0;
+    border-radius: 0;
+
+    object-fit: cover;
+    object-position: center;
+}
+
+/* Degradado sobre la imagen */
+.pagina_cambiar_contrasenia .contenedor_actualizar_contrasenia::after {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+
+    content: "";
+
+    background: linear-gradient(to top,
+            rgba(16, 47, 78, 0.94) 0%,
+            rgba(16, 47, 78, 0.70) 24%,
+            rgba(16, 47, 78, 0.20) 50%,
+            transparent 72%);
+
+    pointer-events: none;
+}
+
+/* Título */
+.pagina_cambiar_contrasenia .contenedor_actualizar_contrasenia h2 {
+    position: relative;
+    z-index: 2;
+
+    width: 100%;
+    margin: 0 0 12px;
+
+    color: #ffffff;
+    font-size: clamp(23px, 2.2vw, 30px);
+    font-weight: 700;
+    line-height: 1.3;
+    text-align: left;
+
+    overflow-wrap: anywhere;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Descripción */
+.pagina_cambiar_contrasenia .contenedor_actualizar_contrasenia p {
+    position: relative;
+    z-index: 2;
+
+    width: 100%;
+    max-width: 360px;
+    margin: 0;
+
+    color: #ffffff;
+    font-size: 14px;
+    line-height: 1.7;
+    text-align: left;
+
+    text-shadow: 0 1px 5px rgba(0, 0, 0, 0.3);
+}
+
+/* FORMULARIO */
+.pagina_cambiar_contrasenia>form {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: center;
+
+    grid-column: 2;
+    grid-row: 1;
+
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding: 36px 38px;
+
+    border: 0;
+    border-radius: 0;
+    background: #ffffff;
+}
+
+/* CAMPOS */
+.pagina_cambiar_contrasenia .campo_login {
+    width: 100%;
+    min-width: 0;
+    margin: 0 0 19px;
+}
+
+.pagina_cambiar_contrasenia .campo_login>label {
+    display: block;
+    margin: 0 0 8px;
+
+    color: #102f4e;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+/* CONTENEDORES DE CONTRASEÑA */
+.pagina_cambiar_contrasenia .password_contenedor,
+.pagina_cambiar_contrasenia .password_contenedor_confirma {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-width: 0;
+}
+
+/* Espacio reservado para los iconos */
+.pagina_cambiar_contrasenia .password_contenedor input[type="password"],
+.pagina_cambiar_contrasenia .password_contenedor input[type="text"],
+.pagina_cambiar_contrasenia .password_contenedor_confirma input[type="password"],
+.pagina_cambiar_contrasenia .password_contenedor_confirma input[type="text"] {
+    padding-right: 46px;
+}
+
+/* CHECKBOXES DE VISIBILIDAD (SEPARADOS) */
+.pagina_cambiar_contrasenia .checkbox_ojo {
+    position: absolute;
+    top: 50%;
+    right: 12px;
+    z-index: 3;
+    display: block;
+    width: 24px;
+    height: 28px;
+    margin: 0;
+    padding: 0;
+    opacity: 0;
+    cursor: pointer;
+    transform: translateY(-50%);
+}
+
+.pagina_cambiar_contrasenia .checkbox_ojo_confirmar {
+    position: absolute;
+    top: 50%;
+    right: 12px;
+    z-index: 3;
+    display: block;
+    width: 24px;
+    height: 28px;
+    margin: 0;
+    padding: 0;
+    opacity: 0;
+    cursor: pointer;
+    transform: translateY(-50%);
+}
+
+/* Icono del campo principal */
+.pagina_cambiar_contrasenia .icono_ojo {
+    position: absolute;
+    top: 50%;
+    right: 12px;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 28px;
+    margin: 0;
+    padding: 0;
+    color: #091d2c;
+    cursor: pointer;
+    transform: translateY(-50%);
+    transition: color 0.2s ease;
+}
+
+/* Icono del campo de confirmación */
+.pagina_cambiar_contrasenia .icono_ojo_confirmar {
+    position: absolute;
+    top: 50%;
+    right: 12px;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 28px;
+    margin: 0;
+    padding: 0;
+    color: #091d2c;
+    cursor: pointer;
+    transform: translateY(-50%);
+    transition: color 0.2s ease;
+}
+
+/* Efectos hover independientes */
+.pagina_cambiar_contrasenia .icono_ojo:hover {
+    color: #00779e;
+}
+
+.pagina_cambiar_contrasenia .icono_ojo_confirmar:hover {
+    color: #00779e;
+}
+
+/* TAMAÑO Y CENTRADO INTERNO (SEPARADOS) */
+.pagina_cambiar_contrasenia .icono_ojo .icono_mostrar,
+.pagina_cambiar_contrasenia .icono_ojo .icono_ocultar {
+    position: absolute;
+    top: 103%;
+    left: 50%;
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    padding: 0;
+    font-size: 16px;
+    line-height: 16px;
+    text-align: center;
+    transform: translate(-60%, -60%);
+}
+
+.pagina_cambiar_contrasenia .icono_ojo_confirmar .icono_mostrar,
+.pagina_cambiar_contrasenia .icono_ojo_confirmar .icono_ocultar {
+    position: absolute;
+    top: 65%;
+    left: 55%;
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    padding: 0;
+    font-size: 16px;
+    line-height: 16px;
+    text-align: center;
+    transform: translate(-60%, -60%);
+}
+
+/* CAMBIO DE ICONOS (SEPARADOS) */
+.pagina_cambiar_contrasenia .icono_ojo .icono_ocultar {
+    display: none;
+}
+
+.pagina_cambiar_contrasenia .icono_ojo_confirmar .icono_ocultar {
+    display: none;
+}
+
+.pagina_cambiar_contrasenia .checkbox_ojo:checked+.icono_ojo .icono_mostrar {
+    display: none;
+}
+
+.pagina_cambiar_contrasenia .checkbox_ojo_confirmar:checked+.icono_ojo_confirmar .icono_mostrar {
+    display: none;
+}
+
+.pagina_cambiar_contrasenia .checkbox_ojo:checked+.icono_ojo .icono_ocultar {
+    display: inline-block;
+}
+
+.pagina_cambiar_contrasenia .checkbox_ojo_confirmar:checked+.icono_ojo_confirmar .icono_ocultar {
+    display: inline-block;
+}
+
+/* ACCESIBILIDAD (SEPARADA) */
+.pagina_cambiar_contrasenia .checkbox_ojo:focus-visible+.icono_ojo {
+    outline: 2px solid #091d2c;
+    outline-offset: 3px;
+    border-radius: 4px;
+}
+
+.pagina_cambiar_contrasenia .checkbox_ojo_confirmar:focus-visible+.icono_ojo_confirmar {
+    outline: 2px solid #091d2c;
+    outline-offset: 3px;
+    border-radius: 4px;
+}
+
+/* MENSAJES */
+.pagina_cambiar_contrasenia .mensaje-feedback {
+    display: block;
+    margin-top: 6px;
+
+    color: #526575;
+    font-size: 12px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.pagina_cambiar_contrasenia .mensaje-feedback:empty {
+    display: none;
+}
+
+/* INDICADORES DE CONTRASEÑA */
+.pagina_cambiar_contrasenia .indicadores_password {
+    width: 100%;
+    min-width: 0;
+    margin: 0 0 22px;
+    padding: 16px;
+
+    border: 1px solid #dce5eb;
+    border-radius: 9px;
+    background: #f5f9fc;
+}
+
+.pagina_cambiar_contrasenia .titulo_indicadores {
+    margin: 0 0 13px;
+
+    color: #102f4e;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.5;
+}
+
+.pagina_cambiar_contrasenia .lista_indicadores {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 11px 14px;
+
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.pagina_cambiar_contrasenia .indicador_password {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+
+    min-width: 0;
+    color: #526575;
+    font-size: 12px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.pagina_cambiar_contrasenia .indicador_password i {
+    flex: 0 0 14px;
+    margin-top: 2px;
+
+    color: #c0392b;
+    font-size: 13px;
+    text-align: center;
+}
+
+.pagina_cambiar_contrasenia .indicador_password span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.pagina_cambiar_contrasenia .indicador_password.cumplido {
+    color: #246548;
+}
+
+.pagina_cambiar_contrasenia .indicador_password.cumplido i {
+    color: #198754;
+}
+
+.pagina_cambiar_contrasenia .contenedor_boton_submit {
+    display: flex;
+    justify-content: center;
+
+    width: 100%;
+    margin-top: 2px;
+}
+
+.pagina_cambiar_contrasenia .boton_login {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+
+    width: 100%;
+    max-width: 280px;
+    min-height: 47px;
+    padding: 12px 22px;
+
+    border: 1px solid #00445f;
+    border-radius: 7px;
+
+    background: #00445f;
+    color: #ffffff;
+
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+
+    transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.pagina_cambiar_contrasenia .boton_login:hover {
+    border-color: #00779e;
+    background: #00779e;
+    box-shadow: 0 5px 13px rgba(0, 68, 95, 0.18);
+}
+
+.pagina_cambiar_contrasenia .boton_login:focus-visible {
+    outline: 3px solid rgba(0, 119, 158, 0.28);
+    outline-offset: 3px;
+}
+
+.pagina_cambiar_contrasenia .boton_login:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+@media (max-width: 900px) {
+    .pagina_cambiar_contrasenia {
+        width: 94%;
+        grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+    }
+
+    .pagina_cambiar_contrasenia .contenedor_actualizar_contrasenia {
+        min-height: 620px;
+        padding: 28px 20px;
+    }
+
+    .pagina_cambiar_contrasenia>form {
+        padding: 28px 22px;
+    }
+
+    .pagina_cambiar_contrasenia .lista_indicadores {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 650px) {
+    .pagina_cambiar_contrasenia {
+        grid-template-columns: minmax(0, 1fr);
+        width: calc(100% - 24px);
+        margin: 18px auto;
+    }
+
+    .pagina_cambiar_contrasenia .contenedor_actualizar_contrasenia {
+        grid-column: 1;
+        grid-row: 1;
+
+        min-height: 300px;
+        padding: 28px 22px;
+    }
+
+    .pagina_cambiar_contrasenia .contenedor_actualizar_contrasenia img {
+        object-position: center 40%;
+    }
+
+    .pagina_cambiar_contrasenia>form {
+        grid-column: 1;
+        grid-row: 2;
+        padding: 25px 20px;
+    }
+
+    .pagina_cambiar_contrasenia .lista_indicadores {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 420px) {
+    .pagina_cambiar_contrasenia {
+        width: calc(100% - 16px);
+        margin: 12px auto;
+        border-radius: 12px;
+    }
+
+    .pagina_cambiar_contrasenia .contenedor_actualizar_contrasenia {
+        min-height: 250px;
+        padding: 24px 18px;
+    }
+
+    .pagina_cambiar_contrasenia>form {
+        padding: 22px 16px;
+    }
+
+    .pagina_cambiar_contrasenia .indicadores_password {
+        padding: 13px;
+    }
+}

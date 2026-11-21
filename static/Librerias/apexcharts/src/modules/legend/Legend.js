@@ -1,0 +1,723 @@
+// @ts-check
+import CoreUtils from '../CoreUtils'
+import Dimensions from '../dimensions/Dimensions'
+import Graphics from '../Graphics'
+import Series from '../Series'
+import Utils from '../../utils/Utils'
+import Helpers from './Helpers'
+import HeatmapGradientLegend from './HeatmapGradientLegend'
+import Markers from '../Markers'
+import { BrowserAPIs } from '../../ssr/BrowserAPIs.js'
+
+/**
+ * @param {Element} el
+ */
+function isLegendItem(el) {
+  return (
+    el.classList.contains('apexcharts-legend-series') ||
+    el.classList.contains('apexcharts-legend-text') ||
+    el.classList.contains('apexcharts-legend-marker')
+  )
+}
+
+/**
+ * ApexCharts Legend Class to draw legend.
+ *
+ * @module Legend
+ **/
+
+class Legend {
+  /**
+   * @param {import('../../types/internal').ChartStateW} w
+   * @param {import('../../types/internal').ChartContext} ctx
+   */
+  constructor(w, ctx) {
+    this.w = w
+    this.ctx = ctx // needed: fires events, passes chart instance to user callbacks
+
+    // Injected callback used by LegendHelpers (avoids lgCtx.ctx.updateHelpers)
+    this.updateSeries = (/** @type {any[]} */ ...a) =>
+      ctx.updateHelpers._updateSeries(/** @type {any[]} */ ...a)
+
+    this.onLegendClick = this.onLegendClick.bind(this)
+    this.onLegendHovered = this.onLegendHovered.bind(this)
+    this.onLegendClickEvent = this.onLegendClickEvent.bind(this)
+    this.onLegendPointerDown = this.onLegendPointerDown.bind(this)
+    this.onLegendPointerUp = this.onLegendPointerUp.bind(this)
+
+    /**
+     * The legend item a pointer went down on, kept across re-renders (this
+     * instance outlives the legend DOM). If `el` has left the DOM by
+     * pointerup, a re-render rebuilt the item under the pointer.
+     * @type {{ el: Element, rel: string | null } | null}
+     */
+    this.legendPress = null
+    /**
+     * rel of the item whose press pointerup handled, so the click that may
+     * still follow it does not toggle the series back.
+     * @type {string | null}
+     */
+    this.recoveredRel = null
+
+    this.isBarsDistributed =
+      this.w.config.chart.type === 'bar' &&
+      this.w.config.plotOptions.bar.distributed &&
+      this.w.config.series.length === 1
+
+    this.legendHelpers = new Helpers(this)
+  }
+
+  init() {
+    const w = this.w
+
+    const gl = w.globals
+    const cnf = w.config
+
+    // Tear down any previous gradient legend every render, so hiding the
+    // legend does not leave its listeners and repositioning behind.
+    this.heatmapGradientLegend?.destroy()
+    this.heatmapGradientLegend = null
+
+    // Recompute each render: the Legend instance is reused across updates, so a
+    // value cached in the constructor would go stale when updateOptions changes
+    // the type / distributed flag / series count (e.g. a distributed single-series
+    // bar drilling into a non-distributed multi-series breakdown). When stale-true
+    // the legend would wrongly show per-category labels instead of series names.
+    this.isBarsDistributed =
+      cnf.chart.type === 'bar' &&
+      cnf.plotOptions.bar.distributed &&
+      cnf.series.length === 1
+
+    const showLegendAlways =
+      (cnf.legend.showForSingleSeries &&
+        this.w.seriesData.series.length === 1) ||
+      this.isBarsDistributed ||
+      // Heatmap legends are colorScale-driven (discrete ranges or the
+      // gradient strip), not series-driven, so they must render even for a
+      // single-row heatmap.
+      cnf.chart.type === 'heatmap' ||
+      // Same for a treemap once it has a gradient strip: a nested treemap is
+      // usually one series, and the strip describes the colour metric rather
+      // than the series.
+      HeatmapGradientLegend.isEnabled(w) ||
+      this.w.seriesData.series.length > 1
+
+    this.legendHelpers.appendToForeignObject()
+
+    if ((showLegendAlways || !gl.axisCharts) && cnf.legend.show) {
+      const elLegendWrap = /** @type {HTMLElement} */ (w.dom.elLegendWrap)
+      while (elLegendWrap.firstChild) {
+        elLegendWrap.removeChild(elLegendWrap.firstChild)
+      }
+
+      if (HeatmapGradientLegend.isEnabled(w)) {
+        this.heatmapGradientLegend = new HeatmapGradientLegend(w, this.ctx)
+        this.heatmapGradientLegend.draw()
+        // Gradient legend handles its own wrap positioning + alignment via
+        // flexbox; skip the standard `setLegendWrapXY` path which would
+        // size the wrap to its content and break the centering.
+      } else {
+        this.drawLegends()
+
+        if (cnf.legend.position === 'bottom' || cnf.legend.position === 'top') {
+          this.legendAlignHorizontal()
+        } else if (
+          cnf.legend.position === 'right' ||
+          cnf.legend.position === 'left'
+        ) {
+          this.legendAlignVertical()
+        }
+      }
+    }
+  }
+
+  createLegendMarker(/** @type {any} */ { i, fillcolor, markers }) {
+    const w = this.w
+    const elMarker = BrowserAPIs.createElement('span')
+    elMarker.classList.add('apexcharts-legend-marker')
+
+    const mShape = w.config.legend.markers.shape || w.config.markers.shape
+    let shape = mShape
+    if (Array.isArray(mShape)) {
+      shape = mShape[i]
+    }
+    const mSize = Array.isArray(w.config.legend.markers.size)
+      ? parseFloat(w.config.legend.markers.size[i])
+      : parseFloat(w.config.legend.markers.size)
+    const mOffsetX = Array.isArray(w.config.legend.markers.offsetX)
+      ? parseFloat(w.config.legend.markers.offsetX[i])
+      : parseFloat(w.config.legend.markers.offsetX)
+    const mOffsetY = Array.isArray(w.config.legend.markers.offsetY)
+      ? parseFloat(w.config.legend.markers.offsetY[i])
+      : parseFloat(w.config.legend.markers.offsetY)
+    const mBorderWidth = Array.isArray(w.config.legend.markers.strokeWidth)
+      ? parseFloat(w.config.legend.markers.strokeWidth[i])
+      : parseFloat(w.config.legend.markers.strokeWidth)
+
+    const mStyle = elMarker.style
+
+    mStyle.height = (mSize + mBorderWidth) * 2 + 'px'
+    mStyle.width = (mSize + mBorderWidth) * 2 + 'px'
+    mStyle.left = mOffsetX + 'px'
+    mStyle.top = mOffsetY + 'px'
+
+    if (w.config.legend.markers.customHTML) {
+      mStyle.background = 'transparent'
+      mStyle.color = fillcolor[i]
+
+      if (Array.isArray(w.config.legend.markers.customHTML)) {
+        if (w.config.legend.markers.customHTML[i]) {
+          elMarker.innerHTML = w.config.legend.markers.customHTML[i]()
+        }
+      } else {
+        elMarker.innerHTML = w.config.legend.markers.customHTML()
+      }
+    } else {
+      const markerConfig = markers.getMarkerConfig({
+        cssClass: `apexcharts-legend-marker apexcharts-marker apexcharts-marker-${shape}`,
+        seriesIndex: i,
+        strokeWidth: mBorderWidth,
+        size: mSize,
+      })
+
+      // globalThis is window in a browser and global in Node, as in Core.
+      const SVG = /** @type {any} */ (globalThis).SVG
+      const SVGMarker = SVG().addTo(elMarker).size('100%', '100%')
+      const marker = new Graphics(this.w).drawMarker(0, 0, {
+        ...markerConfig,
+        pointFillColor: Array.isArray(fillcolor)
+          ? fillcolor[i]
+          : markerConfig.pointFillColor,
+        shape,
+      })
+
+      // Centre the shape, drawn about 0,0, in its box. Set on this marker
+      // alone: a lookup through the paper re-styled every earlier one too,
+      // and finds nothing in a server render.
+      marker.node.style.transform =
+        shape === 'triangle' ? 'translate(50%, 45%)' : 'translate(50%, 50%)'
+      SVGMarker.add(marker)
+    }
+    return elMarker
+  }
+
+  drawLegends() {
+    const me = this
+    const w = this.w
+    const elLegendWrap = /** @type {HTMLElement} */ (w.dom.elLegendWrap)
+
+    const fontFamily = w.config.legend.fontFamily
+
+    let legendNames = w.seriesData.seriesNames
+    let fillcolor = w.config.legend.markers.fillColors
+      ? w.config.legend.markers.fillColors.slice()
+      : w.globals.colors.slice()
+
+    if (w.config.chart.type === 'heatmap') {
+      const ranges = w.config.plotOptions.heatmap.colorScale.ranges
+      legendNames = ranges.map((/** @type {any} */ colorScale) => {
+        return colorScale.name
+          ? colorScale.name
+          : colorScale.from + ' - ' + colorScale.to
+      })
+      fillcolor = ranges.map((/** @type {any} */ color) => color.color)
+    } else if (this.isBarsDistributed) {
+      legendNames = w.labelData.labels.slice()
+    }
+
+    if (w.config.legend.customLegendItems.length) {
+      legendNames = w.config.legend.customLegendItems
+    }
+    const legendFormatter = w.formatters.legendFormatter
+
+    const isLegendInversed = w.config.legend.inverseOrder
+    // One Markers for every item: it only resolves each item's marker config.
+    const markers = new Markers(w, this.ctx)
+
+    /** @type {any[]} */
+    const legendGroups = []
+
+    if (
+      w.labelData.seriesGroups.length > 1 &&
+      w.config.legend.clusterGroupedSeries
+    ) {
+      /**
+       * @param {any} _
+       * @param {number} gi
+       */
+      w.labelData.seriesGroups.forEach((_, gi) => {
+        legendGroups[gi] = BrowserAPIs.createElement('div')
+        legendGroups[gi].classList.add(
+          'apexcharts-legend-group',
+          `apexcharts-legend-group-${gi}`,
+        )
+        if (w.config.legend.clusterGroupedSeriesOrientation === 'horizontal') {
+          elLegendWrap.classList.add('apexcharts-legend-group-horizontal')
+        } else {
+          legendGroups[gi].classList.add('apexcharts-legend-group-vertical')
+        }
+      })
+    }
+
+    for (
+      let i = isLegendInversed ? legendNames.length - 1 : 0;
+      isLegendInversed ? i >= 0 : i <= legendNames.length - 1;
+      isLegendInversed ? i-- : i++
+    ) {
+      const text = legendFormatter(legendNames[i], { seriesIndex: i, w })
+
+      let collapsedSeries = false
+      let ancillaryCollapsedSeries = false
+      if (w.globals.collapsedSeries.length > 0) {
+        for (let c = 0; c < w.globals.collapsedSeries.length; c++) {
+          if (w.globals.collapsedSeries[c].index === i) {
+            collapsedSeries = true
+          }
+        }
+      }
+
+      if (w.globals.ancillaryCollapsedSeriesIndices.length > 0) {
+        for (
+          let c = 0;
+          c < w.globals.ancillaryCollapsedSeriesIndices.length;
+          c++
+        ) {
+          if (w.globals.ancillaryCollapsedSeriesIndices[c] === i) {
+            ancillaryCollapsedSeries = true
+          }
+        }
+      }
+
+      const elMarker = this.createLegendMarker({ i, fillcolor, markers })
+
+      Graphics.setAttrs(elMarker, {
+        rel: i + 1,
+        'data:collapsed': collapsedSeries || ancillaryCollapsedSeries,
+      })
+
+      if (collapsedSeries || ancillaryCollapsedSeries) {
+        elMarker.classList.add('apexcharts-inactive-legend')
+      }
+
+      const elLegend = BrowserAPIs.createElement('div')
+
+      // accessibility attributes
+      if (
+        w.config.chart.accessibility.enabled &&
+        w.config.chart.accessibility.keyboard.enabled
+      ) {
+        elLegend.setAttribute('role', 'button')
+        elLegend.setAttribute('tabindex', '0')
+
+        // Use formatted legend text (handle both string and array)
+        const seriesName = Array.isArray(text) ? text.join(' ') : text
+        const isCollapsed = collapsedSeries || ancillaryCollapsedSeries
+        // the words come from the locale (`a11y`), so a screen reader hears
+        // the chart's language; one template keeps word order per language
+        const a11y = w.globals.locale?.a11y || {}
+        const statusText = isCollapsed
+          ? a11y.hidden || 'hidden'
+          : a11y.visible || 'visible'
+        const template =
+          a11y.legendItem || '{name}, {state}. Press Enter or Space to toggle.'
+        elLegend.setAttribute(
+          'aria-label',
+          template.replace(/\{(name|state)\}/g, (_, key) =>
+            key === 'name' ? seriesName : statusText,
+          ),
+        )
+        elLegend.setAttribute('aria-pressed', isCollapsed ? 'true' : 'false')
+      }
+
+      const elLegendText = BrowserAPIs.createElement('span')
+      elLegendText.classList.add('apexcharts-legend-text')
+      // A series name is data, so it shows as text; only what a
+      // legend.formatter changes is written as the HTML it documents.
+      const shown = Array.isArray(text) ? text.join(' ') : text
+      const name = legendNames[i]
+      if (
+        String(shown) === String(Array.isArray(name) ? name.join(' ') : name)
+      ) {
+        elLegendText.textContent = shown
+      } else {
+        elLegendText.innerHTML = shown
+        // a hover that resets the item writes it back the same way
+        elLegendText.setAttribute('data:html', '1')
+      }
+
+      let textColor = w.config.legend.labels.useSeriesColors
+        ? w.globals.colors[i]
+        : Array.isArray(w.config.legend.labels.colors)
+          ? w.config.legend.labels.colors?.[i]
+          : w.config.legend.labels.colors
+
+      if (!textColor) {
+        textColor = w.config.chart.foreColor
+      }
+
+      elLegendText.style.color = textColor
+
+      elLegendText.style.fontSize = w.config.legend.fontSize
+      elLegendText.style.fontWeight = w.config.legend.fontWeight
+      elLegendText.style.fontFamily = fontFamily || w.config.chart.fontFamily
+
+      Graphics.setAttrs(elLegendText, {
+        rel: i + 1,
+        i,
+        'data:default-text': encodeURIComponent(text),
+        'data:collapsed': collapsedSeries || ancillaryCollapsedSeries,
+      })
+
+      elLegend.appendChild(elMarker)
+      elLegend.appendChild(elLegendText)
+
+      const coreUtils = new CoreUtils(this.w)
+      if (!w.config.legend.showForZeroSeries) {
+        const total = coreUtils.getSeriesTotalByIndex(i)
+
+        if (
+          total === 0 &&
+          coreUtils.seriesHaveSameValues(i) &&
+          !coreUtils.isSeriesNull(i) &&
+          w.globals.collapsedSeriesIndices.indexOf(i) === -1 &&
+          w.globals.ancillaryCollapsedSeriesIndices.indexOf(i) === -1
+        ) {
+          elLegend.classList.add('apexcharts-hidden-zero-series')
+        }
+      }
+
+      if (!w.config.legend.showForNullSeries) {
+        if (
+          coreUtils.isSeriesNull(i) &&
+          w.globals.collapsedSeriesIndices.indexOf(i) === -1 &&
+          w.globals.ancillaryCollapsedSeriesIndices.indexOf(i) === -1
+        ) {
+          elLegend.classList.add('apexcharts-hidden-null-series')
+        }
+      }
+
+      // by index: groups may reuse series names, and an unnamed series has
+      // none to match
+      const lg = legendGroups[w.labelData.seriesGroupIndex[i]]
+      // once: re-appending moves the group, reordering interleaved groups
+      if (lg && !lg.parentNode) elLegendWrap.appendChild(lg)
+      ;(lg || elLegendWrap).appendChild(elLegend)
+
+      elLegendWrap.classList.add(
+        `apexcharts-align-${w.config.legend.horizontalAlign}`,
+      )
+      elLegendWrap.classList.add(
+        'apx-legend-position-' + w.config.legend.position,
+      )
+
+      elLegend.classList.add('apexcharts-legend-series')
+      elLegend.style.margin = `${w.config.legend.itemMargin.vertical}px ${w.config.legend.itemMargin.horizontal}px`
+      elLegendWrap.style.width = w.config.legend.width
+        ? w.config.legend.width + 'px'
+        : ''
+      elLegendWrap.style.height = w.config.legend.height
+        ? w.config.legend.height + 'px'
+        : ''
+
+      Graphics.setAttrs(elLegend, {
+        rel: i + 1,
+        seriesName: Utils.escapeString(legendNames[i]),
+        'data:collapsed': collapsedSeries || ancillaryCollapsedSeries,
+      })
+
+      if (collapsedSeries || ancillaryCollapsedSeries) {
+        elLegend.classList.add('apexcharts-inactive-legend')
+      }
+
+      if (!w.config.legend.onItemClick.toggleDataSeries) {
+        elLegend.classList.add('apexcharts-no-click')
+      }
+    }
+
+    w.dom.elWrap.addEventListener('click', me.onLegendClickEvent, true)
+
+    // A live update (updateSeries / updateOptions on a timer) can rebuild the
+    // legend between pointerdown and pointerup. The pressed element has then
+    // left the DOM and the browser fires no click, so pointerup handles a
+    // press whose item was rebuilt under the pointer.
+    w.dom.elWrap.addEventListener('pointerdown', me.onLegendPointerDown, true)
+    w.dom.elWrap.addEventListener('pointerup', me.onLegendPointerUp, true)
+
+    if (
+      w.config.legend.onItemHover.highlightDataSeries &&
+      w.config.legend.customLegendItems.length === 0
+    ) {
+      w.dom.elWrap.addEventListener('mousemove', me.onLegendHovered, true)
+      w.dom.elWrap.addEventListener('mouseout', me.onLegendHovered, true)
+    }
+
+    // keyboard navigation support
+    if (
+      w.config.chart.accessibility.enabled &&
+      w.config.chart.accessibility.keyboard.enabled
+    ) {
+      w.dom.elWrap.addEventListener(
+        'keydown',
+        me.onLegendKeyDown.bind(me),
+        true,
+      )
+    }
+  }
+
+  /**
+   * @param {number} offsetX
+   * @param {number} offsetY
+   */
+  setLegendWrapXY(offsetX, offsetY) {
+    const w = this.w
+
+    const elLegendWrap = /** @type {HTMLElement} */ (w.dom.elLegendWrap)
+
+    const legendHeight = elLegendWrap.clientHeight
+
+    let x = 0
+    let y = 0
+
+    if (w.config.legend.position === 'bottom') {
+      y =
+        w.globals.svgHeight -
+        Math.min(legendHeight, w.globals.svgHeight / 2) -
+        5
+    } else if (w.config.legend.position === 'top') {
+      const dim = new Dimensions(this.w, this.ctx)
+      const titleH = dim.dimHelpers.getTitleSubtitleCoords('title').height
+      const subtitleH = dim.dimHelpers.getTitleSubtitleCoords('subtitle').height
+
+      y = (titleH > 0 ? titleH - 10 : 0) + (subtitleH > 0 ? subtitleH - 10 : 0)
+    }
+
+    elLegendWrap.style.position = 'absolute'
+
+    x = x + offsetX + w.config.legend.offsetX
+    y = y + offsetY + w.config.legend.offsetY
+
+    elLegendWrap.style.left = x + 'px'
+    elLegendWrap.style.top = y + 'px'
+
+    if (w.config.legend.position === 'right') {
+      elLegendWrap.style.left = 'auto'
+      elLegendWrap.style.right = 25 + w.config.legend.offsetX + 'px'
+    }
+
+    const fixedHeigthWidth = /** @type {const} */ (['width', 'height'])
+    fixedHeigthWidth.forEach((hw) => {
+      if (elLegendWrap && elLegendWrap.style[hw]) {
+        elLegendWrap.style[hw] =
+          parseInt(String(w.config.legend[hw]), 10) + 'px'
+      }
+    })
+  }
+
+  legendAlignHorizontal() {
+    const w = this.w
+
+    const elLegendWrap = /** @type {HTMLElement} */ (w.dom.elLegendWrap)
+
+    elLegendWrap.style.right = '0'
+
+    const dimensions = new Dimensions(this.w, this.ctx)
+    const titleRect = dimensions.dimHelpers.getTitleSubtitleCoords('title')
+    const subtitleRect =
+      dimensions.dimHelpers.getTitleSubtitleCoords('subtitle')
+
+    const offsetX = 20
+    let offsetY = 0
+
+    if (w.config.legend.position === 'top') {
+      offsetY =
+        titleRect.height +
+        subtitleRect.height +
+        w.config.title.margin +
+        w.config.subtitle.margin -
+        10
+    }
+
+    this.setLegendWrapXY(offsetX, offsetY)
+  }
+
+  legendAlignVertical() {
+    // A right legend is pinned by `right` (setLegendWrapXY), so only a left
+    // one needs an x offset.
+    this.setLegendWrapXY(this.w.config.legend.position === 'left' ? 20 : 0, 20)
+  }
+
+  /**
+   * @param {MouseEvent} e
+   */
+  onLegendHovered(e) {
+    const w = this.w
+    const target = /** @type {Element} */ (e.target)
+
+    if (!isLegendItem(target)) return
+
+    const rel = target.getAttribute('rel')
+    const move = e.type === 'mousemove'
+    const to = /** @type {Element | null} */ (e.relatedTarget)
+    // The item under the pointer, kept on the per-render selector cache so
+    // any re-render (fastUpdate included) forgets it. Another move inside
+    // that item, or an out onto another part of it, changes nothing. The
+    // same rel in another chart's legend is another item.
+    const c = /** @type {any} */ (w.globals.cachedSelectors)
+    if (
+      move
+        ? c.legendRel === rel
+        : to &&
+          isLegendItem(to) &&
+          to.getAttribute('rel') === rel &&
+          w.dom.elWrap.contains(to)
+    ) {
+      return
+    }
+    c.legendRel = move ? rel : null
+
+    const series = new Series(this.ctx.w)
+    if (w.config.chart.type !== 'heatmap' && !this.isBarsDistributed) {
+      // closest: the text span of a hidden item carries no inactive class
+      if (!target.closest('.apexcharts-inactive-legend')) {
+        series.toggleSeriesOnHover(e, target)
+      }
+    } else {
+      // for heatmap handling
+      const seriesCnt = parseInt(rel ?? '0', 10) - 1
+      if (move) {
+        this.ctx.events.fireEvent('legendHover', [this.ctx, seriesCnt, this.w])
+      }
+      series.highlightRangeInSeries(seriesCnt, move ? 'highlight' : 'reset')
+    }
+  }
+
+  /**
+   * @param {KeyboardEvent} e
+   */
+  onLegendKeyDown(e) {
+    const me = this
+    const w = this.w
+    const target = /** @type {Element} */ (e.target)
+
+    if (!isLegendItem(target)) return
+
+    // Handle Enter or Space key
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault() // Prevent page scroll on Space
+
+      // Capture the rel index before the click (toggleDataSeries re-renders
+      // the legend DOM, which destroys the focused element).
+      const rel = target.getAttribute('rel')
+
+      // Trigger click handler
+      me.onLegendClick(e)
+
+      // After re-render, restore focus to the same legend item so the user
+      // can keep toggling without having to re-tab to the legend.
+      if (rel !== null && w.config.legend.onItemClick.toggleDataSeries) {
+        requestAnimationFrame(() => {
+          // the chart may have been destroyed before this frame
+          const restored = w.dom.baseEl?.querySelector(
+            `.apexcharts-legend-series[rel="${rel}"]`,
+          )
+          if (restored) /** @type {HTMLElement} */ (restored).focus()
+        })
+      }
+    }
+  }
+
+  /**
+   * @param {PointerEvent} e
+   */
+  onLegendPointerDown(e) {
+    const target = /** @type {Element} */ (e.target)
+    this.recoveredRel = null
+    this.legendPress =
+      e.button === 0 && isLegendItem(target)
+        ? { el: target, rel: target.getAttribute('rel') }
+        : null
+  }
+
+  /**
+   * @param {PointerEvent} e
+   */
+  onLegendPointerUp(e) {
+    const press = this.legendPress
+    this.legendPress = null
+    const target = /** @type {Element} */ (e.target)
+
+    if (
+      press &&
+      !press.el.isConnected &&
+      isLegendItem(target) &&
+      target.getAttribute('rel') === press.rel
+    ) {
+      this.recoveredRel = press.rel
+      this.onLegendClick(e)
+    }
+  }
+
+  /**
+   * @param {MouseEvent} e
+   */
+  onLegendClickEvent(e) {
+    // Touch input still sends a click after a press that pointerup handled:
+    // the tap is hit-tested on release. Toggling again would undo it. Only
+    // the browser's own click is dropped; el.click() from code goes through.
+    const rel = this.recoveredRel
+    this.recoveredRel = null
+    const target = /** @type {Element} */ (e.target)
+    if (rel !== null && e.isTrusted && target.getAttribute('rel') === rel) {
+      return
+    }
+
+    this.onLegendClick(e)
+  }
+
+  /**
+   * @param {Event} e
+   */
+  onLegendClick(e) {
+    const w = this.w
+    const target = /** @type {Element} */ (e.target)
+
+    if (w.config.legend.customLegendItems.length) return
+
+    if (isLegendItem(target)) {
+      const seriesCnt = parseInt(target.getAttribute('rel') ?? '0', 10) - 1
+      const isHidden = target.getAttribute('data:collapsed') === 'true'
+
+      const legendClick = this.w.config.chart.events.legendClick
+      if (typeof legendClick === 'function') {
+        legendClick(this.ctx, seriesCnt, this.w)
+      }
+
+      this.ctx.events.fireEvent('legendClick', [this.ctx, seriesCnt, this.w])
+
+      const markerClick = this.w.config.legend.markers.onClick
+      if (
+        typeof markerClick === 'function' &&
+        target.classList.contains('apexcharts-legend-marker')
+      ) {
+        markerClick(this.ctx, seriesCnt, this.w)
+        this.ctx.events.fireEvent('legendMarkerClick', [
+          this.ctx,
+          seriesCnt,
+          this.w,
+        ])
+      }
+
+      // for now - just prevent click on heatmap legend - and allow hover only
+      const clickAllowed =
+        w.config.chart.type !== 'treemap' &&
+        w.config.chart.type !== 'heatmap' &&
+        !this.isBarsDistributed
+
+      if (clickAllowed && w.config.legend.onItemClick.toggleDataSeries) {
+        this.legendHelpers.toggleDataSeries(seriesCnt, isHidden)
+      }
+    }
+  }
+}
+
+export default Legend

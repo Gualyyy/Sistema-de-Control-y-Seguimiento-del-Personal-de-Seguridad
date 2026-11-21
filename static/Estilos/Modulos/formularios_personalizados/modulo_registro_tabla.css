@@ -1,0 +1,401 @@
+.modulo_registro_tabla {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 20px 24px;
+    background: #ffffff;
+    border: 2px solid #00779e;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 68, 95, 0.08);
+}
+
+.modulo_registro_tabla .formulario_registro_tabla {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+.modulo_registro_tabla .seccion_registro {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: 16px 20px;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 18px;
+    border: 1px solid #00779e;
+    border-radius: 9px;
+    background: #ffffff;
+}
+
+.modulo_registro_tabla .seccion_registro>h3 {
+    grid-column: 1 / -1;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding: 0 0 10px;
+    box-sizing: border-box;
+    border-bottom: 2px solid #dce5eb;
+    color: #00445f;
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1.4;
+}
+
+.modulo_registro_tabla .campo_formulario {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+.modulo_registro_tabla .campo_formulario label {
+    display: block;
+    min-width: 0;
+    margin: 0;
+    color: #102f4e;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+
+.modulo_registro_tabla .campo_formulario input,
+.modulo_registro_tabla .campo_formulario select {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    height: 38px;
+    margin: 0;
+    padding: 8px 10px;
+    box-sizing: border-box;
+    border: 1px solid #00779e;
+    border-radius: 7px;
+    background-color: #ffffff;
+    color: #102f4e;
+    font-family: inherit;
+    font-size: 14px;
+    transition:
+        border-color 0.2s ease,
+        box-shadow 0.2s ease,
+        background-color 0.2s ease,
+        color 0.2s ease;
+}
+
+.modulo_registro_tabla .campo_formulario input::placeholder {
+    color: #8495a3;
+    opacity: 1;
+    font-size: 12px;
+}
+
+.modulo_registro_tabla .campo_formulario input:focus,
+.modulo_registro_tabla .campo_formulario select:focus,
+.modulo_registro_tabla .campo_formulario textarea:focus {
+    outline: none;
+    border-color: #00445f;
+    box-shadow: 0 0 0 2px rgba(0, 119, 158, 0.15);
+}
+
+.modulo_registro_tabla .campo_formulario input:disabled,
+.modulo_registro_tabla .campo_formulario select:disabled,
+.modulo_registro_tabla .campo_formulario textarea:disabled,
+.modulo_registro_tabla .grupo_doble input:disabled,
+.modulo_registro_tabla .grupo_doble select:disabled {
+    background-color: #eaf0f4;
+    color: #526a7b;
+    border-color: #cbd7e0;
+    font-weight: 700;
+    cursor: not-allowed;
+    opacity: 1;
+    box-shadow: none;
+}
+
+.modulo_registro_tabla .campo_formulario input:disabled::placeholder,
+.modulo_registro_tabla .campo_formulario textarea:disabled::placeholder {
+    color: #9aa9b5;
+    font-weight: 700;
+    opacity: 1;
+}
+
+.modulo_registro_tabla .campo_formulario input:disabled:focus,
+.modulo_registro_tabla .campo_formulario select:disabled:focus,
+.modulo_registro_tabla .campo_formulario textarea:disabled:focus {
+    outline: none;
+    border-color: #cbd7e0;
+    box-shadow: none;
+}
+
+.modulo_registro_tabla .campo_formulario select:disabled {
+    background-color: #eaf0f4;
+    color: #526a7b;
+    font-weight: 700;
+}
+
+.modulo_registro_tabla .campo_formulario input:disabled.is-invalid,
+.modulo_registro_tabla .campo_formulario input:disabled.is-valid {
+    border-color: #cbd7e0;
+    box-shadow: none;
+}
+
+.modulo_registro_tabla .campo_formulario input[hidden],
+.modulo_registro_tabla .campo_formulario select[hidden] {
+    display: none !important;
+}
+
+.modulo_registro_tabla .campo_formulario:has(textarea) {
+    grid-column: 1 / -1;
+    width: 100%;
+    min-width: 0;
+}
+
+.modulo_registro_tabla .campo_formulario textarea {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 10px;
+    border: 1px solid #00779e;
+    border-radius: 7px;
+    background-color: #ffffff;
+    color: #102f4e;
+    font-family: inherit;
+    font-size: 14px;
+    resize: vertical;
+}
+
+/* Controles grupales */
+.modulo_registro_tabla .grupo_doble {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 3fr);
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+/* Grupo de prefijos telefónicos y nacionalidad */
+.modulo_registro_tabla .grupo_doble:has(> .select_prefijo) {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 3fr);
+}
+
+/* Grupo de correo y dominio */
+.modulo_registro_tabla .grupo_doble:has(> .select_dominio) {
+    grid-template-columns: minmax(0, 1.8fr) minmax(0, 1.2fr);
+}
+
+/* Controles internos */
+.modulo_registro_tabla .grupo_doble input,
+.modulo_registro_tabla .grupo_doble select {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    height: 42px;
+    margin: 0;
+    box-sizing: border-box;
+}
+
+.modulo_registro_tabla .mensaje-feedback {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    margin: 1px 0 0;
+    color: #526a7b;
+    font-size: 12px;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+
+.modulo_registro_tabla .existe_administrador {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-width: 0;
+    margin: 10px 0;
+    padding: 13px 16px;
+    box-sizing: border-box;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+    transition:
+        color 0.2s ease,
+        background-color 0.2s ease,
+        border-color 0.2s ease;
+}
+
+.modulo_registro_tabla .existe_administrador:empty {
+    display: none;
+}
+
+.modulo_registro_tabla .existe_administrador.error {
+    color: #b42318;
+    background-color: #fef3f2;
+    border-color: #fecdca;
+}
+
+.modulo_registro_tabla .existe_administrador.error::before {
+    content: "\f071";
+    display: inline-block;
+    flex-shrink: 0;
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    font-size: 16px;
+    color: #b42318;
+}
+
+.modulo_registro_tabla .existe_administrador.exito {
+    color: #157347;
+    background-color: #ecfdf3;
+    border-color: #abefc6;
+}
+
+.modulo_registro_tabla .existe_administrador.exito::before {
+    content: "\f058";
+    display: inline-block;
+    flex-shrink: 0;
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    font-size: 16px;
+    color: #157347;
+}
+
+.modulo_registro_tabla .existe_administrador:not(.error):not(.exito):not(:empty) {
+    color: #00445f;
+    background-color: #f0f8fb;
+    border-color: #b9dce8;
+}
+
+.modulo_registro_tabla .existe_administrador:not(.error):not(.exito):not(:empty)::before {
+    content: "\f05a";
+    display: inline-block;
+    flex-shrink: 0;
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    font-size: 16px;
+    color: #00779e;
+}
+
+@media (max-width: 768px) {
+    .modulo_registro_tabla {
+        padding: 16px;
+    }
+
+    .modulo_registro_tabla .seccion_registro {
+        gap: 14px;
+        padding: 15px;
+    }
+
+    .modulo_registro_tabla .grupo_doble {
+        gap: 6px;
+    }
+
+    .modulo_registro_tabla .existe_administrador {
+        padding: 12px;
+        font-size: 13px;
+    }
+}
+
+@media (max-width: 576px) {
+    .modulo_registro_tabla {
+        padding: 10px;
+        border-radius: 9px;
+    }
+
+    .modulo_registro_tabla .formulario_registro_tabla {
+        gap: 14px;
+    }
+
+    .modulo_registro_tabla .seccion_registro {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 12px;
+        padding: 12px;
+    }
+
+    .modulo_registro_tabla .seccion_registro>h3 {
+        grid-column: 1;
+        padding-bottom: 8px;
+        font-size: 16px;
+    }
+
+    .modulo_registro_tabla .campo_formulario label {
+        font-size: 13px;
+    }
+
+    .modulo_registro_tabla .campo_formulario input,
+    .modulo_registro_tabla .campo_formulario select {
+        height: 38px;
+        font-size: 13px;
+    }
+
+    .modulo_registro_tabla .campo_formulario input::placeholder {
+        font-size: 12px;
+    }
+
+    .modulo_registro_tabla .grupo_doble:has(> .select_prefijo) {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 3fr);
+    }
+
+    .modulo_registro_tabla .grupo_doble:has(> .select_dominio) {
+        grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.8fr);
+    }
+
+    .modulo_registro_tabla .existe_administrador {
+        align-items: flex-start;
+        gap: 8px;
+        padding: 10px;
+        font-size: 12px;
+    }
+
+    .modulo_registro_tabla .existe_administrador::before {
+        margin-top: 1px;
+        font-size: 14px;
+    }
+}
+
+@media (max-width: 380px) {
+    .modulo_registro_tabla {
+        padding: 8px;
+    }
+
+    .modulo_registro_tabla .seccion_registro {
+        padding: 10px;
+    }
+
+    .modulo_registro_tabla .grupo_doble {
+        gap: 5px;
+    }
+
+    .modulo_registro_tabla .campo_formulario input,
+    .modulo_registro_tabla .campo_formulario select {
+        padding: 7px;
+        font-size: 12px;
+    }
+
+    .modulo_registro_tabla .grupo_doble:has(> .select_dominio) {
+        grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.9fr);
+    }
+
+    .modulo_registro_tabla .existe_administrador {
+        gap: 7px;
+        padding: 9px;
+        font-size: 12px;
+    }
+}

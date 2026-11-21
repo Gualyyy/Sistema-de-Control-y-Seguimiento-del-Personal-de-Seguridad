@@ -1,0 +1,123 @@
+{% extends 'Estructura/base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="contenedor_formulario">
+    <div class="contenedor_campos_demasiado_amplio">
+        <h2>Ganancias de Ventas</h2>
+
+        <div class="modulo_ganancias_ventas" data-url-resumen="{% url 'visualizar_ganancias' %}"
+            data-url-productos="{% url 'ganancia_producto' %}" data-url-periodos="{% url 'ganancia_periodo' %}">
+
+            <!-- RESUMEN FINANCIERO -->
+            <div class="grupo_estadistico">
+
+                <div class="estadistica_ingreso_neto">
+                    <div class="estadistica_icono">
+                        <i class="fa-solid fa-money-bill-trend-up"></i>
+                    </div>
+
+                    <div class="estadistica_informacion">
+                        <span>Ingresos netos</span>
+                        <strong id="ingresos_netos">$ 0,00</strong>
+                        <small>Ingresos después de descuentos</small>
+                    </div>
+                </div>
+
+                <div class="estadistica_costo_mercancia">
+                    <div class="estadistica_icono">
+                        <i class="fa-solid fa-boxes-stacked"></i>
+                    </div>
+
+                    <div class="estadistica_informacion">
+                        <span>Costo de mercancía</span>
+                        <strong id="costo_mercancia">$ 0,00</strong>
+                        <small>Costo de los productos vendidos</small>
+                    </div>
+                </div>
+
+                <div class="estadistica_ganancia">
+                    <div class="estadistica_icono">
+                        <i class="fa-solid fa-chart-line"></i>
+                    </div>
+
+                    <div class="estadistica_informacion">
+                        <span>Ganancia de ventas</span>
+                        <strong id="ganancia_ventas">$ 0,00</strong>
+                        <small>Ingresos menos costo de mercancía</small>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- EVOLUCIÓN FINANCIERA -->
+
+            <div class="contenedor_evolucion_ganancias">
+
+                <div class="encabezado_grafica">
+                    <div>
+                        <h3>Evolución financiera</h3>
+                        <p>Comportamiento de los ingresos, costos, gastos y ganancias.</p>
+                    </div>
+                </div>
+
+                <div id="evolucion_ganancias"></div>
+
+            </div>
+
+            <!-- GANANCIAS POR PRODUCTO -->
+
+            <div class="contenedor_ganancias_producto">
+
+                <div class="encabezado_grafica">
+                    <div>
+                        <h3>Rentabilidad por producto</h3>
+                        <p>Productos que generan mayores ganancias para la empresa.</p>
+                    </div>
+                </div>
+
+                <div id="ganancias_producto"></div>
+
+            </div>
+
+            <!-- GANANCIAS POR PERÍODO -->
+
+            <div class="contenedor_ganancias_periodo">
+
+                <div class="encabezado_grafica">
+                    <div>
+                        <h3>Ganancias por período</h3>
+                        <p>Comparación de los resultados financieros según el período seleccionado.</p>
+                    </div>
+                </div>
+
+                <div class="opciones_periodo_ganancias">
+
+                    <button type="button" class="activo" data-periodo="semanal">
+                        Semanal
+                    </button>
+
+                    <button type="button" data-periodo="mensual">
+                        Mensual
+                    </button>
+
+                    <button type="button" data-periodo="anual">
+                        Anual
+                    </button>
+
+                </div>
+
+                <div id="ganancias_por_periodo"></div>
+
+            </div>
+
+        </div>
+
+    </div>
+</section>
+
+<script src="{% static 'Funcionalidades_Asincronas/ventas/compras/atencion_cliente/ganancias_ventas.js' %}"></script>
+
+{% endblock %}

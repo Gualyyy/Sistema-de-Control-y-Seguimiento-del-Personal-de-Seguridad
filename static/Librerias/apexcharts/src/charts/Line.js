@@ -1,0 +1,2046 @@
+// @ts-check
+import CoreUtils from '../modules/CoreUtils'
+import Graphics from '../modules/Graphics'
+import Fill from '../modules/Fill'
+import DataLabels from '../modules/DataLabels'
+import Markers from '../modules/Markers'
+import Scatter from './Scatter'
+import Series from '../modules/Series'
+import Utils from '../utils/Utils'
+import Helpers from './common/line/Helpers'
+import { hash01 } from './common/Jitter'
+import { svgPath, spline } from '../libs/monotone-cubic'
+import { seriesEmitter } from '../renderers/Renderer'
+import {
+  detectStreamScroll,
+  projectPathToPrevFrame,
+} from '../modules/animations/StreamScroll'
+import {
+  reconcileSeriesPaths,
+  seriesJoin,
+  tweenSeriesMarkers,
+  growRisingMarkers,
+  shrinkCollapsingMarkers,
+} from '../modules/animations/LengthTransition'
+/**
+ * ApexCharts Line Class responsible for drawing Line / Area / RangeArea Charts.
+ * This class is also responsible for generating values for Bubble/Scatter charts, so need to rename it to Axis Charts to avoid confusions
+ * @module Line
+ **/
+
+class Line {
+  /**
+   * @param {import('../types/internal').ChartStateW} w
+   * @param {import('../types/internal').ChartContext} ctx
+   * @param {import('../types/internal').XYRatios} xyRatios
+   * @param {boolean} isPointsChart
+   */
+  constructor(w, ctx, xyRatios, isPointsChart) {
+    this.ctx = ctx
+    this.w = w
+
+    this.xyRatios = xyRatios
+
+    /** @type {number} */ this.xRatio = 0
+    /** @type {number[]} */ this.yRatio = []
+    /** @type {number} */ this.zRatio = 0
+    /** @type {number[]} */ this.baseLineY = []
+
+    this.pointsChart =
+      !(
+        this.w.config.chart.type !== 'bubble' &&
+        this.w.config.chart.type !== 'scatter'
+      ) || isPointsChart
+
+    this.scatter = new Scatter(this.w, this.ctx)
+
+    this.noNegatives = this.w.globals.minX === Number.MAX_VALUE
+
+    this.lineHelpers = new Helpers(this)
+    this.markers = new Markers(this.w, this.ctx)
+
+    /** @type {any} */
+    this.prevSeriesY = []
+    /**
+     * Top of the stack so far, keyed by x identity rather than by data-point
+     * ordinal. See _stackKey / _recordStackTops.
+     * @type {Map<any, number>}
+     */
+    this.prevSeriesYByX = new Map()
+    this.categoryAxisCorrection = 0
+    this.yaxisIndex = 0
+    /** @type {number} */ this.xDivision = 0
+    /** @type {number} */ this.zeroY = 0
+    /** @type {number} */ this.areaBottomY = 0
+    /** @type {number} */ this.strokeWidth = 0
+    /** @type {boolean} */ this.isReversed = false
+    /** @type {boolean} */ this.appendPathFrom = false
+    /** @type {any} */ this.elSeries = null
+    /** @type {any} */ this.elPointsMain = null
+    /** @type {any} */ this.elDataLabelsWrap = null
+    /** @type {any} last marker wrap appended to elPointsMain (identity guard) */
+    this._elLastPointsWrap = null
+    /** @type {boolean} drawing a hidden series' flat shape: no markers/labels */
+    this._shapeOnly = false
+  }
+
+  /**
+   * @param {any[]} series
+   * @param {string} ctype
+   * @param {number} seriesIndex
+   * @param {any} seriesRangeEnd
+   */
+  draw(series, ctype, seriesIndex, seriesRangeEnd) {
+    const w = this.w
+    // Highlight filter (opt-in feature): null without it.
+    const hf = this.ctx.highlightFilter
+    const graphics = new Graphics(this.w)
+    const type = w.globals.comboCharts ? ctype : w.config.chart.type
+    const ret = graphics.group({
+      class: `apexcharts-${type}-series apexcharts-plot-series`,
+    })
+
+    const coreUtils = new CoreUtils(this.w)
+    this.yRatio = this.xyRatios.yRatio
+    this.zRatio = this.xyRatios.zRatio
+    this.xRatio = this.xyRatios.xRatio
+    this.baseLineY = this.xyRatios.baseLineY
+
+    series = coreUtils.getLogSeries(series, /** @type {any} */ (seriesIndex))
+    this.yRatio = coreUtils.getLogYRatios(this.yRatio)
+    series = this._percentRows(series, type, seriesIndex)
+    // We call draw() for each series group
+    this.prevSeriesY = []
+    this.prevSeriesYByX = new Map()
+    // Ragged stacked x: the sorted union of the shown series' x, so each edge
+    // can pass through the stack at an x it lacks (see _iterateOverDataPoints)
+    /** @type {any[] | null} */
+    this._stackXs = null
+    if (w.config.chart.stacked && w.axisFlags.isXNumeric) {
+      const xs = series
+        .map((_, i) =>
+          w.globals.comboCharts ? /** @type {any} */ (seriesIndex)[i] : i,
+        )
+        .filter((ri) => !this._hidden(ri))
+        .map((ri) => w.seriesData.seriesX[ri] || [])
+      if (
+        xs.some(
+          (a) => a.length !== xs[0].length || a.some((v, k) => v !== xs[0][k]),
+        )
+      ) {
+        this._stackXs = [...new Set(xs.flat())].sort((a, b) => a - b)
+      }
+    }
+
+    // push all series in an array, so we can draw in reverse order
+    // (for stacked charts)
+    const allSeries = []
+
+    for (let i = 0; i < series.length; i++) {
+      const realIndex = w.globals.comboCharts
+        ? /** @type {any} */ (seriesIndex)[i]
+        : i
+      series = this.lineHelpers.sameValueSeriesFix(i, series, realIndex)
+      const translationsIndex = this.yRatio.length > 1 ? realIndex : 0
+
+      // A series hidden from the legend is drawn flat on the baseline instead
+      // of not at all, so hiding it flattens it down and showing it again rises
+      // back up (stacked charts get the same from their zero padding). Copies,
+      // never the parsed rows: `series` can be w.seriesData.series itself.
+      const flat = this._collapsedBaselineRow(series, i, realIndex)
+      // The flat row is the series' SHAPE only: no markers, no data labels.
+      // A hidden series has no points to show, and drawing them anyway cost a
+      // full marker pass per hidden series (a 1200-point series emitted a
+      // second, invisible marker batch).
+      this._shapeOnly = !!flat
+      if (flat) {
+        series = series.slice()
+        series[i] = flat
+        if (type === 'rangeArea' && seriesRangeEnd) {
+          seriesRangeEnd = seriesRangeEnd.slice()
+          seriesRangeEnd[i] = flat
+        }
+      }
+
+      this._initSerieVariables(series, i, realIndex)
+
+      Series.addCollapsedClassToSeries(this.w, this.elSeries, realIndex)
+
+      const paths = this._buildSeriesPaths(
+        type,
+        series,
+        i,
+        realIndex,
+        translationsIndex,
+        seriesIndex,
+        seriesRangeEnd,
+      )
+
+      this._handlePaths({ type, realIndex, i, paths })
+      // Highlight filter (opt-in feature): this series' part, built by
+      // _buildSeriesPaths from the part row and drawn solid over the dashed
+      // or faded whole, before the markers and labels are appended.
+      hf?.line(this, type, series, i, realIndex, translationsIndex, paths)
+
+      // Batched markers accumulate across the j loop above and become one path
+      // element here, at the end of the series.
+      this.markers.flushBatch(this.elPointsMain, realIndex)
+
+      this.elSeries.add(this.elPointsMain)
+      this.elSeries.add(this.elDataLabelsWrap)
+
+      allSeries.push(this.elSeries)
+    }
+
+    if (
+      typeof (
+        /** @type {Record<string,any>} */ (w.config.series[0])?.zIndex
+      ) !== 'undefined'
+    ) {
+      allSeries.sort(
+        (a, b) =>
+          Number(a.node.getAttribute('zIndex')) -
+          Number(b.node.getAttribute('zIndex')),
+      )
+    }
+
+    if (w.config.chart.stacked) {
+      for (let s = allSeries.length - 1; s >= 0; s--) {
+        ret.add(allSeries[s])
+      }
+    } else {
+      for (let s = 0; s < allSeries.length; s++) {
+        ret.add(allSeries[s])
+      }
+    }
+
+    return ret
+  }
+
+  /**
+   * One series' line and area paths from its row of values: the start point,
+   * the stacking base, the pathFrom and the per-point walk. The draw loop
+   * calls it for each series; the highlight filter calls it again with the
+   * part row while markers and labels are off (_shapeOnly).
+   * @param {string} type
+   * @param {any[]} series
+   * @param {number} i
+   * @param {number} realIndex
+   * @param {number} translationsIndex
+   * @param {any} seriesIndex
+   * @param {any} seriesRangeEnd
+   */
+  _buildSeriesPaths(
+    type,
+    series,
+    i,
+    realIndex,
+    translationsIndex,
+    seriesIndex,
+    seriesRangeEnd,
+  ) {
+    const w = this.w
+    const yArrj = [] // hold y values of current iterating series
+    const y2Arrj = [] // holds y2 values in range-area charts
+    const xArrj = [] // hold x values of current iterating series
+
+    let x = w.globals.padHorizontal + this.categoryAxisCorrection
+    const y = 1
+
+    /** @type {any[]} */
+    const linePaths = []
+    /** @type {any[]} */
+    const areaPaths = []
+
+    if (w.axisFlags.isXNumeric && w.seriesData.seriesX.length > 0) {
+      x = (w.seriesData.seriesX[realIndex][0] - w.globals.minX) / this.xRatio
+    }
+
+    xArrj.push(x)
+
+    const pX = x
+    let pY2
+    let prevY = this.zeroY
+    let prevY2 = this.zeroY
+    const lineYPosition = 0
+
+    // the first value in the current series is not null or undefined
+    const firstPrevY = this.lineHelpers.determineFirstPrevY({
+      i,
+      realIndex,
+      series,
+      prevY,
+      lineYPosition,
+      translationsIndex,
+    })
+    prevY = firstPrevY.prevY
+    if (w.config.stroke.curve === 'monotoneCubic' && series[i][0] === null) {
+      // we have to discard the y position if 1st dataPoint is null as it
+      // causes issues with monotoneCubic path creation
+      yArrj.push(null)
+    } else {
+      yArrj.push(prevY)
+    }
+    const pY = prevY
+
+    // y2 are needed for range-area charts
+    let firstPrevY2
+
+    if (type === 'rangeArea') {
+      firstPrevY2 = this.lineHelpers.determineFirstPrevY({
+        i,
+        realIndex,
+        series: seriesRangeEnd,
+        prevY: prevY2,
+        lineYPosition,
+        translationsIndex,
+      })
+      prevY2 = firstPrevY2.prevY
+      pY2 = prevY2
+      y2Arrj.push(yArrj[0] !== null ? prevY2 : null)
+    }
+
+    const pathsFrom = this._calculatePathsFrom(realIndex, prevY)
+
+    // RangeArea will resume with these for the upper path creation
+    const rYArrj = [yArrj[0]]
+    const rY2Arrj = [y2Arrj[0]]
+
+    const iteratingOpts = {
+      type,
+      series,
+      realIndex,
+      translationsIndex,
+      i,
+      x,
+      y,
+      pX,
+      pY,
+      pathsFrom,
+      linePaths,
+      areaPaths,
+      seriesIndex,
+      lineYPosition,
+      xArrj,
+      yArrj,
+      y2Arrj,
+      seriesRangeEnd,
+    }
+
+    const paths = this._iterateOverDataPoints({
+      ...iteratingOpts,
+      iterations: type === 'rangeArea' ? series[i].length - 1 : undefined,
+      isRangeStart: true,
+    })
+
+    if (type === 'rangeArea') {
+      const pathsFrom2 = this._calculatePathsFrom(realIndex, prevY2)
+      const rangePaths = this._iterateOverDataPoints({
+        ...iteratingOpts,
+        series: seriesRangeEnd,
+        xArrj: [x],
+        yArrj: rYArrj,
+        y2Arrj: rY2Arrj,
+        pY: pY2,
+        areaPaths: paths.areaPaths,
+        pathsFrom: pathsFrom2,
+        iterations: seriesRangeEnd[i].length - 1,
+        isRangeStart: false,
+      })
+
+      // Path may be segmented by nulls in data.
+      // paths.linePaths should hold (segments * 2) paths (upper and lower)
+      // the first n segments belong to the lower and the last n segments
+      // belong to the upper.
+      // paths.linePaths and rangePaths.linepaths are actually equivalent
+      // but we retain the distinction below for consistency with the
+      // unsegmented paths conditional branch.
+      const segments = paths.linePaths.length / 2
+      for (let s = 0; s < segments; s++) {
+        paths.linePaths[s] =
+          rangePaths.linePaths[s + segments] + paths.linePaths[s]
+      }
+      paths.linePaths.splice(segments)
+      const prevBand =
+        paths.linePaths.length === 1
+          ? this.lineHelpers.previousRangeAreaPath(realIndex)
+          : null
+      paths.pathFromLine =
+        prevBand ?? rangePaths.pathFromLine + paths.pathFromLine
+    } else if (!/z\s*$/i.test(paths.pathFromArea)) {
+      // Close the initial-mount baseline pathFrom. A pathFrom taken from a
+      // captured previous render already ends with `z`; appending another
+      // used to produce a double-z path that broke reconciliation and fed
+      // the morph a malformed command list.
+      paths.pathFromArea += 'z'
+    }
+
+    return paths
+  }
+
+  /**
+   * The row to draw for a legend-hidden series on an unstacked chart: every
+   * point on the baseline, or null to draw the series as it is.
+   *
+   * A hidden series arrives with no data. Drawn as nothing, its paths had no
+   * target to tween to, so it vanished on the click and reappeared fully
+   * formed on the next one. Drawn flat on the baseline, the exit is the
+   * series flattening down (the same "value goes to zero" a stacked layer or a
+   * bar already shows), and the re-entry rises from where it went. The
+   * series-collapsed class keeps it unpainted at rest.
+   *
+   * The baseline is 0 when 0 is on the axis, else the axis edge nearest to it,
+   * so a 900..1000 line flattens onto the bottom of the plot rather than
+   * dropping out of view. Only the drawing changes: the data, the y range and
+   * the tooltip all still see an empty series.
+   * @param {any[]} series
+   * @param {number} i
+   * @param {number} realIndex
+   * @returns {number[] | null}
+   */
+  _collapsedBaselineRow(series, i, realIndex) {
+    const w = this.w
+    const gl = w.globals
+    // Points have no line to flatten: they shrink in place instead
+    // (LengthTransition.shrinkCollapsingMarkers).
+    if (w.config.chart.stacked || this.pointsChart) return null
+    if (!Array.isArray(series[i]) || series[i].length !== 0) return null
+    if (!this._hidden(realIndex)) return null
+    const n = w.axisFlags.isXNumeric
+      ? (w.seriesData.seriesX[realIndex] || []).length
+      : gl.dataPoints
+    if (!n) return null
+
+    const lo = Utils.isNumber(gl.minYArr[realIndex])
+      ? gl.minYArr[realIndex]
+      : gl.minY
+    const hi = Utils.isNumber(gl.maxYArr[realIndex])
+      ? gl.maxYArr[realIndex]
+      : gl.maxY
+    const base = Math.min(Math.max(0, lo), hi)
+    return new Array(n).fill(Utils.isNumber(base) ? base : 0)
+  }
+
+  /**
+   * @param {any[]} series
+   * @param {number} i
+   * @param {number} realIndex
+   */
+  _initSerieVariables(series, i, realIndex) {
+    const w = this.w
+    const graphics = new Graphics(this.w)
+
+    // width divided into equal parts
+    this.xDivision =
+      w.layout.gridWidth /
+      (w.globals.dataPoints - (w.config.xaxis.tickPlacement === 'on' ? 1 : 0))
+
+    this.strokeWidth = Array.isArray(w.config.stroke.width)
+      ? w.config.stroke.width[realIndex]
+      : w.config.stroke.width
+
+    let translationsIndex = 0
+    if (this.yRatio.length > 1) {
+      this.yaxisIndex = w.globals.seriesYAxisReverseMap[realIndex]
+      translationsIndex = realIndex
+    }
+
+    this.isReversed =
+      w.config.yaxis[this.yaxisIndex] &&
+      w.config.yaxis[this.yaxisIndex].reversed
+
+    // zeroY is the 0 value in y series which can be used in negative charts
+    this.zeroY =
+      w.layout.gridHeight -
+      this.baseLineY[translationsIndex] -
+      (this.isReversed ? w.layout.gridHeight : 0) +
+      (this.isReversed ? this.baseLineY[translationsIndex] * 2 : 0)
+
+    this.areaBottomY = this.zeroY
+    if (
+      this.zeroY > w.layout.gridHeight ||
+      w.config.plotOptions.area.fillTo === 'end'
+    ) {
+      this.areaBottomY = w.layout.gridHeight
+    }
+
+    this.categoryAxisCorrection = this.xDivision / 2
+
+    // el to which series will be drawn
+    const seriesItem = /** @type {Record<string,any>} */ (
+      w.config.series[realIndex]
+    )
+    this.elSeries = graphics.group({
+      class: `apexcharts-series`,
+      zIndex:
+        typeof seriesItem.zIndex !== 'undefined'
+          ? seriesItem.zIndex
+          : realIndex,
+      seriesName: Utils.escapeString(w.seriesData.seriesNames[realIndex]),
+    })
+
+    // points
+    this.elPointsMain = graphics.group({
+      class: 'apexcharts-series-markers-wrap',
+      'data:realIndex': realIndex,
+    })
+    // fresh series element tree -> the per-series marker wrap cache must not
+    // leak a group belonging to a previous series/render
+    this.markers.resetSeriesWrapCache()
+    this._elLastPointsWrap = null
+
+    if (w.globals.hasNullValues) {
+      // fixes https://github.com/apexcharts/apexcharts.js/issues/3641
+      const firstPoint = this.markers.plotChartMarkers({
+        pointsPos: {
+          x: [0],
+          y: [w.layout.gridHeight + w.globals.markers.largestSize],
+        },
+        seriesIndex: i,
+        j: 0,
+        pSize: 0.1,
+        alwaysDrawMarker: true,
+        isVirtualPoint: true,
+      })
+
+      if (firstPoint !== null) {
+        // firstPoint is rendered for cases where there are null values and when dynamic markers are required
+        this.elPointsMain.add(firstPoint)
+      }
+    }
+
+    // eldatalabels
+    this.elDataLabelsWrap = graphics.group({
+      class: 'apexcharts-datalabels',
+      'data:realIndex': realIndex,
+    })
+
+    const longestSeries = series[i].length === w.globals.dataPoints
+    this.elSeries.attr({
+      'data:longestSeries': longestSeries,
+      rel: i + 1,
+      'data:realIndex': realIndex,
+    })
+
+    this.appendPathFrom = true
+  }
+
+  /**
+   * The baseline pathFrom a series grows from on mount, or the previous
+   * render's paths when there are any. `prevY` rides along for the first
+   * point's marker.
+   * @param {number} realIndex
+   * @param {number} prevY
+   */
+  _calculatePathsFrom(realIndex, prevY) {
+    const graphics = new Graphics(this.w)
+    let pathFromLine =
+      graphics.move(0, this.areaBottomY) + graphics.line(0, this.areaBottomY)
+    let pathFromArea = pathFromLine
+
+    if (this.w.globals.previousPaths.length > 0) {
+      const pathFrom = this.lineHelpers.checkPreviousPaths({
+        pathFromLine,
+        pathFromArea,
+        realIndex,
+      })
+      pathFromLine = pathFrom.pathFromLine
+      pathFromArea = pathFrom.pathFromArea
+    }
+
+    return { prevY, pathFromLine, pathFromArea }
+  }
+
+  /**
+   * The identity a stacked baseline is looked up by.
+   *
+   * On a numeric or datetime axis each series carries its own x array, and two
+   * series' Nth points are not the same x when one of them is missing an entry.
+   * So the key is the x VALUE there. On a category axis every series is indexed
+   * against the shared category list, so the ordinal already IS the identity
+   * (and the pixel x is a running sum, unsafe to compare as a float).
+   *
+   * Returns undefined when this ordinal has no x, which happens on every series
+   * shorter than the longest one: the loop runs `dataPoints - 1` times for all
+   * of them. Those iterations must not write to or read from the map.
+   * @param {number} realIndex
+   * @param {number} ordinal
+   * @returns {any}
+   */
+  _stackKey(realIndex, ordinal) {
+    return CoreUtils.stackKey(this.w, realIndex, ordinal)
+  }
+
+  /**
+   * Pixel y of the top of the stack at one point of the series being drawn, or
+   * undefined when nothing has been stacked there yet (so the caller starts
+   * from the axis baseline).
+   * @param {number} realIndex
+   * @param {number} ordinal
+   * @returns {number | undefined}
+   */
+  stackTopAt(realIndex, ordinal) {
+    const key = this._stackKey(realIndex, ordinal)
+    if (key === undefined || key === null) return undefined
+    return this.prevSeriesYByX.get(key)
+  }
+
+  /**
+   * Whether this series stacks. A stacked combo chart with the default
+   * `stackOnlyBar` stacks only its bar and column series, so none of the
+   * line and area series drawn here.
+   * @param {number} realIndex
+   */
+  isStackedSeries(realIndex) {
+    const cfg = this.w.config
+    if (!cfg.chart.stacked) return false
+    if (!this.w.globals.comboCharts || !cfg.chart.stackOnlyBar) return true
+    const t = /** @type {any} */ (cfg.series[realIndex])?.type
+    return t === 'bar' || t === 'column'
+  }
+
+  /**
+   * Under `stackType: '100%'` a stacked line or area draws each point's
+   * share of its stack (w.globals.seriesPercent), as BarStacked does, not
+   * its raw value on the 0..100 axis (#5384). A series that does not stack
+   * (a line over a stacked bar combo with `stackOnlyBar`) keeps its row. A
+   * null stays null, a gap rather than a 0% point. `this.percentRows`
+   * holds the rows by realIndex for the data labels, else null.
+   * @param {any[]} series
+   * @param {string} type
+   * @param {any} seriesIndex
+   * @returns {any[]}
+   */
+  _percentRows(series, type, seriesIndex) {
+    const w = this.w
+    /** @type {any[] | null} */
+    this.percentRows = null
+    if (
+      !w.config.chart.stacked ||
+      w.config.chart.stackType !== '100%' ||
+      (type !== 'line' && type !== 'area')
+    ) {
+      return series
+    }
+    const pct = w.globals.seriesPercent
+    /** @type {any[]} */
+    const rows = []
+    const out = series.map((row, i) => {
+      const ri = w.globals.comboCharts ? seriesIndex[i] : i
+      const p = pct?.[ri]
+      if (!this.isStackedSeries(ri) || !Array.isArray(row) || !p) return row
+      const raw = w.seriesData.series[ri] || row
+      rows[ri] = row.map((v, j) => (raw[j] == null ? raw[j] : p[j]))
+      return rows[ri]
+    })
+    this.percentRows = rows
+    return out
+  }
+
+  /** @param {number} ri */
+  _hidden(ri) {
+    const g = this.w.globals
+    return (
+      g.collapsedSeriesIndices.indexOf(ri) > -1 ||
+      g.ancillaryCollapsedSeriesIndices.indexOf(ri) > -1
+    )
+  }
+
+  /**
+   * Fold a drawn series into the running stack top, so the next series can find
+   * its baseline by x (#4886).
+   *
+   * A point the series does not have simply leaves the previous top in place,
+   * which is the same thing as contributing 0 there. That is exactly what the
+   * workaround posted on the issue does by hand (pad every series onto the union
+   * of all x with zeros), and it is the behaviour the reporter expected.
+   *
+   * Collapsed series are skipped rather than folded in. Today a collapsed series
+   * renders a full-length yArrj sitting on the running baseline, so folding it
+   * would be a no-op anyway, but skipping states the intent and keeps this
+   * correct if that representation ever changes.
+   * @param {number} realIndex
+   * @param {any[]} yArrj
+   * @param {any[]} [row] the drawn row, if not the series' own (a part)
+   */
+  _recordStackTops(
+    realIndex,
+    yArrj,
+    row = this.w.seriesData.series[realIndex],
+  ) {
+    // Only stacked series read the map back (stackTopAt), and the walk costs a
+    // Map write per point: 4.7ms per update on a 50k line that is not stacked,
+    // or that sits unstacked in a stacked bar combo.
+    if (!this.isStackedSeries(realIndex)) return
+    if (!Array.isArray(yArrj)) return
+    if (this._hidden(realIndex)) return
+
+    for (let j = 0; j < yArrj.length; j++) {
+      const key = this._stackKey(realIndex, j)
+      if (key === undefined || key === null) continue
+      // A null y is a gap in this series, not a new top: leave whatever the
+      // series below contributed. The ordinal path used to hand the null
+      // straight to the next series as its baseline, where it coerced to 0 and
+      // put that point at the top of the plot. Decided from the datum: the
+      // straight and step curves park a null at getY(minY), a real number.
+      const y = yArrj[j]
+      if (!Utils.isNumber(y) || row?.[j] == null) continue
+      this.prevSeriesYByX.set(key, y)
+    }
+  }
+
+  /** @param {{type: any, realIndex: any, i: any, paths: any}} opts */
+  _handlePaths({ type, realIndex, i, paths }) {
+    const w = this.w
+    const graphics = new Graphics(this.w)
+    // Strata (#2): series body paths emit through the active renderer (canvas
+    // records them; SVG returns `graphics` unchanged). Chrome (forecast masks)
+    // stays on `graphics`.
+    const emit = seriesEmitter(this.ctx, graphics)
+    const fill = new Fill(this.w)
+    // The whole's rendered marks, for the highlight filter to fade or dash
+    // (on the canvas renderer they never reach the DOM).
+    /** @type {any[]} */
+    this.marks = []
+
+    // push all current y values array to main PrevY Array
+    this.prevSeriesY.push(paths.yArrj)
+    this._recordStackTops(realIndex, paths.yArrj)
+
+    // Streaming scroll: when this update is a windowed continuation of the
+    // previous render (rolling window / append under xaxis.range), morph from
+    // the new path re-projected into the previous frame's pixel space instead
+    // of the captured previous path, so the morph translates the window
+    // (points slide left) rather than crossfading y at fixed x.
+    let streamScroll = null
+    if ((type === 'line' || type === 'area') && w.globals.dataChanged) {
+      streamScroll = detectStreamScroll(w, realIndex, paths.xArrj, paths.yArrj)
+    }
+
+    // Variable-length update (points entered/exited): rebuild the morph pair
+    // over the union of old+new datums so entering points grow out of the old
+    // curve, exiting points melt into the new one, and area fills never tear.
+    // The runner tweens toward the padded target and snaps to the clean path.
+    // The datum join below serves the path reconcile, the marker ride and the
+    // label hold: built once for this series, on first use (a null one is
+    // only ever the cheap early gates, so it is simply asked again).
+    /** @type {any} */
+    let sj
+    const join = () => sj || (sj = seriesJoin(w, realIndex, true, true))
+    let reconcile = null
+    if (!streamScroll && (type === 'line' || type === 'area')) {
+      reconcile = reconcileSeriesPaths(w, {
+        type,
+        realIndex,
+        pathFromLine: paths.pathFromLine,
+        pathFromArea: paths.pathFromArea,
+        linePaths: paths.linePaths,
+        areaPaths: paths.areaPaths,
+        join,
+      })
+    }
+
+    // push all x val arrays into main xArr
+    w.globals.seriesXvalues[realIndex] = paths.xArrj
+    w.globals.seriesYvalues[realIndex] = paths.yArrj
+
+    const forecast = w.config.forecastDataPoints
+    if (forecast.count > 0 && type !== 'rangeArea') {
+      // From the axis, not seriesXvalues: that holds null for a null value,
+      // which put the cutoff at 0 and dashed the whole series.
+      const ci = paths.xArrj.length - forecast.count - 1
+      const forecastCutoff = w.axisFlags.isXNumeric
+        ? (w.seriesData.seriesX[realIndex][ci] - w.globals.minX) / this.xRatio
+        : w.globals.padHorizontal +
+          this.categoryAxisCorrection +
+          ci * this.xDivision
+      const elForecastMask = graphics.drawRect(
+        forecastCutoff,
+        0,
+        w.layout.gridWidth,
+        w.layout.gridHeight,
+        0,
+      )
+      w.dom.elForecastMask.appendChild(elForecastMask.node)
+
+      const elNonForecastMask = graphics.drawRect(
+        0,
+        0,
+        forecastCutoff,
+        w.layout.gridHeight,
+        0,
+      )
+      w.dom.elNonForecastMask.appendChild(elNonForecastMask.node)
+    }
+
+    // these elements will be shown after area path animation completes
+    if (!this.pointsChart) {
+      w.globals.delayedElements.push({
+        el: this.elPointsMain.node,
+        index: realIndex,
+      })
+
+      // Animated update: ride the markers along the morph instead of hiding
+      // them (survivors translate, enters fade). Applies to zooms and value
+      // updates too (identity joins), not just length changes.
+      const riding = tweenSeriesMarkers(w, {
+        elPointsMain: this.elPointsMain,
+        realIndex,
+        speed: w.config.chart.animations.dynamicAnimation.speed,
+        join,
+      })
+      // A line drawn without a stroke has no path, and the path's morph (or,
+      // when nothing animates, Graphics.renderPaths) is what reveals the
+      // markers held above. With no path nothing ever did: after any update
+      // that did not ride them, every marker stayed hidden. There is no line
+      // to wait for, so they show now.
+      if (
+        !riding &&
+        type === 'line' &&
+        !w.config.stroke.show &&
+        (w.globals.dataChanged || w.globals.resized)
+      ) {
+        this.elPointsMain.node.classList.remove('apexcharts-element-hidden')
+      }
+      // On a LAYOUT change additionally hide the data labels until the morph
+      // settles so they never float off the line.
+      if (
+        this.elDataLabelsWrap?.node &&
+        seriesJoin(w, realIndex, false, false, join())
+      ) {
+        this.elDataLabelsWrap.node.classList.add('apexcharts-element-hidden')
+        w.globals.delayedElements.push({
+          el: this.elDataLabelsWrap.node,
+          holdUntilComplete: true,
+        })
+      }
+    } else {
+      // Scatter/bubble: the markers ARE the series. Ride them across animated
+      // data updates and zoom re-projections the same way (survivors translate,
+      // bubbles retween radius, enters fade); without this the points snap to
+      // their new spots on frame 0.
+      tweenSeriesMarkers(w, {
+        elPointsMain: this.elPointsMain,
+        realIndex,
+        speed: w.config.chart.animations.dynamicAnimation.speed,
+      })
+      // Legend toggles: the series' points grow back in place when it is
+      // shown, and shrink away in place when it is hidden.
+      growRisingMarkers(w, {
+        elPointsMain: this.elPointsMain,
+        realIndex,
+        speed: w.config.chart.animations.dynamicAnimation.speed,
+      })
+      if (!(w.seriesData.series[realIndex] || []).length) {
+        shrinkCollapsingMarkers(w, {
+          elPointsMain: this.elPointsMain,
+          realIndex,
+          speed: w.config.chart.animations.dynamicAnimation.speed,
+          drawPoint: (x, y, r, j) =>
+            this.scatter.drawPoint(x, y, r, realIndex, j, j),
+        })
+      }
+    }
+
+    const defaultRenderedPathOptions = {
+      i,
+      realIndex,
+      animationDelay: i,
+      initialSpeed: w.config.chart.animations.speed,
+      dataChangeSpeed: w.config.chart.animations.dynamicAnimation.speed,
+      className: `apexcharts-${type}`,
+    }
+
+    // Numeric fast-path coords (canvas mode): the renderer paints these via a
+    // moveTo/lineTo loop instead of parsing the d string into a Path2D.
+    const numericXY = paths.numericXY
+
+    // A null splits a series into segments, but a gap in SVG is just another
+    // subpath: every segment already begins with an M, so the whole series
+    // fits in ONE path element rather than one element per segment. Each extra
+    // element cost a DOM node, its attributes, its listeners and a getBBox,
+    // which is why a series with many nulls rendered so disproportionately
+    // slowly (#3249: ~20us per null against ~0.5us per ordinary point, so 286
+    // nulls meant 288 path elements and a 3x render).
+    //
+    // For a line this is pixel-identical. For an area it also makes the fill
+    // gradient one continuous ramp across the series instead of restarting at
+    // every gap, which is what a single series should look like.
+    //
+    // rangeArea is excluded: its segments were already combined pairwise above
+    // (upper + lower per segment) and its fill depends on that pairing. Canvas
+    // mode is unaffected either way, since `numericXY` already carries the
+    // whole series rather than per-segment coordinates.
+    const mergeSegments = type === 'line' || type === 'area'
+    const linePathsToDraw =
+      mergeSegments && paths.linePaths.length > 1
+        ? [paths.linePaths.join(' ')]
+        : paths.linePaths
+    const areaPathsToDraw =
+      mergeSegments && paths.areaPaths.length > 1
+        ? [paths.areaPaths.join(' ')]
+        : paths.areaPaths
+
+    if (type === 'area') {
+      const pathFill = fill.fillPath({
+        seriesNumber: realIndex,
+      })
+
+      for (let p = 0; p < areaPathsToDraw.length; p++) {
+        const renderedPath = emit.renderPaths({
+          ...defaultRenderedPathOptions,
+          pathFrom: streamScroll
+            ? projectPathToPrevFrame(areaPathsToDraw[p], streamScroll)
+            : (reconcile?.area?.from ?? paths.pathFromArea),
+          pathTo: areaPathsToDraw[p],
+          pathToNumeric: numericXY
+            ? {
+                xs: numericXY.xs,
+                ys: numericXY.ys,
+                closeY: numericXY.areaCloseY,
+              }
+            : undefined,
+          pathToInterp: reconcile?.area?.toInterp,
+          scrollMorph: !!streamScroll,
+          stroke: 'none',
+          strokeWidth: 0,
+          strokeLinecap: null,
+          fill: pathFill,
+        })
+        this.elSeries.add(renderedPath)
+        this.marks.push(renderedPath)
+      }
+    }
+
+    if (w.config.stroke.show && !this.pointsChart) {
+      let lineFill = null
+      if (type === 'line') {
+        lineFill = fill.fillPath({
+          seriesNumber: realIndex,
+          i,
+        })
+      } else {
+        if (w.config.stroke.fill.type === 'solid') {
+          lineFill = w.globals.stroke.colors[realIndex]
+        } else {
+          const prevFill = w.config.fill
+          w.config.fill = w.config.stroke.fill
+
+          lineFill = fill.fillPath({
+            seriesNumber: realIndex,
+            i,
+          })
+          w.config.fill = prevFill
+        }
+      }
+
+      // range-area paths are drawn using linePaths
+      for (let p = 0; p < linePathsToDraw.length; p++) {
+        let pathFill = lineFill
+        if (type === 'rangeArea') {
+          pathFill = fill.fillPath({
+            seriesNumber: realIndex,
+          })
+        }
+        const linePathCommonOpts = {
+          ...defaultRenderedPathOptions,
+          pathFrom: streamScroll
+            ? projectPathToPrevFrame(linePathsToDraw[p], streamScroll)
+            : (reconcile?.line?.from ?? paths.pathFromLine),
+          pathTo: linePathsToDraw[p],
+          pathToNumeric: numericXY
+            ? { xs: numericXY.xs, ys: numericXY.ys }
+            : undefined,
+          pathToInterp: reconcile?.line?.toInterp,
+          scrollMorph: !!streamScroll,
+          stroke: lineFill,
+          strokeWidth: this.strokeWidth,
+          strokeLinecap: w.config.stroke.lineCap,
+          fill: type === 'rangeArea' ? pathFill : 'none',
+        }
+        const renderedPath = emit.renderPaths(linePathCommonOpts)
+        this.elSeries.add(renderedPath)
+        this.marks.push(renderedPath)
+        renderedPath.attr('fill-rule', `evenodd`)
+
+        if (forecast.count > 0 && type !== 'rangeArea') {
+          const renderedForecastPath = emit.renderPaths(linePathCommonOpts)
+
+          renderedForecastPath.node.setAttribute(
+            'stroke-dasharray',
+            forecast.dashArray,
+          )
+
+          if (forecast.strokeWidth) {
+            renderedForecastPath.node.setAttribute(
+              'stroke-width',
+              forecast.strokeWidth,
+            )
+          }
+
+          this.elSeries.add(renderedForecastPath)
+          renderedForecastPath.attr(
+            'clip-path',
+            `url(#forecastMask${w.globals.cuid})`,
+          )
+          renderedPath.attr(
+            'clip-path',
+            `url(#nonForecastMask${w.globals.cuid})`,
+          )
+        }
+      }
+    }
+  }
+
+  _iterateOverDataPoints(
+    /** @type {any} */ {
+      type,
+      series,
+      iterations,
+      realIndex,
+      translationsIndex,
+      i,
+      x,
+      y,
+      pX,
+      pY,
+      pathsFrom,
+      linePaths,
+      areaPaths,
+      seriesIndex,
+      lineYPosition,
+      xArrj,
+      yArrj,
+      y2Arrj,
+      isRangeStart,
+      seriesRangeEnd,
+    },
+  ) {
+    const w = this.w
+    const graphics = new Graphics(this.w)
+    const yRatio = this.yRatio
+    const prevY = pathsFrom.prevY
+    let { pathFromLine, pathFromArea } = pathsFrom
+    /** @type {any} */
+    let linePath
+    /** @type {any} */
+    let areaPath
+
+    const minY = Utils.isNumber(w.globals.minYArr[realIndex])
+      ? w.globals.minYArr[realIndex]
+      : w.globals.minY
+
+    if (!iterations) {
+      iterations =
+        w.globals.dataPoints > 1
+          ? w.globals.dataPoints - 1
+          : w.globals.dataPoints
+    }
+
+    /**
+     * @param {number} _y
+     * @param {number} lineYPos
+     */
+    const getY = (_y, lineYPos) => {
+      return (
+        lineYPos -
+        _y / yRatio[translationsIndex] +
+        (this.isReversed ? _y / yRatio[translationsIndex] : 0) * 2
+      )
+    }
+
+    let y2 = y
+
+    const stackSeries = this.isStackedSeries(realIndex)
+
+    let curve = w.config.stroke.curve
+    if (Array.isArray(curve)) {
+      if (Array.isArray(seriesIndex)) {
+        curve = curve[seriesIndex[i]]
+      } else {
+        curve = curve[i]
+      }
+    }
+
+    let pathState = 0
+    let segmentStartX
+
+    // Scatter jitter: max ± offsets (px) for this series, or null. Applied to
+    // the stored point positions below so markers, seriesXvalues/seriesYvalues
+    // and the tooltip's nearest-point picker all share the same jittered coords
+    // (keeps the sticky tooltip anchored to the dot the cursor is actually over).
+    const jitterPx = this.pointsChart ? this._scatterJitterPx(realIndex) : null
+
+    // Numeric fast path: a plain straight line/area (no nulls, markers,
+    // labels, stacking) computes its geometry in one tight loop with a
+    // join-built d string that is byte-identical to what the state machine
+    // below produces, skipping the per-point _createPaths /
+    // _handleMarkersAndLabels machinery that dominates large-series renders.
+    if (curve === 'straight' && !this.pointsChart) {
+      const fast = this._fastStraightPath({
+        type,
+        series,
+        i,
+        realIndex,
+        translationsIndex,
+        iterations,
+        x,
+        y,
+        pX,
+        pY,
+        pathsFrom,
+        linePaths,
+        areaPaths,
+        xArrj,
+        yArrj,
+        y2Arrj,
+        stackSeries,
+      })
+      if (fast) return fast
+    }
+
+    // Between two of its points a ragged stacked series contributes 0 at any
+    // x it lacks, so its edge passes through the stack top there (the axis
+    // when nothing below has that x), or the layers cross. midsAt[j] holds
+    // those vertices before point j.
+    const ks = stackSeries ? this._stackXs : null
+    let kp = 0
+    /** @type {any[][]} */
+    const midsAt = []
+
+    // Progressive marker reveal handles per-marker opacity timing (synced to
+    // the line draw), so the legacy group-level hide is bypassed on initial
+    // mount. Data updates and resizes still hide the wrap until the morph
+    // lands, as does a batched series, which has no per-marker element to
+    // time (the whole batch appears when the draw completes). Once per
+    // series: the per-point marker loop below would repeat it per point.
+    if (
+      !this._shapeOnly &&
+      !this.pointsChart &&
+      iterations > 0 &&
+      series[i].length &&
+      w.seriesData.series[i].length > 1 &&
+      (w.globals.dataChanged || w.globals.resized || w.globals.markers.batched)
+    ) {
+      this.elPointsMain.node.classList.add('apexcharts-element-hidden')
+    }
+
+    for (let j = 0; j < iterations; j++) {
+      if (series[i].length === 0) break
+
+      const isNull =
+        typeof series[i][j + 1] === 'undefined' || series[i][j + 1] === null
+
+      if (w.axisFlags.isXNumeric) {
+        const sxs = w.seriesData.seriesX[realIndex]
+        let sX = sxs[j + 1]
+        if (typeof sX === 'undefined') {
+          /* fix #374 */
+          sX = sxs[iterations - 1]
+        }
+        x = (sX - w.globals.minX) / this.xRatio
+        if (ks) {
+          const m = []
+          while (ks[kp] <= sxs[j]) kp++
+          while (ks[kp] < sX) {
+            m.push([
+              (ks[kp] - w.globals.minX) / this.xRatio,
+              this.prevSeriesYByX.get(ks[kp++]) ?? this.zeroY,
+            ])
+          }
+          if (m.length) midsAt[j + 1] = m
+        }
+      } else {
+        x = x + this.xDivision
+      }
+
+      if (stackSeries) {
+        if (
+          i > 0 &&
+          w.globals.collapsedSeries.length < w.config.series.length - 1
+        ) {
+          // Walk back to the nearest series that is not collapsed, so a hidden
+          // series cannot be used as this one's stacking baseline - originally
+          // for apexcharts.js#1372.
+          //
+          // This walk IS load-bearing, contrary to what this comment said when
+          // the three defects below were fixed in 39d56302c. That change was
+          // labelled behaviour-neutral on the reasoning that a collapsed series
+          // still renders a full-length yArrj sitting on the running baseline,
+          // so every candidate index resolves to the same y. The representation
+          // part is true, but the conclusion was not: the walk returned the
+          // WRONG index, not merely a different one that happened to agree.
+          //
+          // It was in fact the fix for #4984 (four series, the third declared
+          // `hidden: true` in the config). Measured on the reporter's own
+          // config: 6.8.0 draws the top series' second point at y=115.3 where it
+          // belongs at 57.7, and 6.9.0 onwards is correct. With the double
+          // decrement, series D's walk from index 2 landed on index 0 (A) rather
+          // than index 1 (B), so it stacked on A's top instead of B's.
+          //
+          // Only the second point onward was wrong, which is why hand-checking
+          // the first category would have looked fine: point 0 does not come
+          // through here at all, it comes from determineFirstPrevY, which reads
+          // prevSeriesY[i - 1][0] directly and never walks.
+          //
+          // The three defects, for the record:
+          //   - `pii` was decremented inside the loop *and* by the for-update,
+          //     stepping over two positions per collapsed series.
+          //   - `pii > 0` never tested index 0, and `return 0` handed back
+          //     index 0 even when index 0 was itself collapsed.
+          //   - `seriesIndex?.[pii] || pii` fell back to `pii` when the mapped
+          //     real index was 0, testing the wrong series in a combo chart.
+          /**
+           * @param {number} pi
+           * @returns {number} nearest drawn index at or below `pi`, else -1
+           */
+          const prevIndex = (pi) => {
+            for (let pii = pi; pii >= 0; pii--) {
+              const ri = seriesIndex?.[pii] ?? pii
+              if (!this._hidden(ri)) return pii
+            }
+            return -1
+          }
+          const pIdx = prevIndex(i - 1)
+          // Every earlier series hidden: this one stacks from the baseline.
+          if (pIdx < 0) {
+            lineYPosition = this.zeroY
+          } else {
+            // Resolve the baseline by x, not by ordinal (#4886). With ragged x
+            // arrays this series' ordinal j+1 is a different date from the
+            // previous series' ordinal j+1, so the ordinal lookup stacked onto
+            // the wrong point entirely: in the reported data it displaced a
+            // series by up to 92px of a 387px plot. A miss means no earlier
+            // series has a value at this x, so there is nothing to stack on.
+            const top = this.stackTopAt(realIndex, j + 1)
+            lineYPosition = top === undefined ? this.zeroY : top
+          }
+        } else {
+          // the first series will not have prevY values
+          lineYPosition = this.zeroY
+        }
+      } else {
+        lineYPosition = this.zeroY
+      }
+
+      if (isNull) {
+        y = getY(minY, lineYPosition)
+      } else {
+        y = getY(series[i][j + 1], lineYPosition)
+
+        if (type === 'rangeArea') {
+          y2 = getY(seriesRangeEnd[i][j + 1], lineYPosition)
+        }
+      }
+
+      // Jittered copies for the marker position (path drawing keeps the
+      // un-jittered x/y). Deterministic per (series, dataPoint) so the layout is
+      // stable across re-renders and SSR-safe.
+      let xj = x
+      let yj = y
+      if (jitterPx) {
+        const seed = realIndex * 100003 + (j + 1)
+        if (jitterPx.x) xj = x + (hash01(seed * 7919 + 13) - 0.5) * 2 * jitterPx.x
+        if (jitterPx.y) yj = y + (hash01(seed * 6271 + 97) - 0.5) * 2 * jitterPx.y
+      }
+
+      // push current X
+      xArrj.push(series[i][j + 1] === null ? null : xj)
+
+      // push current Y that will be used as next series's bottom position
+      if (
+        isNull &&
+        (w.config.stroke.curve === 'smooth' ||
+          w.config.stroke.curve === 'monotoneCubic')
+      ) {
+        yArrj.push(null)
+        y2Arrj.push(null)
+      } else {
+        yArrj.push(yj)
+        y2Arrj.push(y2)
+      }
+
+      const pointsPos = this.lineHelpers.calculatePoints({
+        series,
+        x: xj,
+        y: yj,
+        realIndex,
+        i,
+        j,
+        prevY,
+      })
+
+      const calculatedPaths = this._createPaths({
+        type,
+        series,
+        i,
+        j,
+        x,
+        y,
+        midsAt,
+        y2,
+        xArrj,
+        yArrj,
+        y2Arrj,
+        pX,
+        pY,
+        pathState,
+        segmentStartX,
+        linePath,
+        areaPath,
+        linePaths,
+        areaPaths,
+        curve,
+        isRangeStart,
+      })
+
+      areaPaths = calculatedPaths.areaPaths
+      linePaths = calculatedPaths.linePaths
+      pX = calculatedPaths.pX
+      pY = calculatedPaths.pY
+      pathState = calculatedPaths.pathState
+      segmentStartX = calculatedPaths.segmentStartX
+      areaPath = calculatedPaths.areaPath
+      linePath = calculatedPaths.linePath
+
+      if (
+        this.appendPathFrom &&
+        !w.globals.hasNullValues &&
+        !(curve === 'monotoneCubic' && type === 'rangeArea')
+      ) {
+        pathFromLine += graphics.line(x, this.areaBottomY)
+        pathFromArea += graphics.line(x, this.areaBottomY)
+      }
+
+      if (!this._shapeOnly) {
+        this.handleNullDataPoints(series, pointsPos, i, j, realIndex)
+
+        this._handleMarkersAndLabels({
+          type,
+          pointsPos,
+          j,
+          realIndex,
+          isRangeStart,
+        })
+      }
+    }
+
+    return {
+      yArrj,
+      xArrj,
+      pathFromArea,
+      areaPaths,
+      pathFromLine,
+      linePaths,
+    }
+  }
+
+  /** @param {{type: any, pointsPos: any, isRangeStart: any, j: any, realIndex: any}} opts */
+  _handleMarkersAndLabels({ type, pointsPos, isRangeStart, j, realIndex }) {
+    const dataLabels = new DataLabels(this.w, this.ctx)
+
+    if (!this.pointsChart) {
+      const elPointsWrap = this.markers.plotChartMarkers({
+        pointsPos,
+        seriesIndex: realIndex,
+        j: j + 1,
+      })
+      // plotChartMarkers returns the same per-series wrap group for every
+      // point; append it only when it first appears
+      if (elPointsWrap !== null && elPointsWrap !== this._elLastPointsWrap) {
+        this.elPointsMain.add(elPointsWrap)
+        this._elLastPointsWrap = elPointsWrap
+      }
+    } else {
+      // scatter / bubble chart points creation (jitter is already baked into
+      // pointsPos above, so the markers, seriesXvalues and tooltip stay in sync)
+      this.scatter.draw(this.elSeries, j, {
+        realIndex,
+        pointsPos,
+        zRatio: this.zRatio,
+        elParent: this.elPointsMain,
+      })
+    }
+
+    const drawnLabels = dataLabels.drawDataLabel({
+      type,
+      isRangeStart,
+      pos: pointsPos,
+      i: realIndex,
+      j: j + 1,
+      // A 100% stack labels each point with the share it is drawn at.
+      row: this.percentRows?.[realIndex],
+    })
+    if (drawnLabels !== null) {
+      this.elDataLabelsWrap.add(drawnLabels)
+    }
+  }
+
+  /**
+   * Max scatter-jitter offsets in pixels for this series, or null when jitter is
+   * off. The config offsets are in axis units (x: 1 = one category step / x-data
+   * unit, y: 1 = one y-data unit); convert each to pixels using the chart's
+   * ratios. The actual per-point offset is a deterministic fraction of these
+   * (see Scatter.drawPoint).
+   * @param {number} realIndex
+   * @returns {{ x: number, y: number } | null}
+   */
+  _scatterJitterPx(realIndex) {
+    const w = this.w
+    const jt = w.config.plotOptions.scatter?.jitter
+    if (!jt || !jt.enabled || (!jt.x && !jt.y)) return null
+
+    // px per x-unit: numeric axis → gridWidth/xRange (= 1/xRatio); category axis
+    // → one category slot (xDivision).
+    const xUnitPx =
+      w.axisFlags.isXNumeric && this.xRatio ? 1 / this.xRatio : this.xDivision
+    const ti = this.yRatio.length > 1 ? realIndex : 0
+    const yUnitPx = this.yRatio[ti] ? 1 / this.yRatio[ti] : 0
+
+    return {
+      x: (jt.x || 0) * xUnitPx,
+      y: (jt.y || 0) * yUnitPx,
+    }
+  }
+
+  /**
+   * Numeric geometry fast path for plain straight line/area series (the
+   * render-2026 perf work). Eligibility is strict: everything the per-point
+   * slow loop can do beyond plain geometry (null gaps, markers, data labels,
+   * discrete markers, stacking, combos, range areas) bails to the state
+   * machine. When eligible it produces the SAME outputs as the slow loop
+   * (byte-identical d strings via join, the same xArrj/yArrj/y2Arrj
+   * pushes, and the same pointsArray tooltip cache) in one tight loop.
+   * In canvas mode it additionally emits typed-array coordinates so the
+   * renderer can paint via moveTo/lineTo without a Path2D d-string parse.
+   *
+   * @param {{type: any, series: any, i: number, realIndex: number,
+   *   translationsIndex: number, iterations: number, x: number, y: number,
+   *   pX: number, pY: number, pathsFrom: any, linePaths: any[],
+   *   areaPaths: any[], xArrj: any[], yArrj: any[], y2Arrj: any[],
+   *   stackSeries: boolean}} opts
+   * @returns {any} the _iterateOverDataPoints result, or null when ineligible
+   */
+  _fastStraightPath({
+    type,
+    series,
+    i,
+    realIndex,
+    translationsIndex,
+    iterations,
+    x,
+    y,
+    pX,
+    pY,
+    pathsFrom,
+    linePaths,
+    areaPaths,
+    xArrj,
+    yArrj,
+    y2Arrj,
+    stackSeries,
+  }) {
+    const w = this.w
+
+    if (type !== 'line' && type !== 'area') return null
+    if (w.globals.comboCharts || stackSeries) return null
+    if (w.config.dataLabels.enabled) return null
+    if (w.config.markers.discrete.length) return null
+    // markers on -> per-point marker emission, slow loop
+    if (w.globals.markers.size[realIndex] > 0) return null
+
+    const s = series[i]
+    const n = s.length
+    // ragged/short series rely on the slow loop's padding fixes (#374)
+    if (!iterations || n < 2 || n - 1 !== iterations) return null
+
+    // any null/undefined value re-enters the segmenting state machine
+    for (let k = 0; k <= iterations; k++) {
+      const v = s[k]
+      if (v === null || typeof v === 'undefined') return null
+    }
+
+    const isXNumeric = w.axisFlags.isXNumeric
+    const sx = isXNumeric ? w.seriesData.seriesX[realIndex] : null
+    if (isXNumeric && (!sx || sx.length < n)) return null
+
+    const yR = this.yRatio[translationsIndex]
+    const isReversed = this.isReversed
+    const zeroY = this.zeroY
+    const bottomY = this.areaBottomY
+    const xRatio = this.xRatio
+    const minX = w.globals.minX
+    const xDivision = this.xDivision
+    const offX = w.config.markers.offsetX
+    const offY = w.config.markers.offsetY
+
+    // pathFrom baselines grow one ` L x bottom` per point (unless a previous
+    // render's path was adopted, which turns appendPathFrom off)
+    const appendFrom = this.appendPathFrom && !w.globals.hasNullValues
+    let { pathFromLine, pathFromArea } = pathsFrom
+
+    // canvas mode: numeric coords let the renderer skip the d-string parse.
+    // The d strings themselves are only consumed by the update-morph pipeline
+    // (streamScroll / reconcile), which requires a captured previous frame;
+    // without one (initial render, or updates with animations disabled) skip
+    // building them entirely.
+    const r = this.ctx && this.ctx.renderer
+    const canvasMode = !!(r && r.kind && r.kind !== 'svg')
+    const buildStrings =
+      !canvasMode || (w.globals.dataChanged && !!w.globals.prevStreamFrame)
+    const nxs = canvasMode ? new Float64Array(n) : null
+    const nys = canvasMode ? new Float64Array(n) : null
+    if (nxs && nys) {
+      nxs[0] = pX
+      nys[0] = pY
+    }
+
+    // tooltip position cache: replicate the markers-off plotChartMarkers
+    // pushes (two entries for the doubled first point, then one per point)
+    if (typeof w.globals.pointsArray[realIndex] === 'undefined') {
+      w.globals.pointsArray[realIndex] = []
+    }
+    const pts = w.globals.pointsArray[realIndex]
+    const xPT1st = sx
+      ? (sx[0] - minX) / xRatio + offX
+      : this.categoryAxisCorrection + offX
+    pts.push([xPT1st, pathsFrom.prevY + offY])
+
+    /** @type {any[]} */
+    const parts = buildStrings ? new Array(iterations + 1) : []
+    if (buildStrings) parts[0] = 'M ' + pX + ' ' + pY
+    /** @type {any[]|null} */
+    const fromParts = buildStrings && appendFrom ? new Array(iterations) : null
+
+    let xv = x
+    let xj = pX
+    let yj = pY
+    for (let j = 0; j < iterations; j++) {
+      if (sx) {
+        xj = (sx[j + 1] - minX) / xRatio
+      } else {
+        xv = xv + xDivision
+        xj = xv
+      }
+      const v = s[j + 1]
+      yj = zeroY - v / yR + (isReversed ? v / yR : 0) * 2
+
+      xArrj.push(xj)
+      yArrj.push(yj)
+      y2Arrj.push(y)
+      pts.push([xj + offX, yj + offY])
+      if (buildStrings) {
+        parts[j + 1] = ' L ' + xj + ' ' + yj
+        if (fromParts) fromParts[j] = ' L ' + xj + ' ' + bottomY
+      }
+      if (nxs && nys) {
+        nxs[j + 1] = xj
+        nys[j + 1] = yj
+      }
+    }
+
+    let linePath = ''
+    let areaPath = ''
+    if (buildStrings) {
+      linePath = parts.join('')
+      areaPath =
+        linePath + ' L ' + xj + ' ' + bottomY + ' L ' + pX + ' ' + bottomY + 'z'
+    }
+    if (fromParts) {
+      const fromAppend = fromParts.join('')
+      pathFromLine += fromAppend
+      pathFromArea += fromAppend
+    } else if (!buildStrings && appendFrom) {
+      // canvas initial render: baselines aren't consumed, keep them cheap
+      // (renderPaths only checks truthiness before the inert canvas morph)
+      pathFromLine += ' L ' + xj + ' ' + bottomY
+      pathFromArea += ' L ' + xj + ' ' + bottomY
+    }
+
+    linePaths.push(linePath)
+    areaPaths.push(areaPath)
+
+    return {
+      yArrj,
+      xArrj,
+      pathFromArea,
+      areaPaths,
+      pathFromLine,
+      linePaths,
+      numericXY: nxs ? { xs: nxs, ys: nys, areaCloseY: bottomY } : undefined,
+    }
+  }
+
+  /** @param {{type: any, series: any, i: any, j: any, x: any, y: any, midsAt: any[][], xArrj: any, yArrj: any, y2: any, y2Arrj: any, pX: any, pY: any, pathState: any, segmentStartX: any, linePath: any, areaPath: any, linePaths: any, areaPaths: any, curve: any, isRangeStart: any}} opts */
+  _createPaths({
+    type,
+    series,
+    i,
+    j,
+    x,
+    y,
+    midsAt,
+    xArrj,
+    yArrj,
+    y2,
+    y2Arrj,
+    pX,
+    pY,
+    pathState,
+    segmentStartX,
+    linePath,
+    areaPath,
+    linePaths,
+    areaPaths,
+    curve,
+    isRangeStart,
+  }) {
+    const graphics = new Graphics(this.w)
+    const areaBottomY = this.areaBottomY
+    const rangeArea = type === 'rangeArea'
+    const isLowerRangeAreaPath = type === 'rangeArea' && isRangeStart
+    const mids = midsAt[j + 1]
+    // one segment per vertex, through any stack tops in between
+    /** @param {(...p: number[]) => string} f */
+    const via = (f) =>
+      mids
+        ? [...mids, [x, y]]
+            .map(([bx, by], k, a) => f(...(k ? a[k - 1] : [pX, pY]), bx, by))
+            .join('')
+        : f(pX, pY, x, y)
+
+    switch (curve) {
+      case 'monotoneCubic': {
+        const yAj = isRangeStart ? yArrj : y2Arrj
+        /**
+         * @param {any[]} xArr
+         * @param {any[]} yArr
+         */
+        const getSmoothInputs = (xArr, yArr) => {
+          return (
+            xArr
+              /**
+               * @param {any} _
+               * @param {number} i
+               */
+              .map((_, i) => {
+                return [_, yArr[i]]
+              })
+              /**
+               * @param {any} _
+               */
+              .filter((_) => _[1] !== null)
+          )
+        }
+        /**
+         * @param {any[]} yArr
+         */
+        const getSegmentLengths = (yArr) => {
+          // Get the segment lengths so the segments can be extracted from
+          // the null-filtered smoothInputs array
+          const segLens = []
+          let count = 0
+          /**
+           * @param {any} _
+           */
+          yArr.forEach((_) => {
+            if (_ !== null) {
+              count++
+            } else if (count > 0) {
+              segLens.push(count)
+              count = 0
+            }
+          })
+          if (count > 0) {
+            segLens.push(count)
+          }
+          return segLens
+        }
+        /**
+         * @param {any[]} yArr
+         * @param {any} points
+         */
+        const getSegments = (yArr, points) => {
+          const segLens = getSegmentLengths(yArr)
+          const segments = []
+          for (let i = 0, len = 0; i < segLens.length; len += segLens[i++]) {
+            segments[i] = spline.slice(points, len, len + segLens[i])
+          }
+          return segments
+        }
+
+        switch (pathState) {
+          case 0:
+            // Find start of segment
+            if (yAj[j + 1] === null) {
+              break
+            }
+            pathState = 1
+          // falls through
+          case 1:
+            if (
+              !(rangeArea
+                ? xArrj.length === series[i].length
+                : j === series[i].length - 2)
+            ) {
+              break
+            }
+          // falls through
+          case 2: {
+            // Interpolate the full series with nulls excluded then extract the
+            // null delimited segments with interpolated points included.
+            let _xAj = isRangeStart ? xArrj : xArrj.slice().reverse()
+            let _yAj = isRangeStart ? yAj : yAj.slice().reverse()
+            if (midsAt.length && !rangeArea) {
+              // fit through the stack tops between points too (see via)
+              /** @type {any[]} */ const P = []
+              _xAj.forEach((/** @type {any} */ v, /** @type {number} */ k) => {
+                if (_yAj[k] !== null && _yAj[k - 1] != null && midsAt[k]) {
+                  P.push(...midsAt[k])
+                }
+                P.push([v, _yAj[k]])
+              })
+              _xAj = P.map((p) => p[0])
+              _yAj = P.map((p) => p[1])
+            }
+
+            const smoothInputs = getSmoothInputs(_xAj, _yAj)
+            const points =
+              smoothInputs.length > 1
+                ? spline.points(smoothInputs)
+                : smoothInputs
+
+            /** @type {any[]} */
+            let smoothInputsLower = []
+            if (rangeArea) {
+              if (isLowerRangeAreaPath) {
+                // As we won't be needing it, borrow areaPaths to retain our
+                // rangeArea lower points.
+                areaPaths = smoothInputs
+              } else {
+                // Retrieve the corresponding lower raw interpolated points so we
+                // can join onto its end points. Note: the upper Y2 segments will
+                // be in the reverse order relative to the lower segments.
+                smoothInputsLower = areaPaths.reverse()
+              }
+            }
+
+            let segmentCount = 0
+            let smoothInputsIndex = 0
+            getSegments(_yAj, points).forEach((_) => {
+              segmentCount++
+              const svgPoints = svgPath(_)
+              const _start = smoothInputsIndex
+              smoothInputsIndex += _.length
+              const _end = smoothInputsIndex - 1
+              if (isLowerRangeAreaPath) {
+                linePath =
+                  graphics.move(
+                    smoothInputs[_start][0],
+                    smoothInputs[_start][1],
+                  ) + svgPoints
+              } else if (rangeArea) {
+                linePath =
+                  graphics.move(
+                    smoothInputsLower[_start][0],
+                    smoothInputsLower[_start][1],
+                  ) +
+                  graphics.line(
+                    smoothInputs[_start][0],
+                    smoothInputs[_start][1],
+                  ) +
+                  svgPoints +
+                  graphics.line(
+                    smoothInputsLower[_end][0],
+                    smoothInputsLower[_end][1],
+                  )
+              } else {
+                linePath =
+                  graphics.move(
+                    smoothInputs[_start][0],
+                    smoothInputs[_start][1],
+                  ) + svgPoints
+                areaPath =
+                  linePath +
+                  graphics.line(smoothInputs[_end][0], areaBottomY) +
+                  graphics.line(smoothInputs[_start][0], areaBottomY) +
+                  'z'
+                areaPaths.push(areaPath)
+              }
+              linePaths.push(linePath)
+            })
+
+            if (rangeArea && segmentCount > 1 && !isLowerRangeAreaPath) {
+              // Reverse the order of the upper path segments
+              const upperLinePaths = linePaths.slice(segmentCount).reverse()
+              linePaths.splice(segmentCount)
+              /**
+               * @param {string} u
+               */
+              upperLinePaths.forEach((/** @type {any} */ u) =>
+                linePaths.push(u),
+              )
+            }
+            pathState = 0
+            break
+          }
+        }
+        break
+      }
+      case 'smooth': {
+        /**
+         * @param {number} ax
+         * @param {number} ay
+         * @param {number} bx
+         * @param {number} by
+         */
+        const toPoint = (ax, ay, bx, by) => {
+          const l = (bx - ax) * 0.35
+          return graphics.curve(ax + l, ay, bx - l, by, bx, by)
+        }
+        if (series[i][j] === null) {
+          pathState = 0
+        } else {
+          switch (pathState) {
+            case 0:
+              // Beginning of segment
+              segmentStartX = pX
+              if (isLowerRangeAreaPath) {
+                // Need to add path portion that will join to the upper path
+                linePath = graphics.move(pX, y2Arrj[j]) + graphics.line(pX, pY)
+              } else {
+                linePath = graphics.move(pX, pY)
+              }
+              areaPath = graphics.move(pX, pY)
+
+              // Check for single isolated point
+              if (
+                series[i][j + 1] === null ||
+                typeof series[i][j + 1] === 'undefined'
+              ) {
+                linePaths.push(linePath)
+                areaPaths.push(areaPath)
+                // Stay in pathState = 0;
+                break
+              }
+              pathState = 1
+              if (j < series[i].length - 2) {
+                const p = via(toPoint)
+                linePath += p
+                areaPath += p
+                break
+              }
+            // falls through
+            case 1:
+              // Continuing with segment
+              if (series[i][j + 1] === null) {
+                // Segment ends here
+                if (isLowerRangeAreaPath) {
+                  linePath += graphics.line(pX, y2)
+                } else {
+                  linePath += graphics.move(pX, pY)
+                }
+                areaPath +=
+                  graphics.line(pX, areaBottomY) +
+                  graphics.line(segmentStartX, areaBottomY) +
+                  'z'
+                linePaths.push(linePath)
+                areaPaths.push(areaPath)
+                pathState = -1
+              } else {
+                const p = via(toPoint)
+                linePath += p
+                areaPath += p
+                if (j >= series[i].length - 2) {
+                  if (isLowerRangeAreaPath) {
+                    // Need to add path portion that will join to the upper path
+                    linePath +=
+                      graphics.curve(x, y, x, y, x, y2) + graphics.move(x, y2)
+                  }
+                  areaPath +=
+                    graphics.curve(x, y, x, y, x, areaBottomY) +
+                    graphics.line(segmentStartX, areaBottomY) +
+                    'z'
+                  linePaths.push(linePath)
+                  areaPaths.push(areaPath)
+                  pathState = -1
+                }
+              }
+              break
+          }
+        }
+
+        pX = x
+        pY = y
+
+        break
+      }
+      default: {
+        /**
+         * @param {number} _ax
+         * @param {number} _ay
+         * @param {number} x
+         * @param {number} y
+         */
+        const pathToPoint = (_ax, _ay, x, y) => {
+          /** @type {string} */ let path = ''
+          switch (curve) {
+            case 'stepline':
+              path = graphics.line(x, null, 'H') + graphics.line(null, y, 'V')
+              break
+            case 'linestep':
+              path = graphics.line(null, y, 'V') + graphics.line(x, null, 'H')
+              break
+            case 'straight':
+              path = graphics.line(x, y)
+              break
+          }
+          return path
+        }
+        if (series[i][j] === null) {
+          pathState = 0
+        } else {
+          switch (pathState) {
+            case 0:
+              // Beginning of segment
+              segmentStartX = pX
+              if (isLowerRangeAreaPath) {
+                // Need to add path portion that will join to the upper path
+                linePath = graphics.move(pX, y2Arrj[j]) + graphics.line(pX, pY)
+              } else {
+                linePath = graphics.move(pX, pY)
+              }
+              areaPath = graphics.move(pX, pY)
+
+              // Check for single isolated point
+              if (
+                series[i][j + 1] === null ||
+                typeof series[i][j + 1] === 'undefined'
+              ) {
+                // A stepline's horizontal run belongs to this point. A null
+                // drops only the step after it, so keep the run out to that
+                // x (#4787). straight and linestep still end on the point.
+                if (
+                  curve === 'stepline' &&
+                  series[i][j + 1] === null &&
+                  !rangeArea
+                ) {
+                  const run = graphics.line(x, null, 'H')
+                  linePath += run
+                  areaPath +=
+                    run +
+                    graphics.line(x, areaBottomY) +
+                    graphics.line(segmentStartX, areaBottomY) +
+                    'z'
+                }
+                linePaths.push(linePath)
+                areaPaths.push(areaPath)
+                // Stay in pathState = 0
+                break
+              }
+              pathState = 1
+              if (j < series[i].length - 2) {
+                const p = via(pathToPoint)
+                linePath += p
+                areaPath += p
+                break
+              }
+            // falls through
+            case 1:
+              // Continuing with segment
+              if (series[i][j + 1] === null) {
+                // Segment ends here. For a stepline the run into the null
+                // stays; only the step after the null is removed (#4787).
+                let endX = pX
+                if (isLowerRangeAreaPath) {
+                  linePath += graphics.line(pX, y2)
+                } else if (curve === 'stepline' && !rangeArea) {
+                  const run = graphics.line(x, null, 'H')
+                  linePath += run
+                  areaPath += run
+                  endX = x
+                } else {
+                  linePath += graphics.move(pX, pY)
+                }
+                areaPath +=
+                  graphics.line(endX, areaBottomY) +
+                  graphics.line(segmentStartX, areaBottomY) +
+                  'z'
+                linePaths.push(linePath)
+                areaPaths.push(areaPath)
+                pathState = -1
+              } else {
+                const p = via(pathToPoint)
+                linePath += p
+                areaPath += p
+                if (j >= series[i].length - 2) {
+                  if (isLowerRangeAreaPath) {
+                    // Need to add path portion that will join to the upper path
+                    linePath += graphics.line(x, y2)
+                  }
+                  areaPath +=
+                    graphics.line(x, areaBottomY) +
+                    graphics.line(segmentStartX, areaBottomY) +
+                    'z'
+                  linePaths.push(linePath)
+                  areaPaths.push(areaPath)
+                  pathState = -1
+                }
+              }
+              break
+          }
+        }
+
+        pX = x
+        pY = y
+
+        break
+      }
+    }
+
+    return {
+      linePaths,
+      areaPaths,
+      pX,
+      pY,
+      pathState,
+      segmentStartX,
+      linePath,
+      areaPath,
+    }
+  }
+
+  /**
+   * @param {any[]} series
+   * @param {any} pointsPos
+   * @param {number} i
+   * @param {number} j
+   * @param {number} realIndex
+   */
+  handleNullDataPoints(series, pointsPos, i, j, realIndex) {
+    const w = this.w
+    if (
+      (series[i][j] === null && w.config.markers.showNullDataPoints) ||
+      series[i].length === 1
+    ) {
+      let pSize = this.strokeWidth - w.config.markers.strokeWidth / 2
+      if (!(pSize > 0)) {
+        pSize = 0
+      }
+
+      // fixes apexcharts.js#1282, #1252
+      const elPointsWrap = this.markers.plotChartMarkers({
+        pointsPos,
+        seriesIndex: realIndex,
+        j: j + 1,
+        pSize,
+        alwaysDrawMarker: true,
+      })
+      if (elPointsWrap !== null) {
+        this.elPointsMain.add(elPointsWrap)
+      }
+    }
+  }
+}
+
+export default Line

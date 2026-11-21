@@ -1,0 +1,1982 @@
+var __defProp = Object.defineProperty;
+var __defProps = Object.defineProperties;
+var __getOwnPropDescs = Object.getOwnPropertyDescriptors;
+var __getOwnPropSymbols = Object.getOwnPropertySymbols;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __propIsEnum = Object.prototype.propertyIsEnumerable;
+var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __spreadValues = (a, b) => {
+  for (var prop in b || (b = {}))
+    if (__hasOwnProp.call(b, prop))
+      __defNormalProp(a, prop, b[prop]);
+  if (__getOwnPropSymbols)
+    for (var prop of __getOwnPropSymbols(b)) {
+      if (__propIsEnum.call(b, prop))
+        __defNormalProp(a, prop, b[prop]);
+    }
+  return a;
+};
+var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
+/*!
+ * ApexCharts v8.7.0
+ * (c) 2018-2026 ApexCharts
+ */
+import * as _core from "apexcharts/core";
+import _core__default from "apexcharts/core";
+import { default as default2 } from "apexcharts/core";
+const Graphics = _core.__apex_Graphics;
+const STYLE_KEYS = {
+  fill: "fill",
+  stroke: "stroke",
+  "stroke-width": "strokeWidth",
+  "stroke-dasharray": "strokeDash",
+  "stroke-linecap": "lineCap",
+  "fill-opacity": "fillOpacity",
+  "stroke-opacity": "strokeOpacity",
+  "fill-rule": "fillRule"
+};
+const NEVER = Symbol("never");
+function plotClip(value) {
+  if (value == null || value === "none") return null;
+  const m = /^url\(#gridRect(Bar|Marker)?Mask/.exec(String(value));
+  if (!m) return void 0;
+  return m[1] === "Bar" ? "bar" : m[1] === "Marker" ? "marker" : "grid";
+}
+const SHAPE_ID = {
+  circle: 0,
+  square: 1,
+  rect: 1,
+  triangle: 2,
+  diamond: 3,
+  star: 4,
+  sparkle: 5,
+  cross: 6,
+  plus: 7,
+  line: 8
+};
+const SHAPE_NAME = [
+  "circle",
+  "square",
+  "triangle",
+  "diamond",
+  "star",
+  "sparkle",
+  "cross",
+  "plus",
+  "line"
+];
+function pathBox(d) {
+  const tokens = typeof d === "string" ? d.match(/[a-df-z]|[-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?/gi) : null;
+  if (!tokens) return null;
+  let left = Infinity;
+  let top = Infinity;
+  let right = -Infinity;
+  let bottom = -Infinity;
+  let px = 0;
+  let py = 0;
+  let sx = 0;
+  let sy = 0;
+  let cmd = "";
+  let k = 0;
+  const num = () => Number(tokens[k++]);
+  const take = (x, y) => {
+    if (!isFinite(x) || !isFinite(y)) return;
+    left = Math.min(left, x);
+    top = Math.min(top, y);
+    right = Math.max(right, x);
+    bottom = Math.max(bottom, y);
+  };
+  const points = (pairs) => {
+    const rel = cmd === cmd.toLowerCase();
+    let x = px;
+    let y = py;
+    for (let p = 0; p < pairs; p++) {
+      x = num() + (rel ? px : 0);
+      y = num() + (rel ? py : 0);
+      take(x, y);
+    }
+    px = x;
+    py = y;
+  };
+  while (k < tokens.length) {
+    if (/^[a-z]$/i.test(tokens[k])) {
+      cmd = tokens[k++];
+      if (cmd === "Z" || cmd === "z") {
+        px = sx;
+        py = sy;
+      }
+      continue;
+    }
+    const rel = cmd === cmd.toLowerCase();
+    switch (cmd.toUpperCase()) {
+      case "M":
+        points(1);
+        sx = px;
+        sy = py;
+        cmd = rel ? "l" : "L";
+        break;
+      case "L":
+      case "T":
+        points(1);
+        break;
+      case "H":
+        px = num() + (rel ? px : 0);
+        take(px, py);
+        break;
+      case "V":
+        py = num() + (rel ? py : 0);
+        take(px, py);
+        break;
+      case "S":
+      case "Q":
+        points(2);
+        break;
+      case "C":
+        points(3);
+        break;
+      case "A":
+        k += 5;
+        points(1);
+        break;
+      default:
+        k++;
+    }
+  }
+  return isFinite(left) ? { x: left, y: top, width: right - left, height: bottom - top } : null;
+}
+function markBox(cmd) {
+  if (cmd.boxOf !== cmd.d) {
+    cmd.box = pathBox(cmd.d);
+    cmd.boxOf = cmd.d;
+  }
+  return cmd.box;
+}
+const NOOP_RUNNER = {
+  /** @returns {any} */
+  attr() {
+    return NOOP_RUNNER;
+  },
+  plot() {
+    return NOOP_RUNNER;
+  },
+  during() {
+    return NOOP_RUNNER;
+  },
+  after(fn) {
+    if (typeof fn === "function") fn();
+    return NOOP_RUNNER;
+  },
+  animate() {
+    return NOOP_RUNNER;
+  },
+  delay() {
+    return NOOP_RUNNER;
+  },
+  loop() {
+    return NOOP_RUNNER;
+  },
+  finish() {
+    return NOOP_RUNNER;
+  },
+  stop() {
+    return NOOP_RUNNER;
+  }
+};
+const SHARED_MARKER_NODE = {
+  nodeName: "path",
+  style: {},
+  classList: { add() {
+  }, remove() {
+  }, toggle() {
+  }, contains: () => false },
+  setAttribute() {
+  },
+  getAttribute: () => null,
+  removeAttribute() {
+  },
+  hasAttribute: () => false,
+  addEventListener() {
+  },
+  removeEventListener() {
+  },
+  appendChild() {
+  },
+  getBBox: () => ({ x: 0, y: 0, width: 0, height: 0 })
+};
+const SHARED_GROUP = {
+  __isCanvasMark: true,
+  node: {
+    nodeName: "g",
+    instance: null,
+    style: {},
+    classList: { add() {
+    }, remove() {
+    }, toggle() {
+    }, contains: () => false },
+    setAttribute() {
+    },
+    getAttribute: () => null,
+    removeAttribute() {
+    },
+    addEventListener() {
+    },
+    removeEventListener() {
+    },
+    appendChild() {
+    },
+    getBBox: () => ({ x: 0, y: 0, width: 0, height: 0 })
+  },
+  /** @returns {any} */
+  attr() {
+    return SHARED_GROUP;
+  },
+  add() {
+    return SHARED_GROUP;
+  },
+  addTo() {
+    return SHARED_GROUP;
+  },
+  remove() {
+    return SHARED_GROUP;
+  },
+  clear() {
+    return SHARED_GROUP;
+  },
+  css() {
+    return SHARED_GROUP;
+  },
+  hide() {
+    return SHARED_GROUP;
+  },
+  show() {
+    return SHARED_GROUP;
+  },
+  removeClass() {
+    return SHARED_GROUP;
+  },
+  animate() {
+    return NOOP_RUNNER;
+  }
+};
+class CanvasMarkerRef {
+  /**
+   * @param {CanvasGraphics} g
+   * @param {number} i
+   */
+  constructor(g, i) {
+    this.__isCanvasMark = true;
+    this._g = g;
+    this._i = i;
+  }
+  get node() {
+    return SHARED_MARKER_NODE;
+  }
+  /**
+   * @param {any} a
+   * @param {any} [v]
+   * @returns {any}
+   */
+  attr(a, v) {
+    if (typeof a === "string") {
+      if (a === "fill" && v !== void 0) this._g._setMarkerFill(this._i, v);
+      else if (a === "rel" && v !== void 0) this._g._mdi[this._i] = v;
+      return v === void 0 ? null : this;
+    }
+    if (a && a.fill !== void 0) this._g._setMarkerFill(this._i, a.fill);
+    if (a && a.rel !== void 0) this._g._mdi[this._i] = a.rel;
+    return this;
+  }
+  /** @param {any} _c */
+  add(_c) {
+    return this;
+  }
+  /** @param {any} _p */
+  addTo(_p) {
+    return this;
+  }
+  remove() {
+    return this;
+  }
+  /** @param {any} _s */
+  css(_s) {
+    return this;
+  }
+  /** @param {any} _v */
+  fill(_v) {
+    if (_v !== void 0) this._g._setMarkerFill(this._i, _v);
+    return this;
+  }
+  /** @param {any} _v */
+  stroke(_v) {
+    return this;
+  }
+  hide() {
+    return this;
+  }
+  show() {
+    return this;
+  }
+  /** @param {string} _c */
+  removeClass(_c) {
+    return this;
+  }
+  animate() {
+    return NOOP_RUNNER;
+  }
+}
+const SHARED_RECT_REF = {
+  __isCanvasMark: true,
+  node: SHARED_MARKER_NODE,
+  /** @returns {any} */
+  attr() {
+    return SHARED_RECT_REF;
+  },
+  add() {
+    return SHARED_RECT_REF;
+  },
+  addTo() {
+    return SHARED_RECT_REF;
+  },
+  remove() {
+    return SHARED_RECT_REF;
+  },
+  /** @returns {any} */
+  css() {
+    return SHARED_RECT_REF;
+  },
+  animate() {
+    return NOOP_RUNNER;
+  }
+};
+class CanvasMark {
+  /** @param {any} cmd */
+  constructor(cmd) {
+    this.__isCanvasMark = true;
+    this._cmd = cmd;
+    const self = this;
+    this.node = {
+      nodeName: cmd ? cmd.tag : "g",
+      instance: this,
+      style: {},
+      classList: { add() {
+      }, remove() {
+      }, toggle() {
+      }, contains: () => false },
+      /** @param {string} k @param {any} v */
+      setAttribute(k, v) {
+        self._applyAttr(k, v);
+      },
+      getAttribute: () => null,
+      removeAttribute() {
+      },
+      hasAttribute: () => false,
+      addEventListener() {
+      },
+      removeEventListener() {
+      },
+      appendChild() {
+      },
+      getBBox: () => self.bbox()
+    };
+  }
+  /**
+   * @param {string} k
+   * @param {any} v
+   */
+  _applyAttr(k, v) {
+    const cmd = this._cmd;
+    if (!cmd) return;
+    if (k === "clip-path") {
+      const clip = plotClip(v);
+      if (clip !== void 0) cmd.clip = clip;
+      return;
+    }
+    if (k === "index") {
+      cmd.si = cmd.z = Number(v);
+      return;
+    }
+    const sk = STYLE_KEYS[k];
+    if (sk !== void 0) cmd[sk] = v;
+  }
+  /**
+   * @param {any} a
+   * @param {any} [v]
+   * @returns {any}
+   */
+  attr(a, v) {
+    if (typeof a === "string") {
+      if (v === void 0) return null;
+      this._applyAttr(a, v);
+      return this;
+    }
+    for (const k in a) {
+      if (a[k] !== void 0) this._applyAttr(k, a[k]);
+    }
+    return this;
+  }
+  /** @param {any} _c */
+  add(_c) {
+    return this;
+  }
+  /** @param {any} _p */
+  addTo(_p) {
+    return this;
+  }
+  remove() {
+    return this;
+  }
+  clear() {
+    return this;
+  }
+  /** @param {any} _s */
+  css(_s) {
+    return this;
+  }
+  /** @param {any} v */
+  fill(v) {
+    if (typeof v === "object") return this.attr(v);
+    return this.attr("fill", v);
+  }
+  /** @param {any} v */
+  stroke(v) {
+    if (typeof v === "object") {
+      if (v.color !== void 0) this.attr("stroke", v.color);
+      if (v.width !== void 0) this.attr("stroke-width", v.width);
+      return this;
+    }
+    return this.attr("stroke", v);
+  }
+  /** @param {string} d */
+  plot(d) {
+    if (typeof d === "string" && this._cmd && this._cmd.tag === "path") {
+      this._cmd.d = d;
+    }
+    return this;
+  }
+  hide() {
+    return this;
+  }
+  show() {
+    return this;
+  }
+  /** @param {string} _c */
+  removeClass(_c) {
+    return this;
+  }
+  /**
+   * The box a recorded path spans, as an SVG path's getBBox() measures it;
+   * an empty box for anything else.
+   * @returns {{ x: number, y: number, width: number, height: number }}
+   */
+  bbox() {
+    const cmd = this._cmd;
+    const box = cmd && cmd.tag === "path" ? markBox(cmd) : null;
+    return box ? __spreadValues({}, box) : { x: 0, y: 0, width: 0, height: 0 };
+  }
+  animate() {
+    return NOOP_RUNNER;
+  }
+}
+class CanvasGraphics {
+  /** @param {any} w */
+  constructor(w) {
+    this.w = w;
+    this._g = new Graphics(w);
+    this._list = [];
+    this._mx = new Float64Array(16);
+    this._my = new Float64Array(16);
+    this._msize = new Float64Array(16);
+    this._mshape = new Int16Array(16);
+    this._mstyle = new Int32Array(16);
+    this._msi = new Int32Array(16);
+    this._mdi = new Int32Array(16);
+    this._mn = 0;
+    this._mcap = 16;
+    this._crx = new Float64Array(16);
+    this._cry = new Float64Array(16);
+    this._crw = new Float64Array(16);
+    this._crh = new Float64Array(16);
+    this._crstyle = new Int32Array(16);
+    this._crsi = new Int32Array(16);
+    this._crdi = new Int32Array(16);
+    this._crn = 0;
+    this._crcap = 16;
+    this._cellRadius = 0;
+    this._styles = [];
+    this._styleMap = /* @__PURE__ */ new Map();
+    this._lf = NEVER;
+    this._ls = NEVER;
+    this._lsw = NEVER;
+    this._ld = NEVER;
+    this._lfo = NEVER;
+    this._lso = NEVER;
+    this._lid = -1;
+    this._lofFill = NEVER;
+    this._lofBase = -1;
+    this._lofId = -1;
+    this._rlf = NEVER;
+    this._rls = NEVER;
+    this._rlsw = NEVER;
+    this._rlfo = NEVER;
+    this._rlso = NEVER;
+    this._rlid = -1;
+  }
+  _resetStyleCache() {
+    this._lf = NEVER;
+    this._ls = NEVER;
+    this._lsw = NEVER;
+    this._ld = NEVER;
+    this._lfo = NEVER;
+    this._lso = NEVER;
+    this._lid = -1;
+    this._lofFill = NEVER;
+    this._lofBase = -1;
+    this._lofId = -1;
+    this._rlf = NEVER;
+    this._rls = NEVER;
+    this._rlsw = NEVER;
+    this._rlfo = NEVER;
+    this._rlso = NEVER;
+    this._rlid = -1;
+  }
+  /** Start a fresh scene (columnar marker store + object-command list). */
+  reset() {
+    this._list = [];
+    this._mn = 0;
+    this._styles = [];
+    this._styleMap = /* @__PURE__ */ new Map();
+    this._resetStyleCache();
+    const c = this.w.config;
+    const series = c.series || [];
+    const ms = c.markers && c.markers.size;
+    let mcap = 16;
+    let rcap = 16;
+    for (let i = 0; i < series.length; i++) {
+      const s = series[i];
+      const n = s && Array.isArray(s.data) ? s.data.length : 0;
+      const t = s && s.type || c.chart && c.chart.type;
+      if (t === "heatmap") rcap += n;
+      else if (t === "scatter" || t === "bubble" || (Array.isArray(ms) ? ms[i] : ms) > 0) {
+        mcap += n;
+      }
+    }
+    mcap = Math.ceil(mcap * 1.15) + 16;
+    if (mcap > this._mcap) this._allocMarkers(mcap);
+    this._crn = 0;
+    this._cellRadius = 0;
+    rcap = Math.ceil(rcap * 1.15) + 16;
+    if (rcap > this._crcap) this._allocRects(rcap);
+  }
+  /** @param {number} cap */
+  _allocRects(cap) {
+    this._crcap = cap;
+    this._crx = new Float64Array(cap);
+    this._cry = new Float64Array(cap);
+    this._crw = new Float64Array(cap);
+    this._crh = new Float64Array(cap);
+    this._crstyle = new Int32Array(cap);
+    this._crsi = new Int32Array(cap);
+    this._crdi = new Int32Array(cap);
+  }
+  /** Grow the rect columns (rare: capacity estimate was low). */
+  _growRects() {
+    const cap = this._crcap * 2;
+    const nx = new Float64Array(cap);
+    nx.set(this._crx);
+    this._crx = nx;
+    const ny = new Float64Array(cap);
+    ny.set(this._cry);
+    this._cry = ny;
+    const nw = new Float64Array(cap);
+    nw.set(this._crw);
+    this._crw = nw;
+    const nh = new Float64Array(cap);
+    nh.set(this._crh);
+    this._crh = nh;
+    const nst = new Int32Array(cap);
+    nst.set(this._crstyle);
+    this._crstyle = nst;
+    const nsi = new Int32Array(cap);
+    nsi.set(this._crsi);
+    this._crsi = nsi;
+    const ndi = new Int32Array(cap);
+    ndi.set(this._crdi);
+    this._crdi = ndi;
+    this._crcap = cap;
+  }
+  /** @param {number} cap */
+  _allocMarkers(cap) {
+    this._mcap = cap;
+    this._mx = new Float64Array(cap);
+    this._my = new Float64Array(cap);
+    this._msize = new Float64Array(cap);
+    this._mshape = new Int16Array(cap);
+    this._mstyle = new Int32Array(cap);
+    this._msi = new Int32Array(cap);
+    this._mdi = new Int32Array(cap);
+  }
+  /** Grow the marker columns (rare: capacity estimate was low). */
+  _growMarkers() {
+    const cap = this._mcap * 2;
+    const nx = new Float64Array(cap);
+    nx.set(this._mx);
+    this._mx = nx;
+    const ny = new Float64Array(cap);
+    ny.set(this._my);
+    this._my = ny;
+    const ns = new Float64Array(cap);
+    ns.set(this._msize);
+    this._msize = ns;
+    const nsh = new Int16Array(cap);
+    nsh.set(this._mshape);
+    this._mshape = nsh;
+    const nst = new Int32Array(cap);
+    nst.set(this._mstyle);
+    this._mstyle = nst;
+    const nsi = new Int32Array(cap);
+    nsi.set(this._msi);
+    this._msi = nsi;
+    const ndi = new Int32Array(cap);
+    ndi.set(this._mdi);
+    this._mdi = ndi;
+    this._mcap = cap;
+  }
+  displayList() {
+    return this._list;
+  }
+  markerCount() {
+    return this._mn;
+  }
+  /**
+   * Intern a marker style; returns its palette id. Keeps the per-point columns
+   * numeric (no retained per-point object).
+   * @param {any} fill @param {any} stroke @param {any} sw @param {any} dash
+   * @param {any} fo @param {any} so
+   * @returns {number}
+   */
+  _internStyle(fill, stroke, sw, dash, fo, so) {
+    const key = `${fill}|${stroke}|${sw}|${dash}|${fo}|${so}`;
+    const cached = this._styleMap.get(key);
+    if (cached !== void 0) return cached;
+    const id = this._styles.length;
+    this._styles.push({
+      fill,
+      stroke,
+      strokeWidth: sw,
+      strokeDash: dash,
+      fillOpacity: fo,
+      strokeOpacity: so
+    });
+    this._styleMap.set(key, id);
+    return id;
+  }
+  /**
+   * Override a recorded marker's fill (scatter sets a per-point fill via `attr`
+   * right after drawMarker). Like the draw path, the string-key intern is cached
+   * on (base style, fill) so the Map/string work stays OFF the per-point path
+   * (it otherwise mixes with the `_mstyle[i]` typed-array write → the ~80× slow
+   * path). For a scatter series the base + fill are uniform, so it interns once.
+   * @param {number} i @param {any} fill
+   */
+  _setMarkerFill(i, fill) {
+    const base = this._mstyle[i];
+    if (fill === this._lofFill && base === this._lofBase) {
+      this._mstyle[i] = this._lofId;
+      return;
+    }
+    const s = this._styles[base];
+    if (!s || s.fill === fill) {
+      this._lofFill = fill;
+      this._lofBase = base;
+      this._lofId = base;
+      return;
+    }
+    const id = this._internStyle(
+      fill,
+      s.stroke,
+      s.strokeWidth,
+      s.strokeDash,
+      s.fillOpacity,
+      s.strokeOpacity
+    );
+    this._mstyle[i] = id;
+    this._lofFill = fill;
+    this._lofBase = base;
+    this._lofId = id;
+  }
+  /** @param {number} i @returns {any} the style object for a marker index */
+  markerStyle(i) {
+    return this._styles[this._mstyle[i]];
+  }
+  /** @param {number} i @returns {number} series (realIndex) of a marker, -1 if none */
+  markerSeries(i) {
+    return this._msi[i];
+  }
+  // ── columnar rect cell (heatmap): parallel unboxed arrays, no per-cell object ──
+  /**
+   * Record a heatmap-style cell (a filled, optionally stroked rect). Geometry
+   * and style are captured up front into the columns; the returned handle is a
+   * shared no-op (the emit site sets nothing back on it in canvas mode).
+   * @param {number} x @param {number} y @param {number} w @param {number} h
+   * @param {any} opts {fill, fillOpacity, stroke, strokeWidth, radius, seriesIndex, dataPointIndex}
+   * @returns {any}
+   */
+  drawRectCell(x, y, w, h, opts = {}) {
+    const styleId = this._rectStyleId(opts);
+    if (this._crn >= this._crcap) this._growRects();
+    const i = this._crn++;
+    this._crx[i] = x || 0;
+    this._cry[i] = y || 0;
+    this._crw[i] = w > 0 ? w : 0;
+    this._crh[i] = h > 0 ? h : 0;
+    this._crstyle[i] = styleId;
+    this._crsi[i] = opts.seriesIndex == null ? -1 : opts.seriesIndex;
+    this._crdi[i] = opts.dataPointIndex == null ? -1 : opts.dataPointIndex;
+    if (opts.radius) this._cellRadius = opts.radius;
+    return SHARED_RECT_REF;
+  }
+  /**
+   * Resolve (and dedupe) a rect-cell style → shared-palette id. A last-style
+   * cache keeps the Map/string work off the path for runs of same-style cells.
+   * @param {any} opts
+   * @returns {number}
+   */
+  _rectStyleId(opts) {
+    const fill = opts.fill;
+    const stroke = opts.stroke;
+    const sw = opts.strokeWidth;
+    const fo = opts.fillOpacity;
+    const so = opts.strokeOpacity;
+    if (fill === this._rlf && stroke === this._rls && sw === this._rlsw && fo === this._rlfo && so === this._rlso) {
+      return this._rlid;
+    }
+    const id = this._internStyle(fill, stroke, sw, 0, fo, so);
+    this._rlf = fill;
+    this._rls = stroke;
+    this._rlsw = sw;
+    this._rlfo = fo;
+    this._rlso = so;
+    this._rlid = id;
+    return id;
+  }
+  /** @returns {number} number of recorded rect cells */
+  rectCount() {
+    return this._crn;
+  }
+  /** @param {number} i @returns {any} the style object for a rect cell */
+  rectStyle(i) {
+    return this._styles[this._crstyle[i]];
+  }
+  /** @param {number} i @returns {number} series (realIndex) of a cell, -1 if none */
+  rectSeries(i) {
+    return this._crsi[i];
+  }
+  /**
+   * @param {string} tag
+   * @param {number} z
+   * @returns {any}
+   */
+  _cmd(tag, z) {
+    const cmd = {
+      tag,
+      z: z || 0,
+      fill: void 0,
+      stroke: void 0,
+      strokeWidth: void 0,
+      strokeDash: void 0,
+      lineCap: void 0,
+      fillOpacity: void 0,
+      strokeOpacity: void 0,
+      fillRule: void 0,
+      // The plot clip it is painted through ('grid' | 'bar' | 'marker'),
+      // null for none: whatever `clip-path` the SVG mark would carry.
+      clip: null
+    };
+    this._list.push(cmd);
+    return cmd;
+  }
+  // ── organizational (groups don't paint or record) ──
+  // Series draw() creates a wrap group PER POINT (scatter.draw / plotChartMarkers
+  // run per point), so allocating a handle per group is ~50k heavy allocations
+  // at scale: enough transient churn to tip V8 into a GC blow-up. Groups carry
+  // no paint state in canvas mode (attr/add are no-ops), so every group shares
+  // one singleton: zero per-point allocation.
+  /** @param {any} _attrs */
+  group(_attrs) {
+    return SHARED_GROUP;
+  }
+  // ── per-point marker (line/area markers, scatter, bubble): COLUMNAR ──
+  /**
+   * @param {number} x
+   * @param {number} y
+   * @param {any} opts
+   */
+  drawMarker(x, y, opts = {}) {
+    var _a;
+    const styleId = this._markerStyleId(opts);
+    if (this._mn >= this._mcap) this._growMarkers();
+    const i = this._mn++;
+    this._mx[i] = x || 0;
+    this._my[i] = typeof y === "number" ? y : NaN;
+    this._msize[i] = opts.pSize || 0;
+    this._mshape[i] = (_a = SHAPE_ID[opts.shape || "circle"]) != null ? _a : 0;
+    this._mstyle[i] = styleId;
+    this._msi[i] = opts.seriesIndex == null ? -1 : opts.seriesIndex;
+    this._mdi[i] = -1;
+    return new CanvasMarkerRef(this, i);
+  }
+  /**
+   * Resolve (and dedupe) a marker style → palette id. A last-style cache keeps
+   * the Map/string work off the path when consecutive markers share a style
+   * (the common case), so intern runs once per style run.
+   * @param {any} opts
+   * @returns {number}
+   */
+  _markerStyleId(opts) {
+    const shape = opts.shape || "circle";
+    const strokeTinted = shape === "line" || shape === "plus" || shape === "cross";
+    const fill = strokeTinted ? "none" : opts.pointFillColor;
+    const stroke = strokeTinted ? opts.pointFillColor : opts.pointStrokeColor;
+    const sw = opts.pointStrokeWidth;
+    const dash = opts.pointStrokeDashArray;
+    const fo = opts.pointFillOpacity;
+    const so = strokeTinted ? opts.pointFillOpacity : opts.pointStrokeOpacity;
+    if (fill === this._lf && stroke === this._ls && sw === this._lsw && dash === this._ld && fo === this._lfo && so === this._lso) {
+      return this._lid;
+    }
+    const id = this._internStyle(fill, stroke, sw, dash, fo, so);
+    this._lf = fill;
+    this._ls = stroke;
+    this._lsw = sw;
+    this._ld = dash;
+    this._lfo = fo;
+    this._lso = so;
+    this._lid = id;
+    return id;
+  }
+  // ── series body path (line/area/bar): object command ──
+  /** @param {any} opts */
+  renderPaths(opts) {
+    const cmd = this._cmd("path", opts.realIndex);
+    cmd.d = opts.pathTo;
+    if (opts.pathToNumeric) {
+      cmd.nxs = opts.pathToNumeric.xs;
+      cmd.nys = opts.pathToNumeric.ys;
+      cmd.ncloseY = opts.pathToNumeric.closeY;
+    }
+    cmd.stroke = opts.stroke;
+    cmd.strokeWidth = opts.strokeWidth;
+    cmd.fill = opts.fill;
+    cmd.lineCap = opts.strokeLinecap || this.w.config.stroke.lineCap;
+    cmd.strokeDash = this._g.seriesDash(opts.realIndex);
+    cmd.si = opts.realIndex;
+    if (typeof opts.j === "number") cmd.dj = opts.j;
+    if (opts.shouldClipToGrid !== false) {
+      const gl = this.w.globals;
+      cmd.clip = opts.chartType === "bar" && !gl.isBarHorizontal || gl.comboCharts ? "bar" : "grid";
+    }
+    this.w.globals.animationEnded = true;
+    return new CanvasMark(cmd);
+  }
+  /** @param {any} opts */
+  drawPath(opts) {
+    const cmd = this._cmd("path", 0);
+    cmd.d = opts.d;
+    cmd.stroke = opts.stroke;
+    cmd.strokeWidth = opts.strokeWidth;
+    cmd.fill = opts.fill;
+    cmd.fillOpacity = opts.fillOpacity;
+    cmd.strokeOpacity = opts.strokeOpacity;
+    cmd.lineCap = opts.strokeLinecap || this.w.config.stroke.lineCap;
+    cmd.strokeDash = opts.strokeDashArray;
+    return new CanvasMark(cmd);
+  }
+  // ── remaining primitives (contract completeness / Marks #11 forward-compat) ──
+  /**
+   * @param {number} x1 @param {number} y1 @param {number} x2 @param {number} y2
+   * @param {string} lineColor @param {any} dashArray @param {number} strokeWidth
+   * @param {string} [lineCap]
+   */
+  drawLine(x1, y1, x2, y2, lineColor = "#a8a8a8", dashArray = 0, strokeWidth = 1, lineCap = "butt") {
+    const cmd = this._cmd("line", 0);
+    cmd.lineCap = lineCap;
+    cmd.lx1 = x1;
+    cmd.ly1 = y1;
+    cmd.lx2 = x2;
+    cmd.ly2 = y2;
+    cmd.stroke = lineColor;
+    cmd.strokeDash = dashArray;
+    cmd.strokeWidth = strokeWidth;
+    return new CanvasMark(cmd);
+  }
+  /**
+   * Mirrors Graphics.drawRect's full signature (including stroke), so callers
+   * that stroke rects (Marks api.rect, chart code) paint the same on canvas.
+   * @param {number} x1 @param {number} y1 @param {number} x2 @param {number} y2
+   * @param {number} radius @param {string} color @param {number} opacity
+   * @param {number|null} [strokeWidth] @param {string|null} [strokeColor]
+   * @param {any} [strokeDashArray]
+   */
+  drawRect(x1 = 0, y1 = 0, x2 = 0, y2 = 0, radius = 0, color = "#fefefe", opacity = 1, strokeWidth = null, strokeColor = null, strokeDashArray = 0) {
+    const cmd = this._cmd("rect", 0);
+    cmd.x1 = x1;
+    cmd.y1 = y1;
+    cmd.rw = x2 > 0 ? x2 : 0;
+    cmd.rh = y2 > 0 ? y2 : 0;
+    cmd.radius = radius;
+    cmd.fill = color;
+    cmd.fillOpacity = opacity;
+    if (strokeColor != null) {
+      cmd.stroke = strokeColor;
+      cmd.strokeWidth = strokeWidth == null ? 1 : strokeWidth;
+      cmd.strokeDash = strokeDashArray;
+    }
+    return new CanvasMark(cmd);
+  }
+  /**
+   * @param {number} radius
+   * @param {any} attrs
+   */
+  drawCircle(radius, attrs = null) {
+    const cmd = this._cmd("circle", 0);
+    cmd.r = radius < 0 ? 0 : radius;
+    const mark = new CanvasMark(cmd);
+    if (attrs) {
+      cmd.cx = attrs.cx;
+      cmd.cy = attrs.cy;
+      mark.attr(attrs);
+    }
+    return mark;
+  }
+  /** @param {any} opts */
+  drawText(opts) {
+    const cmd = this._cmd("text", 0);
+    cmd.text = Array.isArray(opts.text) ? opts.text.join(" ") : opts.text;
+    cmd.tx = opts.x;
+    cmd.ty = opts.y;
+    cmd.textAnchor = opts.textAnchor || "start";
+    const chart = this.w.config.chart;
+    cmd.fontSize = opts.fontSize;
+    cmd.fontFamily = opts.fontFamily || chart.fontFamily;
+    cmd.fontWeight = opts.fontWeight;
+    cmd.fill = opts.foreColor || chart.foreColor;
+    return new CanvasMark(cmd);
+  }
+  /**
+   * Resolve a marker's SVG path `d` (non-circle shapes) lazily at paint time.
+   * @param {number} x @param {number} y @param {number} shapeId @param {number} size
+   * @returns {string}
+   */
+  markerPath(x, y, shapeId, size) {
+    return this._g.getMarkerPath(x, y, SHAPE_NAME[shapeId] || "circle", size);
+  }
+}
+const SVGElement = _core.__apex_SVGElement;
+const SVGNS = _core.__apex_math_SVGNS;
+const BrowserAPIs = _core.__apex_BrowserAPIs_BrowserAPIs;
+const Grid = _core.__apex_axes_Grid;
+function parseDash(dash) {
+  if (dash == null || dash === "") return [];
+  let parts;
+  if (Array.isArray(dash)) {
+    parts = dash;
+  } else if (typeof dash === "number") {
+    parts = [dash];
+  } else {
+    const s = String(dash).trim();
+    if (s === "" || s === "none") return [];
+    parts = s.split(/[\s,]+/);
+  }
+  const out = [];
+  let any = false;
+  for (const p of parts) {
+    const n = typeof p === "number" ? p : Number(String(p).replace(/px$/i, ""));
+    if (!isFinite(n) || n < 0) return [];
+    if (n > 0) any = true;
+    out.push(n);
+  }
+  return any ? out : [];
+}
+const TWO_PI = Math.PI * 2;
+const DPR_CAP = 2;
+class CanvasCompositor {
+  /** @param {any} w */
+  constructor(w) {
+    this.w = w;
+    this._host = null;
+    this._canvas = null;
+    this._c2d = null;
+    this._pad = { left: 0, top: 0, right: 0, bottom: 0 };
+    this._clips = null;
+    this._clipRect = null;
+    this._dpr = 1;
+    this._dim = null;
+    this._alpha = 1;
+    this._unitPaths = /* @__PURE__ */ new Map();
+    this._markerBatches = 0;
+  }
+  /** Marker style-batches applied during the last paint() (dev/test hook). */
+  markerBatchCount() {
+    return this._markerBatches;
+  }
+  /**
+   * Opacity multiplier for a series index under the active dim spec: 1 for the
+   * highlighted series (or when not dimming, or for unidentified marks), else
+   * the inactive opacity.
+   * @param {number} si
+   * @returns {number}
+   */
+  _seriesAlpha(si) {
+    const d = this._dim;
+    if (!d || d.active == null || d.active < 0 || si == null || si < 0) return 1;
+    return si === d.active ? 1 : d.opacity == null ? 0.2 : d.opacity;
+  }
+  /**
+   * The plot size, the plot clips (the rects the SVG chart clips its marks
+   * to) and how far the canvas has to reach past each side of the plot: the
+   * edge-marker margin, or further wherever a clip reaches further.
+   */
+  _plotDims() {
+    var _a;
+    const gw = Math.max(0, Math.ceil(this.w.layout.gridWidth || 0));
+    const gh = Math.max(0, Math.ceil(this.w.layout.gridHeight || 0));
+    const largest = ((_a = this.w.globals.markers) == null ? void 0 : _a.largestSize) || 0;
+    const margin = Math.ceil(largest + 8);
+    const clips = Grid.maskRects(this.w);
+    const pad = { left: margin, top: margin, right: margin, bottom: margin };
+    const reach = (v) => Number.isFinite(v) ? Math.ceil(v) : 0;
+    Object.values(clips).forEach((r) => {
+      pad.left = Math.max(pad.left, reach(-r.x));
+      pad.top = Math.max(pad.top, reach(-r.y));
+      pad.right = Math.max(pad.right, reach(r.x + r.width - gw));
+      pad.bottom = Math.max(pad.bottom, reach(r.y + r.height - gh));
+    });
+    return { gw, gh, pad, clips };
+  }
+  /**
+   * Create (or recreate) the foreignObject + canvas sized to the plot rect and
+   * return the SVGElement host that `plotChartType` inserts into the tree.
+   * @returns {any}
+   */
+  createHost() {
+    const win = BrowserAPIs.getWindow();
+    this._dpr = Math.min(DPR_CAP, win && win.devicePixelRatio || 1);
+    const { gw, gh, pad, clips } = this._plotDims();
+    this._pad = pad;
+    this._clips = clips;
+    const w = gw + pad.left + pad.right;
+    const h = gh + pad.top + pad.bottom;
+    const fo = BrowserAPIs.createElementNS(SVGNS, "foreignObject");
+    fo.setAttribute("x", String(-pad.left));
+    fo.setAttribute("y", String(-pad.top));
+    fo.setAttribute("width", String(w));
+    fo.setAttribute("height", String(h));
+    fo.setAttribute("class", "apexcharts-canvas-series");
+    fo.style.overflow = "visible";
+    const canvas = (
+      /** @type {any} */
+      BrowserAPIs.createElement("canvas")
+    );
+    canvas.setAttribute("class", "apexcharts-series-canvas");
+    canvas.width = Math.max(1, Math.round(w * this._dpr));
+    canvas.height = Math.max(1, Math.round(h * this._dpr));
+    canvas.style.width = w + "px";
+    canvas.style.height = h + "px";
+    canvas.style.pointerEvents = "none";
+    fo.appendChild(canvas);
+    this._canvas = canvas;
+    this._c2d = canvas.getContext("2d");
+    this._host = new SVGElement(fo);
+    return this._host;
+  }
+  getHost() {
+    return this._host;
+  }
+  /**
+   * The rect a plot clip covers, in plot px, or null when there is none to
+   * apply (no clip named, or no host made yet).
+   * @param {string|null|undefined} kind 'grid' | 'bar' | 'marker'
+   * @returns {{x:number,y:number,width:number,height:number}|null}
+   */
+  clipRect(kind) {
+    const r = kind && this._clips ? this._clips[kind] : null;
+    return r && Number.isFinite(r.x) && Number.isFinite(r.y) && Number.isFinite(r.width) && Number.isFinite(r.height) ? r : null;
+  }
+  /**
+   * Paint through a plot clip from here on, as the SVG mark would be
+   * clipped; null paints unclipped. Consecutive marks under the same clip
+   * share one save/clip, so a run of bars costs one clip, not one each.
+   * @param {any} ctx
+   * @param {string|null|undefined} kind
+   */
+  _clipTo(ctx, kind) {
+    const r = this.clipRect(kind);
+    if (r === this._clipRect) return;
+    if (this._clipRect) ctx.restore();
+    this._clipRect = r;
+    if (r) {
+      const dpr = this._dpr;
+      const { left, top } = this._pad;
+      const x0 = Math.floor((left + r.x) * dpr);
+      const y0 = Math.floor((top + r.y) * dpr);
+      const x1 = Math.ceil((left + r.x + r.width) * dpr);
+      const y1 = Math.ceil((top + r.y + r.height) * dpr);
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.beginPath();
+      ctx.rect(x0, y0, x1 - x0, y1 - y0);
+      ctx.clip();
+      ctx.setTransform(dpr, 0, 0, dpr, left * dpr, top * dpr);
+    }
+  }
+  clear() {
+    if (!this._c2d || !this._canvas) return;
+    this._c2d.setTransform(1, 0, 0, 1, 0, 0);
+    this._c2d.clearRect(0, 0, this._canvas.width, this._canvas.height);
+  }
+  /**
+   * Re-check devicePixelRatio before painting: a restyle() repaint after the
+   * window moved between monitors would otherwise keep the stale backing-store
+   * scale (blurry or over-sized) until the next full render rebuilds the host.
+   * The canvas CSS size is unchanged; only the backing store is resized.
+   */
+  _syncDpr() {
+    if (!this._canvas) return;
+    const win = BrowserAPIs.getWindow();
+    const dpr = Math.min(DPR_CAP, win && win.devicePixelRatio || 1);
+    if (dpr === this._dpr) return;
+    this._dpr = dpr;
+    const wCss = parseFloat(this._canvas.style.width) || 0;
+    const hCss = parseFloat(this._canvas.style.height) || 0;
+    this._canvas.width = Math.max(1, Math.round(wCss * dpr));
+    this._canvas.height = Math.max(1, Math.round(hCss * dpr));
+  }
+  /**
+   * Paint the recorded scene: object commands (series bodies / rects / lines /
+   * text) first, then the columnar markers on top (matching SVG z-order where
+   * markers sit above the series path). `shim` supplies the columnar marker
+   * arrays + lazy non-circle marker geometry.
+   * @param {any[]} list
+   * @param {any} shim
+   * @param {{active:number, opacity:number}|null} [dim] per-series dim spec
+   *   (hover / legend restyle); null repaints at full opacity.
+   */
+  paint(list, shim, dim = null) {
+    const ctx = this._c2d;
+    if (!ctx) return;
+    this._dim = dim || null;
+    this._syncDpr();
+    this.clear();
+    const dpr = this._dpr;
+    const { left, top } = this._pad;
+    ctx.setTransform(dpr, 0, 0, dpr, left * dpr, top * dpr);
+    this._clipRect = null;
+    if (list.length) {
+      const ordered = list.length > 1 ? list.map((c, i) => [c, i]).sort(
+        (a, b) => a[0].z === b[0].z ? a[1] - b[1] : a[0].z - b[0].z
+      ).map((pair) => pair[0]) : list;
+      for (let i = 0; i < ordered.length; i++) {
+        const c = ordered[i];
+        this._alpha = this._dim ? this._seriesAlpha(c.si) : 1;
+        this._clipTo(ctx, c.clip);
+        this._paintOne(ctx, c);
+      }
+      this._clipTo(ctx, null);
+    }
+    this._paintRects(ctx, shim);
+    this._clipTo(ctx, "marker");
+    this._paintMarkers(ctx, shim);
+    this._clipTo(ctx, null);
+    this._alpha = 1;
+  }
+  /**
+   * Paint the columnar rect cells (heatmap) as STYLE BATCHES: one fill/stroke
+   * state application per run of consecutive same-style cells, then a fast
+   * fillRect (or a roundRect path when the shared corner radius is non-zero)
+   * per cell. Clipped to the plot rect so cells never bleed into the canvas
+   * margin (mirrors the SVG gridRectMask). Per-cell globalAlpha carries the
+   * hover/legend dim multiplier when a dim spec is active.
+   * @param {any} ctx
+   * @param {any} shim
+   */
+  _paintRects(ctx, shim) {
+    const n = shim.rectCount ? shim.rectCount() : 0;
+    if (!n) return;
+    const rx = shim._crx;
+    const ry = shim._cry;
+    const rw = shim._crw;
+    const rh = shim._crh;
+    const rstyle = shim._crstyle;
+    const radius = shim._cellRadius || 0;
+    const cx = (
+      /** @type {any} */
+      ctx
+    );
+    const useRound = radius > 0 && typeof cx.roundRect === "function";
+    const dimming = !!this._dim;
+    const gw = Math.max(0, this.w.layout.gridWidth || 0);
+    const gh = Math.max(0, this.w.layout.gridHeight || 0);
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, gw, gh);
+    ctx.clip();
+    let i = 0;
+    while (i < n) {
+      const styleId = rstyle[i];
+      const style = shim.rectStyle(i);
+      if (!style) {
+        i++;
+        continue;
+      }
+      const fill = style.fill;
+      const doFill = fill && fill !== "none" && !(typeof fill === "string" && fill.indexOf("url(") === 0);
+      const stroke = style.stroke;
+      const sw = style.strokeWidth == null ? 0 : Number(style.strokeWidth);
+      const doStroke = stroke && stroke !== "none" && sw > 0 && !(typeof stroke === "string" && stroke.indexOf("url(") === 0);
+      if (doFill) ctx.fillStyle = fill;
+      if (doStroke) {
+        ctx.strokeStyle = stroke;
+        ctx.lineWidth = sw;
+        ctx.setLineDash([]);
+      }
+      const baseFillA = style.fillOpacity == null ? 1 : Number(style.fillOpacity);
+      const baseStrokeA = style.strokeOpacity == null ? 1 : Number(style.strokeOpacity);
+      let j = i;
+      while (j < n && rstyle[j] === styleId) {
+        const w = rw[j];
+        const h = rh[j];
+        if (w > 0 && h > 0) {
+          const f = dimming ? this._seriesAlpha(shim.rectSeries(j)) : 1;
+          if (useRound) {
+            ctx.beginPath();
+            cx.roundRect(rx[j], ry[j], w, h, radius);
+            if (doFill) {
+              ctx.globalAlpha = baseFillA * f;
+              ctx.fill();
+            }
+            if (doStroke) {
+              ctx.globalAlpha = baseStrokeA * f;
+              ctx.stroke();
+            }
+          } else {
+            if (doFill) {
+              ctx.globalAlpha = baseFillA * f;
+              ctx.fillRect(rx[j], ry[j], w, h);
+            }
+            if (doStroke) {
+              ctx.globalAlpha = baseStrokeA * f;
+              ctx.strokeRect(rx[j], ry[j], w, h);
+            }
+          }
+        }
+        j++;
+      }
+      i = j;
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+  /**
+   * Reusable unit Path2D for a (shape, size): the shape's geometry built at the
+   * origin once, then translated per marker via setTransform. Returns null when
+   * the geometry string cannot be parsed.
+   * @param {any} shim
+   * @param {number} shapeId
+   * @param {number} size
+   * @returns {any}
+   */
+  _unitPath(shim, shapeId, size) {
+    const key = shapeId + "|" + size;
+    let p = this._unitPaths.get(key);
+    if (p === void 0) {
+      try {
+        p = new Path2D(shim.markerPath(0, 0, shapeId, size));
+      } catch (e) {
+        p = null;
+      }
+      this._unitPaths.set(key, p);
+    }
+    return p;
+  }
+  /**
+   * Markers paint as STYLE BATCHES: one fill/stroke state application per run
+   * of consecutive same-style markers (a uniform single-series scatter is
+   * exactly one batch), then per-marker geometry inside the run. Per-marker
+   * geometry stays painter's-ordered (fill+stroke per marker) so overlapping
+   * semi-transparent markers composite exactly as SVG does.
+   * @param {any} ctx
+   * @param {any} shim
+   */
+  _paintMarkers(ctx, shim) {
+    this._markerBatches = 0;
+    const n = shim.markerCount();
+    if (!n) return;
+    const mx = shim._mx;
+    const my = shim._my;
+    const msize = shim._msize;
+    const mshape = shim._mshape;
+    const mstyle = shim._mstyle;
+    const dimming = !!this._dim;
+    if (!dimming) this._alpha = 1;
+    let i = 0;
+    while (i < n) {
+      const styleId = mstyle[i];
+      const shapeId = mshape[i];
+      const style = shim.markerStyle(i);
+      if (!style) {
+        i++;
+        continue;
+      }
+      const doFill = this._applyFill(ctx, style);
+      const doStroke = this._applyStroke(ctx, style);
+      this._markerBatches++;
+      const baseFillA = style.fillOpacity == null ? 1 : Number(style.fillOpacity);
+      const baseStrokeA = style.strokeOpacity == null ? 1 : Number(style.strokeOpacity);
+      if (shapeId === 0) {
+        let j = i;
+        while (j < n && mshape[j] === 0 && mstyle[j] === styleId) {
+          const r = msize[j] || 0;
+          const y = my[j];
+          if (r > 0 && y === y) {
+            ctx.beginPath();
+            ctx.arc(mx[j], y, r, 0, TWO_PI);
+            if (dimming) {
+              const f = this._seriesAlpha(shim.markerSeries(j));
+              if (doFill) {
+                ctx.globalAlpha = baseFillA * f;
+                ctx.fill();
+              }
+              if (doStroke) {
+                ctx.globalAlpha = baseStrokeA * f;
+                ctx.stroke();
+              }
+            } else {
+              if (doFill) ctx.fill();
+              if (doStroke) ctx.stroke();
+            }
+          }
+          j++;
+        }
+        ctx.globalAlpha = 1;
+        i = j;
+      } else {
+        const dpr = this._dpr;
+        const ox = this._pad.left;
+        const oy = this._pad.top;
+        let j = i;
+        while (j < n && mshape[j] === shapeId && mstyle[j] === styleId) {
+          const y = my[j];
+          const size = msize[j];
+          if (y === y && size > 0) {
+            const p = this._unitPath(shim, shapeId, size);
+            if (p) {
+              ctx.setTransform(
+                dpr,
+                0,
+                0,
+                dpr,
+                (ox + mx[j]) * dpr,
+                (oy + y) * dpr
+              );
+              const f = dimming ? this._seriesAlpha(shim.markerSeries(j)) : 1;
+              if (doFill) {
+                ctx.globalAlpha = baseFillA * f;
+                ctx.fill(p);
+              }
+              if (doStroke) {
+                ctx.globalAlpha = baseStrokeA * f;
+                ctx.stroke(p);
+              }
+            }
+          }
+          j++;
+        }
+        ctx.setTransform(dpr, 0, 0, dpr, ox * dpr, oy * dpr);
+        ctx.globalAlpha = 1;
+        i = j;
+      }
+    }
+  }
+  /**
+   * Paint a series path from its numeric fast-path coords: a direct
+   * moveTo/lineTo loop over the typed arrays, no Path2D and no d-string
+   * parse. `ncloseY` (areas) closes the polygon down to the baseline exactly
+   * like the string form's `L xLast bottom L x0 bottom z` tail.
+   * @param {any} ctx
+   * @param {any} cmd
+   */
+  _paintNumericPath(ctx, cmd) {
+    const xs = cmd.nxs;
+    const ys = cmd.nys;
+    const n = xs.length;
+    if (!n) return;
+    ctx.beginPath();
+    ctx.moveTo(xs[0], ys[0]);
+    for (let k = 1; k < n; k++) {
+      ctx.lineTo(xs[k], ys[k]);
+    }
+    if (cmd.ncloseY != null) {
+      ctx.lineTo(xs[n - 1], cmd.ncloseY);
+      ctx.lineTo(xs[0], cmd.ncloseY);
+      ctx.closePath();
+    }
+    if (this._applyFill(ctx, cmd)) {
+      ctx.fill(cmd.fillRule === "evenodd" ? "evenodd" : "nonzero");
+    }
+    if (this._applyStroke(ctx, cmd)) {
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+  /**
+   * @param {any} ctx
+   * @param {any} cmd style-bearing flat command
+   */
+  _paintOne(ctx, cmd) {
+    switch (cmd.tag) {
+      case "path": {
+        if (cmd.nxs) {
+          this._paintNumericPath(ctx, cmd);
+          break;
+        }
+        if (!cmd.d) return;
+        if (!cmd.path2d) {
+          try {
+            cmd.path2d = new Path2D(cmd.d);
+          } catch (e) {
+            return;
+          }
+        }
+        this._fillStrokePath(ctx, cmd, cmd.path2d);
+        break;
+      }
+      case "rect": {
+        const p = new Path2D();
+        if (cmd.radius && typeof /** @type {any} */
+        p.roundRect === "function") {
+          p.roundRect(cmd.x1, cmd.y1, cmd.rw, cmd.rh, cmd.radius);
+        } else {
+          p.rect(cmd.x1, cmd.y1, cmd.rw, cmd.rh);
+        }
+        this._fillStrokePath(ctx, cmd, p);
+        break;
+      }
+      case "circle": {
+        if (!(cmd.r > 0)) return;
+        ctx.beginPath();
+        ctx.arc(cmd.cx, cmd.cy, cmd.r, 0, TWO_PI);
+        this._fillStroke(ctx, cmd);
+        break;
+      }
+      case "line": {
+        ctx.beginPath();
+        ctx.moveTo(cmd.lx1, cmd.ly1);
+        ctx.lineTo(cmd.lx2, cmd.ly2);
+        this._strokeOnly(ctx, cmd);
+        break;
+      }
+      case "text": {
+        if (cmd.text == null) return;
+        ctx.save();
+        ctx.globalAlpha = this._alpha;
+        ctx.fillStyle = cmd.fill || "#000";
+        const size = cmd.fontSize || "11px";
+        const weight = cmd.fontWeight;
+        ctx.font = `${weight && weight !== "regular" ? weight + " " : ""}${typeof size === "number" ? size + "px" : size} ${cmd.fontFamily || "Helvetica, Arial, sans-serif"}`;
+        ctx.textAlign = cmd.textAnchor === "middle" ? "center" : cmd.textAnchor === "end" ? "right" : "left";
+        ctx.fillText(String(cmd.text), cmd.tx, cmd.ty);
+        ctx.restore();
+        break;
+      }
+    }
+  }
+  /**
+   * @param {any} ctx
+   * @param {any} style
+   * @param {any} path2d
+   */
+  _fillStrokePath(ctx, style, path2d) {
+    if (this._applyFill(ctx, style)) {
+      ctx.fill(path2d, style.fillRule === "evenodd" ? "evenodd" : "nonzero");
+    }
+    if (this._applyStroke(ctx, style)) {
+      ctx.stroke(path2d);
+    }
+    ctx.globalAlpha = 1;
+  }
+  /**
+   * @param {any} ctx
+   * @param {any} style
+   */
+  _fillStroke(ctx, style) {
+    if (this._applyFill(ctx, style)) ctx.fill();
+    if (this._applyStroke(ctx, style)) ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+  /**
+   * @param {any} ctx
+   * @param {any} style
+   */
+  _strokeOnly(ctx, style) {
+    if (this._applyStroke(ctx, style)) ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+  /**
+   * Set fill state. Returns false when there's nothing to fill.
+   * @param {any} ctx
+   * @param {any} style
+   */
+  _applyFill(ctx, style) {
+    const fill = style.fill;
+    if (!fill || fill === "none") return false;
+    if (typeof fill === "string" && fill.indexOf("url(") === 0) return false;
+    ctx.globalAlpha = (style.fillOpacity == null ? 1 : Number(style.fillOpacity)) * this._alpha;
+    ctx.fillStyle = fill;
+    return true;
+  }
+  /**
+   * Set stroke state. Returns false when there's nothing to stroke.
+   * @param {any} ctx
+   * @param {any} style
+   */
+  _applyStroke(ctx, style) {
+    const stroke = style.stroke;
+    const sw = style.strokeWidth == null ? 1 : Number(style.strokeWidth);
+    if (!stroke || stroke === "none" || !(sw > 0)) return false;
+    if (typeof stroke === "string" && stroke.indexOf("url(") === 0) return false;
+    ctx.globalAlpha = (style.strokeOpacity == null ? 1 : Number(style.strokeOpacity)) * this._alpha;
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = sw;
+    ctx.lineCap = style.lineCap || "butt";
+    ctx.setLineDash(parseDash(style.strokeDash));
+    return true;
+  }
+  /** Series bitmap for the export composite bridge (P4). @returns {string|null} */
+  toDataURL() {
+    return this._canvas ? this._canvas.toDataURL() : null;
+  }
+  destroy() {
+    this._host = null;
+    this._canvas = null;
+    this._c2d = null;
+    this._clips = null;
+    this._clipRect = null;
+    this._unitPaths.clear();
+  }
+}
+class CanvasRenderer {
+  /**
+   * @param {any} w
+   * @param {any} ctx
+   */
+  constructor(w, ctx) {
+    this.w = w;
+    this.ctx = ctx;
+    this.kind = "canvas";
+    this._g = new CanvasGraphics(w);
+    this._compositor = new CanvasCompositor(w);
+    this._hitCtx = void 0;
+  }
+  // ── lifecycle ──
+  /** Start a fresh series display list for this render pass. */
+  beginSeries() {
+    this._g.reset();
+  }
+  /**
+   * Finalize the pass: paint the recorded display list and return the SVG host
+   * (a `<foreignObject><canvas>`) for `plotChartType` to composite into the tree.
+   * @returns {any}
+   */
+  present() {
+    const host = this._compositor.createHost();
+    this._compositor.paint(this._g.displayList(), this._g);
+    return host;
+  }
+  /** Fast-path wipe of the series layer. */
+  clear() {
+    this._compositor.clear();
+  }
+  /**
+   * Whether the existing <canvas> host can be repainted in place (it exists
+   * and is still mounted). Used by the data-only fast update path to skip
+   * recreating the foreignObject + backing store on every tick.
+   * @returns {boolean}
+   */
+  canRepaintInPlace() {
+    const host = this._compositor.getHost();
+    return !!(host && host.node && host.node.isConnected);
+  }
+  /** Repaint the freshly recorded display list into the EXISTING canvas. */
+  repaintInPlace() {
+    this._compositor.paint(this._g.displayList(), this._g);
+  }
+  // ── emit primitives (delegate to the display-list shim) ──
+  /** @param {any} attrs */
+  group(attrs) {
+    return this._g.group(attrs);
+  }
+  /** @param {any} opts */
+  drawPath(opts) {
+    return this._g.drawPath(opts);
+  }
+  /** @param {any[]} args */
+  drawLine(...args) {
+    return (
+      /** @type {any} */
+      this._g.drawLine(...args)
+    );
+  }
+  /** @param {any[]} args */
+  drawRect(...args) {
+    return (
+      /** @type {any} */
+      this._g.drawRect(...args)
+    );
+  }
+  /**
+   * Columnar heatmap-cell rect (dense same-shape rects): recorded into typed
+   * arrays, painted as style batches. Distinct from drawRect (object command)
+   * so 100k cells don't allocate 100k retained commands.
+   * @param {number} x @param {number} y @param {number} w @param {number} h
+   * @param {any} opts
+   */
+  drawRectCell(x, y, w, h, opts) {
+    return this._g.drawRectCell(x, y, w, h, opts);
+  }
+  /**
+   * @param {number} r
+   * @param {any} attrs
+   */
+  drawCircle(r, attrs) {
+    return this._g.drawCircle(r, attrs);
+  }
+  /**
+   * @param {number} x
+   * @param {number} y
+   * @param {any} opts
+   */
+  drawMarker(x, y, opts) {
+    return this._g.drawMarker(x, y, opts);
+  }
+  /** @param {any} opts */
+  renderPaths(opts) {
+    return this._g.renderPaths(opts);
+  }
+  /** @param {any} opts */
+  drawText(opts) {
+    return this._g.drawText(opts);
+  }
+  // ── capabilities ──
+  /** @param {string} feature */
+  supports(feature) {
+    return feature === "solidFill" || feature === "dashArray";
+  }
+  // ── interaction ──
+  // Shared tooltips resolve via coordinate lookup (pointsArray), so those
+  // need no per-mark query. Heatmap cells, and the bar-likes and markers of
+  // an intersect tooltip, however, are hovered by point (the SVG path
+  // hit-tests the node under the cursor); with them on canvas there is no
+  // node, so hitTest and hitTestMarker resolve the recorded marks.
+  /**
+   * Find the cell under a plot-local point (0,0 = plot origin, the same space
+   * as the recorded cell geometry). Reverse scan so a later-painted cell wins
+   * when cells overlap (continuous-x edges). A linear scan stays well under a
+   * frame even at 100k cells (~100k integer compares). Returns the cell's
+   * series/dataPoint index plus its geometry for tooltip positioning, or null
+   * when the point is off every cell.
+   *
+   * With no cell there, a bar-like mark (a recorded path standing for one
+   * data point: a bar, a candle, half a box plot, a violin body) is looked
+   * for instead, with the box of the path that was hit.
+   * @param {number} px
+   * @param {number} py
+   * @returns {({seriesIndex:number,dataPointIndex:number,x?:number,y?:number,width?:number,height?:number})|null}
+   */
+  hitTest(px, py) {
+    const g = this._g;
+    const n = g.rectCount ? g.rectCount() : 0;
+    const rx = g._crx;
+    const ry = g._cry;
+    const rw = g._crw;
+    const rh = g._crh;
+    for (let k = n - 1; k >= 0; k--) {
+      const w = rw[k];
+      const h = rh[k];
+      if (w <= 0 || h <= 0) continue;
+      if (px >= rx[k] && px < rx[k] + w && py >= ry[k] && py < ry[k] + h) {
+        return {
+          seriesIndex: g._crsi[k],
+          dataPointIndex: g._crdi[k],
+          x: rx[k],
+          y: ry[k],
+          width: w,
+          height: h
+        };
+      }
+    }
+    return this._hitTestMarks(px, py);
+  }
+  /**
+   * The bar-like mark painted over a plot-local point. Tested against the
+   * painted shape, the way a hovered SVG path is: its fill, and its stroke
+   * wherever one is painted, so the empty corners of a violin's bounding box
+   * are not part of it while a candle's wick and a box plot's whiskers, which
+   * are stroke alone, are; and none of the part its clip cuts off (a
+   * clipped-away part of an SVG path takes no pointer either). Bar-likes
+   * record in series order, which is also their paint order, so a reverse
+   * scan finds the topmost. The box comes back with it: the one that path
+   * spans, as the hovered SVG path measures.
+   * @param {number} px
+   * @param {number} py
+   * @returns {({seriesIndex:number,dataPointIndex:number,x?:number,y?:number,width?:number,height?:number})|null}
+   */
+  _hitTestMarks(px, py) {
+    const list = this._g.displayList();
+    for (let k = list.length - 1; k >= 0; k--) {
+      const cmd = list[k];
+      if (cmd.tag !== "path" || cmd.dj == null || !cmd.d) continue;
+      const filled = !!cmd.fill && cmd.fill !== "none";
+      const stroked = !!cmd.stroke && cmd.stroke !== "none" && cmd.strokeWidth > 0;
+      if (!filled && !stroked) continue;
+      const clip = this._compositor.clipRect(cmd.clip);
+      if (clip && (px < clip.x || px > clip.x + clip.width || py < clip.y || py > clip.y + clip.height)) {
+        continue;
+      }
+      const box = markBox(cmd);
+      if (!box) continue;
+      const reach = stroked ? cmd.strokeWidth * 5 : 0;
+      if (px < box.x - reach || px > box.x + box.width + reach || py < box.y - reach || py > box.y + box.height + reach) {
+        continue;
+      }
+      const ctx = this._hitContext();
+      if (!ctx) return null;
+      if (!cmd.path2d) {
+        try {
+          cmd.path2d = new Path2D(cmd.d);
+        } catch (e) {
+          continue;
+        }
+      }
+      const rule = cmd.fillRule === "evenodd" ? "evenodd" : "nonzero";
+      let hit = filled && ctx.isPointInPath(cmd.path2d, px, py, rule);
+      if (!hit && stroked) {
+        ctx.lineWidth = cmd.strokeWidth;
+        ctx.lineCap = cmd.lineCap || "butt";
+        hit = ctx.isPointInStroke(cmd.path2d, px, py);
+      }
+      if (hit) {
+        return __spreadValues({ seriesIndex: cmd.si, dataPointIndex: cmd.dj }, box);
+      }
+    }
+    return null;
+  }
+  /**
+   * The marker painted over a plot-local point, for a tooltip that shows on
+   * the hovered point (intersect): on SVG the marker node under the pointer
+   * names it, and on canvas there is none. Markers paint after every other
+   * mark (CanvasCompositor.paint) in record order, so a reverse scan finds
+   * the topmost, which is the one an SVG pointer would land on where a
+   * scatter overlays bars. Tested against the painted shape, fill and
+   * stroke, and only inside the marker clip they are painted through, as a
+   * clipped-away SVG marker takes no pointer. Null when no sized marker of
+   * a known data point is there.
+   * @param {number} px
+   * @param {number} py
+   * @returns {({seriesIndex:number,dataPointIndex:number,x:number,y:number,size:number})|null}
+   */
+  hitTestMarker(px, py) {
+    const g = this._g;
+    const n = g.markerCount();
+    if (!n) return null;
+    const clip = this._compositor.clipRect("marker");
+    if (clip && (px < clip.x || px > clip.x + clip.width || py < clip.y || py > clip.y + clip.height)) {
+      return null;
+    }
+    for (let k = n - 1; k >= 0; k--) {
+      const size = g._msize[k];
+      const x = g._mx[k];
+      const y = g._my[k];
+      const j = g._mdi[k];
+      if (!(size > 0) || y !== y || j < 0) continue;
+      const style = g.markerStyle(k);
+      const stroked = !!(style == null ? void 0 : style.stroke) && style.stroke !== "none" && style.strokeWidth > 0;
+      const halfStroke = stroked ? style.strokeWidth / 2 : 0;
+      const reach = size * 1.2 + halfStroke;
+      const dx = px - x;
+      const dy = py - y;
+      if (dx < -reach || dx > reach || dy < -reach || dy > reach) continue;
+      let hit;
+      if (g._mshape[k] === 0) {
+        hit = dx * dx + dy * dy <= (size + halfStroke) * (size + halfStroke);
+      } else {
+        hit = this._hitsMarkerShape(k, dx, dy, size, style, stroked);
+      }
+      if (hit) {
+        return { seriesIndex: g._msi[k], dataPointIndex: j, x, y, size };
+      }
+    }
+    return null;
+  }
+  /**
+   * Whether a point, relative to a non-circle marker's centre, is on its
+   * painted shape: the same unit geometry the compositor paints it with.
+   * @param {number} k  marker index
+   * @param {number} dx
+   * @param {number} dy
+   * @param {number} size
+   * @param {any} style
+   * @param {boolean} stroked
+   * @returns {boolean}
+   */
+  _hitsMarkerShape(k, dx, dy, size, style, stroked) {
+    const ctx = this._hitContext();
+    if (!ctx) return false;
+    let path;
+    try {
+      path = new Path2D(this._g.markerPath(0, 0, this._g._mshape[k], size));
+    } catch (e) {
+      return false;
+    }
+    const filled = !!(style == null ? void 0 : style.fill) && style.fill !== "none";
+    if (filled && ctx.isPointInPath(path, dx, dy)) return true;
+    if (!stroked) return false;
+    ctx.lineWidth = style.strokeWidth;
+    ctx.lineCap = "butt";
+    return ctx.isPointInStroke(path, dx, dy);
+  }
+  /**
+   * Find a bar-like mark by identity rather than by point: keyboard focus
+   * knows the series and data point it is on. The first path recorded for
+   * the pair, as the first `path[j]` of the series is on SVG (a box plot's
+   * lower half, a violin's body), with the box it spans and its `d`, so a
+   * focus outline can trace the painted shape. Null when nothing was painted
+   * for that pair.
+   * @param {number} seriesIndex  realIndex
+   * @param {number} dataPointIndex
+   * @returns {({seriesIndex:number,dataPointIndex:number,x:number,y:number,width:number,height:number,d:string})|null}
+   */
+  findMark(seriesIndex, dataPointIndex) {
+    const list = this._g.displayList();
+    for (let k = 0; k < list.length; k++) {
+      const cmd = list[k];
+      if (cmd.tag !== "path" || !cmd.d) continue;
+      if (cmd.si !== seriesIndex || cmd.dj !== dataPointIndex) continue;
+      const box = markBox(cmd);
+      if (!box) continue;
+      return __spreadProps(__spreadValues({ seriesIndex, dataPointIndex }, box), { d: cmd.d });
+    }
+    return null;
+  }
+  /**
+   * Find a marker by identity rather than by point (hitTestMarker): keyboard
+   * focus knows the series and data point it is on. The topmost one painted
+   * for the pair, as the hit test reports it, and only one the hit test
+   * could report: sized, at a known y. With the shape it was painted in, as
+   * a `d`, so a focus outline can trace it. Null when none was painted.
+   * @param {number} seriesIndex  realIndex
+   * @param {number} dataPointIndex
+   * @returns {({seriesIndex:number,dataPointIndex:number,x:number,y:number,size:number,d:string})|null}
+   */
+  findMarker(seriesIndex, dataPointIndex) {
+    const g = this._g;
+    for (let k = g.markerCount() - 1; k >= 0; k--) {
+      if (g._msi[k] !== seriesIndex || g._mdi[k] !== dataPointIndex) continue;
+      const size = g._msize[k];
+      const y = g._my[k];
+      if (!(size > 0) || y !== y) continue;
+      const x = g._mx[k];
+      const d = g.markerPath(x, y, g._mshape[k], size);
+      return { seriesIndex, dataPointIndex, x, y, size, d };
+    }
+    return null;
+  }
+  /**
+   * Find a cell by identity rather than by point: keyboard focus knows the
+   * series and data point it is on, and needs the box the cell was painted in
+   * (plot-local, as hitTest returns it) to place the tooltip and draw a focus
+   * outline. `radius` is the cells' shared corner radius. Null when no cell
+   * was recorded for that pair.
+   * @param {number} seriesIndex
+   * @param {number} dataPointIndex
+   * @returns {({seriesIndex:number,dataPointIndex:number,x:number,y:number,width:number,height:number,radius:number})|null}
+   */
+  findCell(seriesIndex, dataPointIndex) {
+    const g = this._g;
+    const n = g.rectCount ? g.rectCount() : 0;
+    const si = g._crsi;
+    const di = g._crdi;
+    for (let k = n - 1; k >= 0; k--) {
+      if (si[k] === seriesIndex && di[k] === dataPointIndex) {
+        return {
+          seriesIndex,
+          dataPointIndex,
+          x: g._crx[k],
+          y: g._cry[k],
+          width: g._crw[k],
+          height: g._crh[k],
+          radius: g._cellRadius || 0
+        };
+      }
+    }
+    return null;
+  }
+  /**
+   * A detached 2D context kept for isPointInPath. The painting context
+   * carries the device-pixel and pad transform, which the point would
+   * have to be pushed through first; this one stays at identity, so plot
+   * px go in as they are.
+   * @returns {any}
+   */
+  _hitContext() {
+    if (this._hitCtx === void 0) {
+      const canvas = (
+        /** @type {any} */
+        BrowserAPIs.createElement("canvas")
+      );
+      this._hitCtx = (canvas == null ? void 0 : canvas.getContext) && canvas.getContext("2d") || null;
+    }
+    return this._hitCtx;
+  }
+  /**
+   * Repaint the retained series scene with a per-series dim spec (hover /
+   * legend restyle). No geometry recompute: reuses the display list + marker
+   * columns recorded at render time. Pass null to repaint at full opacity.
+   * @param {{active:number, opacity:number}|null} [dim]
+   */
+  restyle(dim) {
+    this._compositor.paint(this._g.displayList(), this._g, dim || null);
+  }
+  // ── export ── toBitmap() and the compositor's toDataURL() back
+  //    Exports.inlineCanvasLayers, which inlines the series bitmap as an SVG
+  //    <image> so PNG/SVG export includes the canvas layer in correct z-order.
+  /** @returns {{dataURL:string,x:number,y:number,w:number,h:number}|null} */
+  toBitmap() {
+    const url = this._compositor.toDataURL();
+    if (!url) return null;
+    const gl = this.w.globals;
+    const cfg = this.w.config.chart;
+    const pad = this._compositor._pad;
+    return {
+      dataURL: url,
+      x: (gl.translateX || 0) + (cfg.offsetX || 0) - pad.left,
+      y: (gl.translateY || 0) + (cfg.offsetY || 0) - pad.top,
+      w: (this.w.layout.gridWidth || 0) + pad.left + pad.right,
+      h: (this.w.layout.gridHeight || 0) + pad.top + pad.bottom
+    };
+  }
+  destroy() {
+    this._compositor.destroy();
+    this._hitCtx = void 0;
+  }
+}
+_core__default.registerRenderer(
+  "canvas",
+  /**
+   * @param {any} w
+   * @param {any} ctx
+   */
+  (w, ctx) => new CanvasRenderer(w, ctx)
+);
+export {
+  default2 as default
+};

@@ -1,0 +1,307 @@
+/* =========================================
+   CONTENEDOR PRINCIPAL
+========================================= */
+
+.modulo_cuenta_bancaria {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 24px;
+    background: #ffffff;
+    border: 2px solid #00779e;
+    border-radius: 12px;
+    box-shadow: 0 4px 14px rgba(0, 68, 95, 0.08);
+}
+
+.modulo_cuenta_bancaria *,
+.modulo_cuenta_bancaria *::before,
+.modulo_cuenta_bancaria *::after {
+    box-sizing: border-box;
+}
+
+/* =========================================
+   FORMULARIO
+========================================= */
+
+.modulo_cuenta_bancaria .formulario_cuentas {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px 24px;
+    width: 100%;
+    min-width: 0;
+}
+
+/* =========================================
+   CAMPOS DEL FORMULARIO
+========================================= */
+
+.modulo_cuenta_bancaria .campo_formulario {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+}
+
+.modulo_cuenta_bancaria .campo_formulario label {
+    color: #102f4e;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.modulo_cuenta_bancaria .campo_formulario input,
+.modulo_cuenta_bancaria .campo_formulario select,
+.modulo_cuenta_bancaria .campo_formulario textarea {
+    width: 100%;
+    min-width: 0;
+    height: 42px;
+    padding: 10px 12px;
+    border: 1px solid #cbd7e0;
+    border-radius: 7px;
+    background: #ffffff;
+    color: #102f4e;
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Soporte específico para áreas de texto grandes */
+.modulo_cuenta_bancaria .campo_formulario textarea {
+    height: auto;
+    min-height: 85px;
+    resize: vertical;
+}
+
+.modulo_cuenta_bancaria .campo_formulario input:focus,
+.modulo_cuenta_bancaria .campo_formulario select:focus,
+.modulo_cuenta_bancaria .campo_formulario textarea:focus {
+    border-color: #00779e;
+    box-shadow: 0 0 0 3px rgba(0, 119, 158, 0.12);
+}
+
+.modulo_cuenta_bancaria .campo_formulario input::placeholder,
+.modulo_cuenta_bancaria .campo_formulario textarea::placeholder {
+    color: #8495a3;
+    font-size: 12px;
+}
+
+/* =========================================
+   CAMPOS DE ANCHO COMPLETO (.campo_ancho)
+========================================= */
+
+.modulo_cuenta_bancaria .campo_ancho {
+    grid-column: 1 / -1;
+}
+
+/* =========================================
+   CAMPOS DOBLES
+========================================= */
+
+.modulo_cuenta_bancaria .grupo_doble {
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+}
+
+.modulo_cuenta_bancaria .grupo_doble input {
+    flex: 1;
+    min-width: 0;
+}
+
+.modulo_cuenta_bancaria .grupo_doble .select_prefijo {
+    flex: 0 0 85px;
+    width: 85px;
+}
+
+/* =========================================
+   CONTENEDOR DE TRANSFERENCIA / FRECUENCIA
+========================================= */
+
+.modulo_cuenta_bancaria .contenedor_transferencia {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px 24px;
+    width: 100%;
+    min-width: 0;
+    align-items: start;
+}
+
+.modulo_cuenta_bancaria .contenedor_transferencia[hidden] {
+    display: none !important;
+}
+
+/* =========================================
+   VALIDACIÓN DEL NÚMERO DE CUENTA
+========================================= */
+
+.modulo_cuenta_bancaria #numeros_cuenta.is-valid {
+    border-color: #198754;
+    background-color: #f4fbf6;
+    box-shadow: 0 0 0 3px rgba(25, 135, 84, 0.10);
+}
+
+.modulo_cuenta_bancaria #numeros_cuenta.is-invalid {
+    border-color: #dc3545;
+    background-color: #fff7f7;
+    box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.10);
+}
+
+/* =========================================
+   MENSAJES DE VALIDACIÓN
+========================================= */
+
+.modulo_cuenta_bancaria .mensaje-feedback {
+    display: block;
+    min-height: 16px;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+    transition: color 0.2s ease;
+}
+
+.modulo_cuenta_bancaria .mensaje-feedback:empty {
+    display: none;
+}
+
+.modulo_cuenta_bancaria .mensaje-feedback.exito {
+    color: #198754;
+}
+
+.modulo_cuenta_bancaria .mensaje-feedback.error {
+    color: #dc3545;
+}
+
+/* =========================================
+   CAMPOS OCULTOS
+========================================= */
+
+.modulo_cuenta_bancaria .campo_formulario[hidden] {
+    display: none !important;
+}
+
+/* =========================================
+   BOTÓN DE REGISTRO
+========================================= */
+
+.modulo_cuenta_bancaria .contenedor_boton_submit {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 4px;
+}
+
+.modulo_cuenta_bancaria .btn_submit {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    gap: 9px;
+    min-width: 160px;
+    min-height: 42px;
+    padding: 10px 22px;
+    border: 1px solid #00779e;
+    border-radius: 7px;
+    background: #00445f;
+    color: #fffbf4;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.modulo_cuenta_bancaria .btn_submit:hover {
+    background: #00779e;
+    color: #ffffff;
+    border-color: #00445f;
+}
+
+.modulo_cuenta_bancaria .btn_submit:active {
+    transform: scale(0.98);
+}
+
+.modulo_cuenta_bancaria .btn_submit:disabled {
+    background: #aab8c2;
+    border-color: #aab8c2;
+    color: #f4f6f9;
+    cursor: not-allowed;
+    opacity: 0.75;
+    transform: none;
+}
+
+/* =========================================
+   TABLETAS Y PANTALLAS MEDIANAS
+========================================= */
+
+@media (max-width: 700px) {
+    .modulo_cuenta_bancaria {
+        padding: 18px;
+    }
+
+    .modulo_cuenta_bancaria .formulario_cuentas {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 18px;
+    }
+
+    .modulo_cuenta_bancaria .contenedor_transferencia {
+        grid-column: auto;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 18px;
+    }
+
+    .modulo_cuenta_bancaria .campo_ancho {
+        grid-column: auto;
+    }
+
+    .modulo_cuenta_bancaria .contenedor_boton_submit {
+        grid-column: auto;
+    }
+
+    .modulo_cuenta_bancaria .btn_submit {
+        width: 100%;
+    }
+}
+
+/* =========================================
+   MÓVILES
+========================================= */
+
+@media (max-width: 480px) {
+    .modulo_cuenta_bancaria .contenedor_transferencia {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* =========================================
+   PANTALLAS PEQUEÑAS
+========================================= */
+
+@media (max-width: 400px) {
+    .modulo_cuenta_bancaria {
+        padding: 14px;
+    }
+
+    .modulo_cuenta_bancaria .grupo_doble {
+        gap: 6px;
+    }
+
+    .modulo_cuenta_bancaria .grupo_doble .select_prefijo {
+        flex: 0 0 75px;
+        width: 75px;
+    }
+
+    .modulo_cuenta_bancaria .campo_formulario input,
+    .modulo_cuenta_bancaria .campo_formulario select,
+    .modulo_cuenta_bancaria .campo_formulario textarea {
+        font-size: 12px;
+    }
+
+    .modulo_cuenta_bancaria .campo_formulario input::placeholder,
+    .modulo_cuenta_bancaria .campo_formulario textarea::placeholder {
+        font-size: 11px;
+    }
+}

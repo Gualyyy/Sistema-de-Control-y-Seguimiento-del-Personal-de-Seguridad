@@ -4,29 +4,184 @@
 
 {% load static %}
 
-
 <section class="contenedor_foro">
-    <div class="banner-modulo">
-        <img src="{% static 'Imagenes/imagen_foro.png' %}" alt="Imagen de la Empresa Hielo Caipe C.A">
+
+    <div class="carrusel_publicitario" id="carrusel_publicitario">
+        <div class="carrusel_contenido">
+            <div class="carrusel_diapos">
+
+                <div class="diapositiva_publicitaria activa">
+                    <img src="{% static 'Imagenes/imagen1.png' %}" alt="Publicidad de bebidas">
+                    <div class="texto_publicitario">
+                        <h3>Comprometidos con nuestros clientes</h3>
+                        <p>Trabajamos para atender las diferentes necesidades de cada cliente.</p>
+                    </div>
+                </div>
+
+                <div class="diapositiva_publicitaria">
+                    <img src="{% static 'Imagenes/imagen2.png' %}" alt="Publicidad de proteínas">
+                    <div class="texto_publicitario">
+                        <h3>Soluciones para cada necesidad</h3>
+                        <p>Ofrecemos opciones pensadas para lo que cada cliente necesita.</p>
+                    </div>
+                </div>
+
+                <div class="diapositiva_publicitaria">
+                    <img src="{% static 'Imagenes/imagen_foro.png' %}" alt="Publicidad de cervezas">
+                    <div class="texto_publicitario">
+                        <h3>Un compromiso que nos distingue</h3>
+                        <p>Estamos aquí para escuchar y ayudar a nuestros clientes en cada elección.</p>
+                    </div>
+                </div>
+
+            </div>
+
+            <button type="button" class="control_carrusel anterior" id="anterior_publicidad"
+                aria-label="Publicidad anterior">
+                <i class="fa-solid fa-chevron-left"></i>
+            </button>
+
+            <button type="button" class="control_carrusel siguiente" id="siguiente_publicidad"
+                aria-label="Publicidad siguiente">
+                <i class="fa-solid fa-chevron-right"></i>
+            </button>
+
+        </div>
+
+        <div class="pie_carrusel">
+
+            <div class="indicadores_carrusel" id="indicadores_carrusel" aria-label="Seleccionar publicidad">
+                <button type="button" class="indicador activo" aria-label="Mostrar publicidad 1"
+                    aria-current="true"></button>
+                <button type="button" class="indicador" aria-label="Mostrar publicidad 2"></button>
+                <button type="button" class="indicador" aria-label="Mostrar publicidad 3"></button>
+            </div>
+
+            <p class="mensaje_carrusel" id="mensaje_carrusel" role="status" aria-live="polite">
+                Mostrando publicidad 1 de 3.
+            </p>
+        </div>
     </div>
 
-    <div class="contenedor_descripcion_foro">
-        <div class="card-modulo">
+    <div class="contenedor_productos_foro">
+
+        <div class="encabezado_productos">
             <h2>Productos Disponibles</h2>
 
-            <div class="en-desarrollo-card">
-                <h3>Próximamente</h3>
+            <button type="button" id="btn_acceso_cliente" class="btn_acceso_cliente">
+                <i class="fa-solid fa-user-circle"></i>
+                Acceder / Registrarme
+            </button>
+        </div>
 
-                <p id="contenedor_produtos">
-                    Estamos trabajando para mostrar todos los productos
-                    en venta. ¡En desarrollo!
-                </p>
+        <div class="contenedor_busqueda_productos">
+            <div class="campo_busqueda_productos">
+                <i class="fa-solid fa-magnifying-glass"></i>
+
+                <input type="search" id="buscar_producto" name="buscar_producto"
+                    placeholder="Buscar producto por nombre o código..." autocomplete="off">
             </div>
         </div>
 
+        <form method="post">
+            {% csrf_token %}
+
+            <div class="contenedor_conversor">
+
+                <div class="selector_moneda">
+                    <label for="btn_moneda">Moneda de consulta</label>
+
+                    <button type="button" id="btn_moneda" class="btn_moneda" aria-expanded="false"
+                        aria-controls="opciones_monedas">
+
+                        <span class="moneda_seleccionada">
+                            <img src="{% static 'Imagenes/bandera_usa.png' %}" alt="Bandera de Estados Unidos">
+
+                            <span>
+                                <strong>USD</strong>
+                                <small>Dólar estadounidense</small>
+                            </span>
+                        </span>
+
+                        <i class="fa-solid fa-chevron-down"></i>
+                    </button>
+
+                    <div id="opciones_monedas" class="opciones_monedas" hidden>
+
+                        <button type="button" data-moneda="VES" data-bandera="ve" data-nombre="Bolívar venezolano">
+                            <img src="{% static 'Imagenes/bandera_venezuela.png' %}" alt="Bandera de Venezuela">
+                            <span><strong>VES</strong><small>Bolívar venezolano</small></span>
+                        </button>
+
+                        <button type="button" data-moneda="USD" data-bandera="us" data-nombre="Dólar estadounidense">
+                            <img src="{% static 'Imagenes/bandera_usa.png' %}" alt="Bandera de Estados Unidos">
+                            <span><strong>USD</strong><small>Dólar estadounidense</small></span>
+                        </button>
+
+                        <button type="button" data-moneda="EUR" data-bandera="eu" data-nombre="Euro">
+                            <img src="{% static 'Imagenes/bandera_ue.png' %}" alt="Bandera de la Unión Europea">
+                            <span><strong>EUR</strong><small>Euro</small></span>
+                        </button>
+
+                    </div>
+
+                    <input type="hidden" id="moneda_seleccionada" name="moneda" value="USD">
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="tasa_monetaria">Tasa Monetaria:</label>
+                    <input type="text" name="tasa_monetaria" id="tasa_monetaria" autocomplete="off" readonly>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="fecha_tasa">Fecha de Tasa:</label>
+                    <input type="text" name="fecha_tasa" id="fecha_tasa" autocomplete="off" readonly>
+                </div>
+
+            </div>
+        </form>
+        <div id="productos_disponibles" class="contenedor_productos"></div>
     </div>
 </section>
 
-<script src="{% static 'Funcionalidades_Asincronas/foro/productos.js' %}"></script>
+<dialog id="dialogo_cliente" class="dialogo_amplio">
+    <div class="contenedor_opciones">
+
+        <button type="button" id="btn_cerrar" class="btn_cerrar">
+            <i class="fa-solid fa-square-xmark"></i>
+        </button>
+
+        <h2>Acceso de Clientes</h2>
+
+        <div class="opciones_cliente">
+
+            <a href="{% url 'registrar_clientes_foro' %}" class="opcion_cliente">
+                <i class="fa-solid fa-user-plus"></i>
+
+                <span>
+                    <strong>Registrar Cliente</strong>
+                    <small>Registra tus datos personales o empresariales.</small>
+                </span>
+
+                <i class="fa-solid fa-chevron-right"></i>
+            </a>
+
+            <a href="{% url 'inicio_sesion' %}" class="opcion_cliente opcion_iniciar_sesion">
+                <i class="fa-solid fa-right-to-bracket"></i>
+
+                <span>
+                    <strong>Iniciar Sesión</strong>
+                    <small>¿Ya tienes una cuenta? Accede a tu perfil.</small>
+                </span>
+
+                <i class="fa-solid fa-chevron-right"></i>
+            </a>
+
+        </div>
+    </div>
+</dialog>
+
+<script src="{% static 'Funcionalidades/carrusel.js' %}"></script>
+<script src="{% static 'Funcionalidades_Asincronas/ventas/productos/productos_foro.js' %}"></script>
 
 {% endblock %}

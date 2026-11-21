@@ -1,0 +1,129 @@
+{% extends 'Email/Base.html' %}
+
+{% block content %}
+
+<section style="
+    margin: 0;
+    padding: 20px 0;
+    width: 100%;
+    box-sizing: border-box;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    color: #1e293b;
+    line-height: 1.5;
+">
+    <div style="
+        width: 100%;
+        max-width: 620px;
+        margin: 0 auto;
+        padding: 32px;
+        box-sizing: border-box;
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-top: 5px solid #0284c7;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    ">
+
+        <!-- CABECERA -->
+        <div style="text-align: center; margin-bottom: 24px;">
+            <span style="
+                display: inline-block;
+                padding: 6px 16px;
+                background-color: #e0f2fe;
+                color: #0369a1;
+                font-size: 12px;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                border-radius: 9999px;
+                margin-bottom: 12px;
+            ">
+                👤 Asistencia de Cuenta
+            </span>
+            <h2 style="
+                margin: 0;
+                color: #0f172a;
+                font-size: 24px;
+                font-weight: 800;
+            ">
+                Recuperación de Nombre de Usuario
+            </h2>
+        </div>
+
+        <p style="
+            margin: 0 0 24px;
+            color: #475569;
+            font-size: 15px;
+            line-height: 1.6;
+        ">
+            Estimado(a), hemos recibido una solicitud para recuperar su nombre de usuario en <strong>Hielo Caipe
+                C.A.</strong> A continuación, le proporcionamos la información solicitada.
+        </p>
+
+        <!-- CAJA DESTACADA PARA EL NOMBRE DE USUARIO -->
+        <div style="
+            margin: 0 auto 24px auto;
+            padding: 20px 16px;
+            max-width: 400px;
+            box-sizing: border-box;
+            background-color: #f8fafc;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            text-align: center;
+        ">
+            <p style="
+                margin: 0 0 8px;
+                color: #64748b;
+                font-size: 12px;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+            ">
+                Su nombre de usuario es
+            </p>
+            <span style="
+                display: inline-block;
+                max-width: 100%;
+                color: #0f172a;
+                font-size: 20px;
+                font-weight: 800;
+                overflow-wrap: anywhere;
+                line-height: 1.4;
+            ">
+                {{ nombre_usuario }}
+            </span>
+        </div>
+
+        <!-- NOTA DE SEGURIDAD -->
+        <div style="
+            padding: 14px 16px;
+            background-color: #f1f5f9;
+            border-left: 4px solid #0284c7;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        ">
+            <p style="
+                margin: 0;
+                color: #334155;
+                font-size: 13px;
+                line-height: 1.5;
+            ">
+                Por su seguridad, le recomendamos mantener esta información confidencial y no compartirla con otras
+                personas.
+            </p>
+        </div>
+
+        <p style="
+            margin: 0;
+            color: #94a3b8;
+            font-size: 13px;
+            line-height: 1.6;
+            text-align: center;
+        ">
+            Si usted no solicitó la recuperación de su nombre de usuario, puede ignorar este mensaje de manera segura.
+        </p>
+
+    </div>
+</section>
+
+{% endblock %}

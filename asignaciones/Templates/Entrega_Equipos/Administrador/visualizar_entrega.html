@@ -5,7 +5,7 @@
 {% load static %}
 
 <section class="contenedor_formulario">
-    <div class="contenedor_campos_amplio">
+    <div class="contenedor_campos_intermedio">
         <h2>Visualizar Entrega Equipo</h2>
 
         <div class="modulo_buqueda">
@@ -28,13 +28,6 @@
         </div>
 
         <div class="modulo_visualizar detalle">
-            <div class="encabezado_registrados">
-                <button type="button" class="btn_pdf" id="lista_entrega_pdf">
-                    <i class="fa-regular fa-file-pdf"></i>
-                    Reporte
-                </button>
-            </div>
-
             <!-- Envoltorio para manejar el scroll y recortar bordes -->
             <div class="contenedor_tabla">
                 <table>
@@ -46,6 +39,8 @@
                             <th>EQUIPO</th>
                             <th>CANTIDAD</th>
                             <th>FECHA ENTREGA</th>
+                            <th>ESTADO</th>
+                            <th>INCIDENCIA</th>
                         </tr>
                     </thead>
                     <tbody id="contenedor_entregas_equipos"></tbody>
@@ -53,8 +48,8 @@
             </div>
 
             <div class="botones_navegacion">
-                <button class="btn_secundario btn_retroceder" type="button">Retroceder</button>
-                <button class="btn_primario btn_avanzar" type="button">Avanzar</button>
+                <button class="btn_secundario btn_ret" type="button">Retroceder</button>
+                <button class="btn_primario btn_av" type="button">Avanzar</button>
             </div>
         </div>
 
@@ -62,22 +57,15 @@
 </section>
 
 <dialog id="dialogo_entrega" class="dialogo">
-    <div class="contenedor_info_reducido">
+    <div class="contenedor_datos">
         <button type="button" id="btn_cerrar" class="btn_cerrar">
             <i class="fa-solid fa-square-xmark"></i>
         </button>
 
         <h2>Datos de la Entraga</h2>
 
-        <div class="contenedor_btn_pdf">
-            <button type="button" class="btn_pdf_dialog" id="datos_entrega_pdf">
-                <i class="fa-regular fa-file-pdf"></i>
-                Reporte
-            </button>
-        </div>
-
-        <div class="modelo_dialogo_visualizar">
-            <form method="post" class="formulario_dialogo_visualizar">
+        <div class="modulo_dialogo_datos">
+            <form method="post" class="formulario_dialogo_datos">
                 {% csrf_token %}
                 <input type="hidden" name="id_entrega_equipo" id="id_entrega_equipo">
 

@@ -1,0 +1,180 @@
+.modulo_productos {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 24px;
+    background: #ffffff;
+    border: 2px solid #00779e;
+    border-radius: 12px;
+    box-shadow: 0 4px 14px rgba(0, 68, 95, 0.08);
+}
+
+.modulo_productos *,
+.modulo_productos *::before,
+.modulo_productos *::after {
+    box-sizing: border-box;
+}
+
+.modulo_productos .formulario_producto {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 32px;
+    row-gap: 24px;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+}
+
+.modulo_productos .campo_formulario {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+    margin: 0;
+}
+
+.modulo_productos .campo_formulario label {
+    color: #102f4e;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.modulo_productos .campo_formulario input,
+.modulo_productos .campo_formulario select {
+    width: 100%;
+    min-width: 0;
+    height: 42px;
+    padding: 10px 12px;
+    border: 1px solid #cbd7e0;
+    border-radius: 7px;
+    background: #ffffff;
+    color: #102f4e;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.modulo_productos .campo_formulario input:focus,
+.modulo_productos .campo_formulario select:focus {
+    border-color: #00779e;
+    box-shadow: 0 0 0 3px rgba(0, 119, 158, 0.12);
+}
+
+.modulo_productos .campo_formulario input::placeholder {
+    color: #8495a3;
+    font-size: 12px;
+}
+
+.modulo_productos .campo_formulario input[readonly] {
+    background: #f0f4f7;
+    color: #607783;
+    border-color: #d5dfe5;
+    cursor: default;
+}
+
+.modulo_productos .campo_formulario input[type="file"] {
+    height: auto;
+    min-height: 42px;
+    padding: 5px;
+    background: #ffffff;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.modulo_productos .campo_formulario input[type="file"]::file-selector-button {
+    height: 30px;
+    margin-right: 8px;
+    padding: 5px 10px;
+    border: none;
+    border-radius: 5px;
+    background: #00445f;
+    color: #fffbf4;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.modulo_productos .campo_formulario input[type="file"]::file-selector-button:hover {
+    background: #00779e;
+}
+
+.modulo_productos .campo_formulario input:disabled,
+.modulo_productos .campo_formulario select:disabled {
+    background: #edf1f4;
+    border-color: #d5dfe5;
+    color: #84939c;
+    cursor: not-allowed;
+    opacity: 1;
+    box-shadow: none;
+}
+
+.modulo_productos .contenedor_boton_submit {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 8px;
+}
+
+.modulo_productos .btn_submit {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    gap: 9px;
+    min-width: 160px;
+    min-height: 42px;
+    padding: 10px 22px;
+    border: 1px solid #00445f;
+    border-radius: 7px;
+    background: #ffffff;
+    color: #00445f;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.modulo_productos .btn_submit:hover {
+    background: #00445f;
+    color: #fffbf4;
+}
+
+.modulo_productos .btn_submit:active {
+    transform: scale(0.98);
+}
+
+.modulo_productos .btn_submit:disabled {
+    background: #aab8c2;
+    border-color: #aab8c2;
+    color: #f4f6f9;
+    cursor: not-allowed;
+    opacity: 0.75;
+    transform: none;
+}
+
+@media (max-width: 700px) {
+    .modulo_productos {
+        padding: 18px;
+    }
+
+    .modulo_productos .formulario_producto {
+        grid-template-columns: minmax(0, 1fr);
+        column-gap: 0;
+        row-gap: 22px;
+    }
+
+    .modulo_productos .contenedor_boton_submit {
+        grid-column: auto;
+    }
+
+    .modulo_productos .btn_submit {
+        width: 100%;
+    }
+}
+
+@media (max-width: 400px) {
+    .modulo_productos {
+        padding: 14px;
+    }
+}

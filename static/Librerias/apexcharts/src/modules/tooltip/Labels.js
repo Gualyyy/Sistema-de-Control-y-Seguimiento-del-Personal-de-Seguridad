@@ -1,0 +1,939 @@
+// @ts-check
+import Formatters from '../Formatters'
+import DateTime from '../../utils/DateTime'
+import Utils from './Utils'
+import Data from '../Data'
+import { renderMarkerSVG } from './Marker'
+import { isCustom } from '../ChartFactory'
+import { TYPE_ALIASES } from '../settings/TypeAliases'
+import { nameAsHtml } from '../../utils/nameAsHtml.js'
+
+/**
+ * ApexCharts Tooltip.Labels Class to draw texts on the tooltip.
+ * This file deals with printing actual text on the tooltip.
+ *
+ * @module Tooltip.Labels
+ **/
+
+export default class Labels {
+  /**
+   * @param {import('./Tooltip').default} tooltipContext
+   */
+  constructor(tooltipContext) {
+    this.w = tooltipContext.w
+    this.ttCtx = tooltipContext
+    this.tooltipUtil = new Utils(tooltipContext)
+    // Stateless helpers a datetime hover used to build afresh on every move.
+    this.xFormat = new Formatters(this.w)
+    this.dateTime = new DateTime(this.w)
+    /**
+     * The rows a coincident hover added to a single-row tooltip, and the
+     * tooltip rows (`ttItems`) they were added beside.
+     * @type {{ owner: any[], rows: HTMLElement[] } | null}
+     */
+    this.coincidentExtra = null
+  }
+
+  /**
+   * `coincident`, on a tooltip that is not shared: the points of the series
+   * whose markers are drawn where the hovered one is, in the order to list
+   * them (Intersect.coincidentRows). One row each, in place of the hovered
+   * series' row alone.
+   * @param {{ shared?: boolean, ttItems?: any, i?: number, j?: any, y1?: any, y2?: any, e?: any, coincident?: import('../CoincidentMarkers').CoincidentPoint[] | null }} opts
+   */
+  drawSeriesTexts({
+    shared = true,
+    ttItems,
+    i = 0,
+    j = null,
+    y1,
+    y2,
+    e,
+    coincident = null,
+  }) {
+    if (coincident && !shared) {
+      this.drawCoincidentSeriesTexts({
+        ttItems,
+        i,
+        j,
+        y1,
+        y2,
+        e,
+        points: coincident,
+      })
+      return
+    }
+    // The rows a coincident hover added stand for no series here.
+    this.detachCoincidentRows(0)
+
+    const w = this.w
+    const custom = w.config.tooltip.custom !== undefined
+    const tooltipEl = this.ttCtx.getElTooltip()
+
+    if (custom) {
+      this.handleCustomTooltip({ i, j, y1, y2, w })
+    } else {
+      this.toggleActiveInactiveSeries(shared, i)
+    }
+
+    const values = this.getValuesToPrint({
+      i,
+      j,
+    })
+
+    this.printLabels({
+      i,
+      j,
+      values,
+      ttItems,
+      shared,
+      e,
+      // Markup from tooltip.custom has replaced the built-in rows: formatting
+      // them anyway ran every formatter into nodes no one sees.
+      rows: !custom || tooltipEl?.contains(ttItems?.[0]),
+    })
+
+    this.measureTooltip(tooltipEl)
+  }
+
+  /**
+   * Re-calculate tooltip dimensions now that the text is drawn.
+   * @param {Element | null | undefined} tooltipEl
+   */
+  measureTooltip(tooltipEl) {
+    if (tooltipEl) {
+      // One rect read, not two: each call forces a synchronous layout of the
+      // whole tooltip, which on a shared tooltip with a row per series is the
+      // single most expensive thing a hover does after the row writes.
+      const rect = tooltipEl.getBoundingClientRect()
+      this.ttCtx.tooltipRect.ttWidth = rect.width
+      this.ttCtx.tooltipRect.ttHeight = rect.height
+    }
+  }
+
+  /**
+   * An intersect tooltip on a marker other series' markers share a spot
+   * with: a row for each of those series (`points`, already in the order to
+   * list them), as a shared tooltip restricted to them would show. `i`, `j`
+   * is the hovered point, which the title and a custom tooltip speak for.
+   * @param {{ ttItems?: any, i: number, j: any, y1?: any, y2?: any, e?: any, points: import('../CoincidentMarkers').CoincidentPoint[] }} opts
+   */
+  drawCoincidentSeriesTexts({ ttItems, i, j, y1, y2, e, points }) {
+    const w = this.w
+    const custom = w.config.tooltip.custom !== undefined
+    const tooltipEl = this.ttCtx.getElTooltip()
+
+    if (custom) {
+      this.handleCustomTooltip({ i, j, y1, y2, w, coincident: points })
+    } else {
+      this.tooltipUtil.toggleAllTooltipSeriesGroups('disable')
+    }
+
+    const values = this.getValuesToPrint({ i, j })
+    const rows = !custom || !!tooltipEl?.contains(ttItems?.[0])
+    this.printTitle({ values, ttItems, rows })
+
+    if (rows && ttItems?.[0]) {
+      const els = this.coincidentRowEls(ttItems, points)
+      for (let r = 0; r < points.length; r++) {
+        const el = els[r]
+        if (!el) continue
+        el.classList.add('apexcharts-active')
+        el.style.display = w.config.tooltip.items.display
+
+        const s = points[r].seriesIndex
+        const pj = points[r].dataPointIndex
+        const hovered = s === i && pj === j
+        const row = this.computeSeriesRow({
+          i: s,
+          j: pj,
+          t: r,
+          tIndex: s,
+          shared: false,
+          // the hovered marker's own fill speaks for its row only
+          e: hovered ? e : null,
+          basePColor: w.globals.colors[s],
+        })
+        this.DOMHandling({
+          i: s,
+          t: r,
+          j: pj,
+          ttItems: els,
+          values: {
+            val: row.val,
+            goalVals: row.goalVals,
+            zVal: hovered
+              ? values.zVal
+              : this.getValuesToPrint({ i: s, j: pj }).zVal,
+          },
+          seriesName: row.seriesName,
+          shared: false,
+          pColor: row.pColor,
+        })
+      }
+    }
+
+    this.measureTooltip(tooltipEl)
+  }
+
+  /**
+   * The row elements for a coincident hover's points. A tooltip with a row
+   * per series lends each point its series' row. One with a single row (the
+   * non-shared cartesian one) lists the first point there and the others in
+   * rows added after it, kept for the next such hover and taken out of the
+   * tooltip by any other.
+   * @param {any[]} ttItems
+   * @param {import('../CoincidentMarkers').CoincidentPoint[]} points
+   * @returns {HTMLElement[]}
+   */
+  coincidentRowEls(ttItems, points) {
+    if (ttItems.length > 1) {
+      return points.map((p) => ttItems[p.seriesIndex])
+    }
+    let extra = this.coincidentExtra
+    if (!extra || extra.owner !== ttItems) {
+      this.detachCoincidentRows(0)
+      extra = this.coincidentExtra = { owner: ttItems, rows: [] }
+    }
+    const els = [ttItems[0]]
+    for (let r = 1; r < points.length; r++) {
+      let el = extra.rows[r - 1]
+      if (!el) {
+        el = extra.rows[r - 1] = this.ttCtx.createTTElement(r, 1)
+        el.style.order = String(r + 1)
+      }
+      if (el.previousSibling !== els[r - 1]) els[r - 1].after(el)
+      els.push(el)
+    }
+    this.detachCoincidentRows(points.length - 1)
+    return els
+  }
+
+  /**
+   * Take the rows a coincident hover added out of the tooltip, from the
+   * `from`-th on, so no other hover's row toggling can show them.
+   * @param {number} from
+   */
+  detachCoincidentRows(from) {
+    const rows = this.coincidentExtra?.rows
+    if (!rows) return
+    for (let r = from; r < rows.length; r++) rows[r].remove()
+  }
+
+  /**
+   * The title and the x-axis label read the same for every row, so they are
+   * written once a hover, not once per series.
+   * @param {{ values: any, ttItems: any, rows: boolean }} opts
+   */
+  printTitle({ values, ttItems, rows }) {
+    const w = this.w
+    const ttCtx = this.ttCtx
+    const { xVal, xAxisTTVal } = values
+    if (ttItems?.[0]) {
+      if (rows && ttCtx.showTooltipTitle) {
+        ttCtx.tooltipTitle ??= w.dom.baseEl.querySelector(
+          '.apexcharts-tooltip-title',
+        )
+        if (ttCtx.tooltipTitle) ttCtx.tooltipTitle.innerHTML = xVal
+      }
+      if (ttCtx.isXAxisTooltipEnabled && ttCtx.xaxisTooltipText) {
+        ttCtx.xaxisTooltipText.innerHTML = xAxisTTVal !== '' ? xAxisTTVal : xVal
+      }
+    }
+  }
+
+  /** @param {{i: any, j: any, values: any, ttItems: any, shared: any, e: any, rows?: boolean}} opts */
+  printLabels({ i, j, values, ttItems, shared, e, rows = true }) {
+    const w = this.w
+    const { zVal } = values
+    const seriesLen = w.seriesData.series.length
+
+    this.printTitle({ values, ttItems, rows })
+    if (!rows) return
+
+    const basePColor =
+      j !== null && w.config.plotOptions.bar.distributed
+        ? w.globals.colors[j]
+        : w.globals.colors[i]
+
+    // With a single row every iteration below would write the same values into
+    // it (the non-shared paths all resolve to the hovered series `i`), so the
+    // remaining seriesLen-1 passes were pure DOM churn on every hover.
+    const singleRow = ttItems?.length === 1
+    const iterations = singleRow ? 1 : seriesLen
+
+    for (let t = 0; t < iterations; t++) {
+      const tIndex = singleRow
+        ? 0
+        : w.config.tooltip.inverseOrder
+          ? seriesLen - 1 - t
+          : t
+
+      const row = this.computeSeriesRow({
+        i,
+        j,
+        t,
+        tIndex,
+        shared,
+        e,
+        basePColor,
+      })
+
+      this.DOMHandling({
+        i,
+        t: tIndex,
+        j,
+        ttItems,
+        values: {
+          val: row.val,
+          goalVals: row.goalVals,
+          zVal,
+        },
+        seriesName: row.seriesName,
+        shared,
+        pColor: row.pColor,
+      })
+    }
+  }
+
+  /**
+   * Compute the per-series row values (seriesName, val, goalVals, pColor)
+   * for one iteration of the tooltip's series loop. Extracted from
+   * printLabels() to keep the outer loop scannable.
+   * @param {{i: number, j: any, t: number, tIndex: number, shared: boolean, e: any, basePColor: string}} opts
+   */
+  computeSeriesRow({ i, j, tIndex, shared, e, basePColor }) {
+    const w = this.w
+    // A shared row speaks for series tIndex. Its formatters and name are taken
+    // once, not the hovered series' first and then thrown away, which ran the
+    // title formatter twice per row.
+    const own = w.globals.axisCharts && shared ? tIndex : i
+    const f = this.getFormatters(own)
+    let pColor = basePColor
+    let val
+    let goalVals = /** @type {any[]} */ ([])
+
+    const seriesName = this.getSeriesName({
+      fn: f.yLbTitleFormatter,
+      index: own,
+      seriesIndex: i,
+      j,
+      leaf:
+        w.config.chart.type === 'treemap'
+          ? String(/** @type {any} */ (w.config.series[i]).data[j].x)
+          : null,
+    })
+
+    if (w.globals.axisCharts) {
+      if (shared) {
+        pColor = w.globals.colors[tIndex]
+        val = this.formatYValue(f, tIndex, j)
+        goalVals = this.formatGoalVals(f, tIndex, j)
+      } else {
+        pColor = this.resolvePatternColor(e, pColor, i)
+        val = this.formatYValue(f, i, j)
+        goalVals = this.formatGoalVals(f, i, j)
+      }
+    }
+
+    // pie / donut (non-axis charts)
+    if (j === null) {
+      val = f.yLbFormatter(w.seriesData.series[i], {
+        // The spread is the long-standing shape here and stays, so anything
+        // already reading opts.config / opts.globals on a pie keeps working.
+        // `w` is added alongside it because every other chart type passes the
+        // state under that key, and a formatter written against the documented
+        // opts (`opts.w.config...`) used to get undefined on a pie alone
+        // (#5324). Same for `series`.
+        ...w,
+        w,
+        series: w.seriesData.series,
+        seriesIndex: i,
+        dataPointIndex: i,
+      })
+    }
+
+    return { seriesName, val, goalVals, pColor }
+  }
+
+  /**
+   * Run the y-value formatter for a given (seriesIndex, dataPointIndex),
+   * handling the range-data case (start - end concatenation).
+   * @param {{yLbFormatter: Function}} f
+   * @param {number} index
+   * @param {any} j
+   */
+  formatYValue(f, index, j) {
+    const w = this.w
+
+    // A waterfall's bars are floats, so they take the range-data path, but the
+    // two levels are not what the reader is after: "120000 - 689000" reads as a
+    // span the data never claims, when the number that matters is the step
+    // (+569000). The transform recorded each bar's signed height, which is the
+    // delta for a step bar and the sum for a subtotal / total bar.
+    const steps = w.waterfallData && w.waterfallData.values
+    if (steps && steps[index] && steps[index][j] != null) {
+      return f.yLbFormatter(steps[index][j], {
+        series: steps,
+        seriesIndex: index,
+        dataPointIndex: j,
+        w,
+      })
+    }
+
+    if (this.isRangeSeries(index)) {
+      return (
+        f.yLbFormatter(w.rangeData.seriesRangeStart?.[index]?.[j], {
+          series: w.rangeData.seriesRangeStart,
+          seriesIndex: index,
+          dataPointIndex: j,
+          w,
+        }) +
+        ' - ' +
+        f.yLbFormatter(w.rangeData.seriesRangeEnd?.[index]?.[j], {
+          series: w.rangeData.seriesRangeEnd,
+          seriesIndex: index,
+          dataPointIndex: j,
+          w,
+        })
+      )
+    }
+    return f.yLbFormatter(w.seriesData.series[index][j], {
+      series: w.seriesData.series,
+      seriesIndex: index,
+      dataPointIndex: j,
+      w,
+    })
+  }
+
+  /**
+   * Whether a series' values are ranges. A range chart's data pass gives
+   * every series a start and an end, a line or column beside the ranges
+   * included, so the series' own type decides.
+   * @param {number} index
+   */
+  isRangeSeries(index) {
+    const w = this.w
+    const type =
+      /** @type {any} */ (w.config.series[index])?.type || w.config.chart.type
+    return (
+      w.axisFlags.isRangeData &&
+      (isCustom(type) || /^range/.test(TYPE_ALIASES[type] || type))
+    )
+  }
+
+  /**
+   * Format the goal-line values attached to a given (seriesIndex, dataPointIndex).
+   * Returns an empty array when no goals exist.
+   * @param {{yLbFormatter: Function}} f
+   * @param {number} index
+   * @param {any} j
+   */
+  formatGoalVals(f, index, j) {
+    const w = this.w
+    const goals = w.seriesData.seriesGoals[index]?.[j]
+    if (!Array.isArray(goals)) return []
+    return goals.map((/** @type {any} */ goal) => ({
+      attrs: goal,
+      val: f.yLbFormatter(goal.value, {
+        seriesIndex: index,
+        dataPointIndex: j,
+        w,
+      }),
+    }))
+  }
+
+  /**
+   * When the hovered element has a pattern fill (url(#…Pattern…)), reach
+   * into the pattern's first child to pull a stroke color. Otherwise
+   * return the raw fill attribute or the fallback.
+   * @param {any} e
+   * @param {string} fallback
+   * @param {number} i  the hovered series
+   */
+  resolvePatternColor(e, fallback, i) {
+    const w = this.w
+    const target = Utils.hoverTarget(e)
+    // Only the hovered series' own mark speaks for its colour: a sticky
+    // tooltip's pointer is often over the plot, another series, or a line
+    // stroke whose fill is "none".
+    if (target?.getAttribute?.('index') !== String(i)) return fallback
+    const targetFill = target.getAttribute('fill')
+    if (!targetFill || targetFill === 'none' || targetFill === 'transparent')
+      return fallback
+    if (targetFill.indexOf('url') === -1) return targetFill
+    if (targetFill.indexOf('Pattern') === -1) return fallback
+    const patternEl = w.dom.baseEl.querySelector(
+      targetFill.substr(4).slice(0, -1),
+    )
+    return patternEl?.childNodes[0]?.getAttribute('stroke') ?? fallback
+  }
+
+  /**
+   * @param {number} i
+   */
+  getFormatters(i) {
+    const w = this.w
+
+    let yLbFormatter = w.formatters.yLabelFormatters[i]
+    let yLbTitleFormatter
+
+    if (w.formatters.ttVal !== undefined) {
+      if (Array.isArray(w.formatters.ttVal)) {
+        yLbFormatter =
+          /** @type {any} */ (w.formatters.ttVal)[i] &&
+          /** @type {any} */ (w.formatters.ttVal)[i].formatter
+        yLbTitleFormatter =
+          /** @type {any} */ (w.formatters.ttVal)[i] &&
+          /** @type {any} */ (w.formatters.ttVal)[i].title &&
+          /** @type {any} */ (w.formatters.ttVal)[i].title.formatter
+      } else {
+        yLbFormatter = /** @type {any} */ (w.formatters.ttVal).formatter
+        if (
+          typeof (/** @type {any} */ (w.formatters.ttVal).title.formatter) ===
+          'function'
+        ) {
+          yLbTitleFormatter = /** @type {any} */ (w.formatters.ttVal).title
+            .formatter
+        }
+      }
+    } else {
+      yLbTitleFormatter = w.config.tooltip.y.title.formatter
+    }
+
+    if (typeof yLbFormatter !== 'function') {
+      if (w.formatters.yLabelFormatters[0]) {
+        yLbFormatter = w.formatters.yLabelFormatters[0]
+      } else {
+        /**
+         * @param {string} label
+         */
+        yLbFormatter = function (label) {
+          return label
+        }
+      }
+    }
+
+    if (typeof yLbTitleFormatter !== 'function') {
+      /**
+       * @param {string} label
+       */
+      yLbTitleFormatter = function (label) {
+        // refrence used from line: 966 in Options.js
+        return label ? label + ': ' : ''
+      }
+    }
+
+    return {
+      yLbFormatter,
+      yLbTitleFormatter,
+    }
+  }
+
+  /**
+   * A treemap row is named by its leaf, not its series.
+   * @param {{fn: any, index: any, seriesIndex: any, j: any, leaf?: string | null}} opts
+   */
+  getSeriesName({ fn, index, seriesIndex, j, leaf }) {
+    const w = this.w
+    const name = leaf ?? String(w.seriesData.seriesNames[index])
+    const s = fn(name, {
+      series: w.seriesData.series,
+      seriesIndex,
+      dataPointIndex: j,
+      w,
+    })
+    return nameAsHtml(name, s)
+  }
+
+  /**
+   * The nodes a hover writes into, captured when the row was built in
+   * Tooltip.createTTElements. Rows that did not come from there (or from an
+   * older build) are queried once and then cached the same way, so no hover
+   * repeats the lookups.
+   * @param {any} row
+   */
+  rowRefs(row) {
+    if (!row.ttRefs) {
+      row.ttRefs = {
+        marker: row.querySelector('.apexcharts-tooltip-marker'),
+        text: row.querySelector('.apexcharts-tooltip-text'),
+        yLabel: row.querySelector('.apexcharts-tooltip-text-y-label'),
+        yValue: row.querySelector('.apexcharts-tooltip-text-y-value'),
+        goalsLabel: row.querySelector('.apexcharts-tooltip-text-goals-label'),
+        goalsValue: row.querySelector('.apexcharts-tooltip-text-goals-value'),
+        zLabel: row.querySelector('.apexcharts-tooltip-text-z-label'),
+        zValue: row.querySelector('.apexcharts-tooltip-text-z-value'),
+      }
+    }
+    return row.ttRefs
+  }
+
+  /** @param {{ t?: any, j?: any, i?: any, ttItems?: any, values?: any, seriesName?: any, shared?: any, pColor?: any }} opts */
+  DOMHandling({ i, t, j, ttItems, values, seriesName, shared, pColor }) {
+    const w = this.w
+    const ttCtx = this.ttCtx
+
+    const { val, goalVals, zVal } = values
+
+    // A hover processed mid-render (e.g. during a cross-type updateOptions, where
+    // the new type's series count can momentarily outpace the rebuilt tooltip
+    // rows) can index past ttItems. Bail for that row rather than crash.
+    if (!ttItems || !ttItems[t]) return
+
+    const refs = this.rowRefs(ttItems[t])
+    // The series this row speaks for. A non-shared tooltip writes the hovered
+    // series into a single row, so its index says nothing of the series.
+    const s = shared ? t : i
+
+    let ttItemsChildren = null
+    ttItemsChildren = ttItems[t].children
+
+    if (w.config.tooltip.fillSeriesColor) {
+      ttItems[t].style.backgroundColor = pColor
+      ttItemsChildren[0].style.display = 'none'
+    }
+
+    const ttYLabel = refs.yLabel
+    if (ttYLabel) {
+      ttYLabel.innerHTML = seriesName ? seriesName : ''
+    }
+    const ttYVal = refs.yValue
+    if (ttYVal) {
+      ttYVal.innerHTML = typeof val !== 'undefined' ? val : ''
+    }
+
+    if (
+      ttItemsChildren[0] &&
+      ttItemsChildren[0].classList.contains('apexcharts-tooltip-marker')
+    ) {
+      if (
+        w.config.tooltip.marker.fillColors &&
+        Array.isArray(w.config.tooltip.marker.fillColors)
+      ) {
+        pColor = w.config.tooltip.marker.fillColors[s]
+      }
+
+      if (w.config.tooltip.fillSeriesColor) {
+        ttItemsChildren[0].style.backgroundColor = pColor
+      } else {
+        ttItemsChildren[0].style.color = pColor
+      }
+
+      const shapes = w.config.markers.shape
+      if (Array.isArray(shapes) && refs.shape !== shapes[s]) {
+        refs.shape = shapes[s]
+        ttItemsChildren[0].setAttribute('shape', refs.shape)
+        ttItemsChildren[0].innerHTML = renderMarkerSVG(refs.shape)
+      }
+    }
+
+    if (!w.config.tooltip.marker.show) {
+      ttItemsChildren[0].style.display = 'none'
+    }
+
+    // Highlight filter: the row states its series' part against the whole.
+    const hf = ttCtx.ctx.highlightFilter
+    if (hf) {
+      hf.tooltipRow(refs, s, j, this.getFormatters(s))
+    }
+
+    const ttGLabel = refs.goalsLabel
+    const ttGVal = refs.goalsValue
+
+    if (goalVals.length && w.seriesData.seriesGoals[s]) {
+      const createGoalsHtml = () => {
+        let gLabels = '<div>'
+        let gVals = '<div>'
+        /**
+         * @param {any} goal
+         */
+        goalVals.forEach((/** @type {any} */ goal) => {
+          gLabels += ` <div style="display: flex"><span class="apexcharts-tooltip-marker" style="background-color: ${String(goal.attrs.strokeColor).replace(/["<]/g, '')}; height: 3px; border-radius: 0; top: 5px;"></span> ${nameAsHtml(String(goal.attrs.name))}</div>`
+          gVals += `<div>${goal.val}</div>`
+        })
+        ttGLabel.innerHTML = gLabels + `</div>`
+        ttGVal.innerHTML = gVals + `</div>`
+      }
+      if (shared) {
+        if (
+          w.seriesData.seriesGoals[t][j] &&
+          Array.isArray(w.seriesData.seriesGoals[t][j])
+        ) {
+          createGoalsHtml()
+        } else {
+          ttGLabel.innerHTML = ''
+          ttGVal.innerHTML = ''
+        }
+      } else {
+        createGoalsHtml()
+      }
+    } else {
+      ttGLabel.innerHTML = ''
+      ttGVal.innerHTML = ''
+    }
+
+    if (zVal !== null) {
+      const ttZLabel = refs.zLabel
+      ttZLabel.innerHTML = w.config.tooltip.z.title
+      const ttZVal = refs.zValue
+      ttZVal.innerHTML = typeof zVal !== 'undefined' ? zVal : ''
+    }
+
+    if (shared && ttItemsChildren[0]) {
+      // hide when no Val or series collapsed
+      if (w.config.tooltip.hideEmptySeries) {
+        const empty = this.isEmptyAt(t, j)
+        refs.text.style.display = empty ? 'none' : ''
+        // Back to the stylesheet's display, and only when the marker shows
+        // at all (marker.show and fillSeriesColor hide it above).
+        refs.marker.style.display =
+          empty ||
+          !w.config.tooltip.marker.show ||
+          w.config.tooltip.fillSeriesColor
+            ? 'none'
+            : ''
+      }
+      if (
+        typeof val === 'undefined' ||
+        val === null ||
+        w.globals.ancillaryCollapsedSeriesIndices.indexOf(t) > -1 ||
+        w.globals.collapsedSeriesIndices.indexOf(t) > -1 ||
+        (Array.isArray(ttCtx.tConfig.enabledOnSeries) &&
+          ttCtx.tConfig.enabledOnSeries.indexOf(t) === -1)
+      ) {
+        ttItemsChildren[0].parentNode.style.display = 'none'
+      } else {
+        ttItemsChildren[0].parentNode.style.display =
+          w.config.tooltip.items.display
+      }
+    } else {
+      if (
+        Array.isArray(ttCtx.tConfig.enabledOnSeries) &&
+        ttCtx.tConfig.enabledOnSeries.indexOf(s) === -1
+      ) {
+        ttItemsChildren[0].parentNode.style.display = 'none'
+      }
+    }
+  }
+
+  /**
+   * Whether series `t` is empty at `j`, as tooltip.hideEmptySeries means it.
+   * Decided on the data, not the formatted text: a range starting at 0 or a
+   * value rounded to "0.00" is not empty, and "$0" is.
+   * @param {number} t
+   * @param {any} j
+   * @returns {boolean}
+   */
+  isEmptyAt(t, j) {
+    const w = this.w
+    const rd = w.rangeData
+    return this.isRangeSeries(t)
+      ? !rd.seriesRangeStart[t]?.[j] && !rd.seriesRangeEnd[t]?.[j]
+      : w.seriesData.series[t]?.[j] === 0
+  }
+
+  /**
+   * @param {boolean} shared
+   * @param {number} i
+   */
+  toggleActiveInactiveSeries(shared, i) {
+    const w = this.w
+    if (shared) {
+      // make all tooltips active
+      this.tooltipUtil.toggleAllTooltipSeriesGroups('enable')
+    } else {
+      // disable all tooltip text groups
+      this.tooltipUtil.toggleAllTooltipSeriesGroups('disable')
+
+      // Rows are indexed by series index, except where only one was allocated
+      // (the non-shared cartesian case, see Tooltip.createTTElements) and
+      // every hovered series writes into row 0.
+      const rows = this.ttCtx.ttItems
+      // enable the first tooltip text group, the row already held, not
+      // queried for on every move
+      const firstTooltipSeriesGroup = rows?.[rows.length === 1 ? 0 : i]
+
+      if (firstTooltipSeriesGroup) {
+        const ftsGroup = /** @type {HTMLElement} */ (firstTooltipSeriesGroup)
+        ftsGroup.classList.add('apexcharts-active')
+        ftsGroup.style.display = w.config.tooltip.items.display
+      }
+    }
+  }
+
+  /** @param {{i: any, j: any}} opts */
+  getValuesToPrint({ i, j }) {
+    const w = this.w
+    const seriesX = /** @type {any[][]} */ (w.seriesData.seriesX)
+
+    let xVal = ''
+    let xAxisTTVal = ''
+    let zVal = null
+    let val = null
+
+    const customFormatterOpts = {
+      series: w.seriesData.series,
+      seriesIndex: i,
+      dataPointIndex: j,
+      w,
+    }
+
+    const zFormatter = w.formatters.ttZFormatter
+
+    if (j === null) {
+      val = w.seriesData.series[i]
+    } else {
+      if (w.axisFlags.isXNumeric && w.config.chart.type !== 'treemap') {
+        xVal = seriesX[i][j]
+        if (seriesX[i].length === 0) {
+          // a series (possibly the first one) might be collapsed, so get the next active index
+          const firstActiveSeriesIndex =
+            this.tooltipUtil.getFirstActiveXArray(seriesX)
+          xVal = seriesX[firstActiveSeriesIndex][j]
+        }
+      } else {
+        // Asked once a render (drawTooltip starts a new one): asking per move
+        // built a Data and scanned the series, and on [{x, y}, null] data
+        // logged its mixed-format warning on every move.
+        const gen = this.ttCtx.allTooltipSeriesGroups
+        if (this._xyGen !== gen) {
+          this._xyGen = gen
+          this._isXY = new Data(this.w).isFormatXY()
+        }
+        if (this._isXY) {
+          // a null entry is a gap in the data, with no x of its own
+          const datum = /** @type {any} */ (w.config.series[i]).data[j]
+          xVal = datum == null ? '' : datum.x
+        } else {
+          xVal =
+            typeof w.labelData.labels[j] !== 'undefined'
+              ? w.labelData.labels[j]
+              : ''
+        }
+      }
+    }
+
+    const bufferXVal = xVal
+
+    if (w.axisFlags.isXNumeric && w.config.xaxis.type === 'datetime') {
+      xVal = this.xFormat.xLabelFormat(
+        /** @type {Function} */ (w.formatters.ttKeyFormatter),
+        bufferXVal,
+        bufferXVal,
+        {
+          i: undefined,
+          dateFormatter: this.dateTime.formatDate,
+          w: this.w,
+        },
+      )
+    } else {
+      if (w.globals.isBarHorizontal) {
+        xVal = w.formatters.yLabelFormatters[0](bufferXVal, customFormatterOpts)
+      } else {
+        xVal =
+          w.formatters.xLabelFormatter?.(bufferXVal, customFormatterOpts) ??
+          bufferXVal
+      }
+    }
+
+    // override default x-axis formatter with tooltip formatter
+    if (w.config.tooltip.x.formatter !== undefined) {
+      xVal =
+        w.formatters.ttKeyFormatter?.(bufferXVal, customFormatterOpts) ??
+        bufferXVal
+    }
+
+    // The "Size" row belongs to a chart that HAS a third dimension. Asking
+    // seriesZ whether it is non-empty is not the same question (#5323): a
+    // series can hold z slots that are all null (placeholders keeping the
+    // index aligned, or a column of nulls a database handed over), and a
+    // custom tooltip.z.formatter would then print a size for a chart that has
+    // no sizes. isDataXYZ is set only by a value the z scale can measure.
+    if (
+      w.axisFlags.isDataXYZ &&
+      w.seriesData.seriesZ.length > 0 &&
+      w.seriesData.seriesZ[i]?.length > 0
+    ) {
+      zVal = zFormatter?.(w.seriesData.seriesZ[i][j] ?? null, w)
+    }
+
+    if (typeof w.config.xaxis.tooltip.formatter === 'function') {
+      xAxisTTVal = w.formatters.xaxisTooltipFormatter?.(
+        bufferXVal,
+        customFormatterOpts,
+      )
+    } else {
+      xAxisTTVal = xVal
+    }
+
+    const plain = (/** @type {any} */ v) => (Array.isArray(v) ? v.join(' ') : v)
+    // A category is data: the title and the x-axis label show it as text
+    // unless a formatter turned it into markup.
+    const rawX = plain(bufferXVal)
+    return {
+      val: plain(val),
+      xVal: nameAsHtml(rawX, plain(xVal)),
+      xAxisTTVal: nameAsHtml(rawX, plain(xAxisTTVal)),
+      zVal,
+    }
+  }
+
+  /** @param {{i: any, j: any, y1: any, y2: any, w: any, coincident?: any[]}} opts */
+  handleCustomTooltip({ i, j, y1, y2, w, coincident }) {
+    const tooltipEl = this.ttCtx.getElTooltip()
+    let fn = w.config.tooltip.custom
+
+    // Array form is one custom fn per series. Unwrap to this series' entry; if
+    // the array is shorter than the series count, fn[i] is undefined and the
+    // guard below bails rather than calling the array as a function.
+    if (Array.isArray(fn)) {
+      fn = fn[i]
+    }
+    if (typeof fn !== 'function') return
+
+    // `ctx` is the chart instance. Custom tooltips written against earlier
+    // releases (the timeline demo among them) read `opts.ctx.w`, so it stays
+    // in the opts next to `w` instead of throwing on every hover.
+    const customTooltip = fn({
+      ctx: this.ttCtx.ctx,
+      series: w.seriesData.series,
+      seriesIndex: i,
+      dataPointIndex: j,
+      y1,
+      y2,
+      w,
+      // the points of the series drawn at the hovered marker's spot, when
+      // there are others (an intersect tooltip on coincident markers)
+      ...(coincident && { coincident: coincident.map((p) => ({ ...p })) }),
+    })
+
+    if (tooltipEl) {
+      // The arrow connector is a child of the tooltip box (a sibling of the
+      // content). Replacing innerHTML below would wipe it, so detach the node
+      // first and re-append it afterwards — the reference survives the
+      // innerHTML reset, so the arrow keeps pointing at the data point even
+      // when a custom tooltip owns the content.
+      const arrowEl = tooltipEl.querySelector('.apexcharts-tooltip-arrow')
+
+      if (
+        typeof customTooltip === 'string' ||
+        typeof customTooltip === 'number'
+      ) {
+        tooltipEl.innerHTML = String(customTooltip)
+      } else if (
+        customTooltip != null &&
+        (customTooltip instanceof Element ||
+          typeof customTooltip.nodeName === 'string')
+      ) {
+        tooltipEl.innerHTML = ''
+        tooltipEl.appendChild(customTooltip.cloneNode(true))
+      }
+      // A null/undefined return (e.g. a custom fn that renders only for some
+      // points) leaves the existing content untouched instead of throwing on
+      // customTooltip.nodeName.
+
+      if (arrowEl) tooltipEl.appendChild(arrowEl)
+    }
+  }
+}

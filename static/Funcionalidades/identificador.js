@@ -13,30 +13,24 @@ function configurarIdentificador(campoCedula, selectNacionalidad, tipo_cliente) 
 
         selectNacionalidad.replaceChildren();
 
-        const opcionInicial = document.createElement("option");
-        opcionInicial.value = "";
-        opcionInicial.textContent = "I";
-        selectNacionalidad.appendChild(opcionInicial);
-
-        let opcionesPermitidas = [];
-
-        if (tipo === "NATURAL") {
-            opcionesPermitidas = ["V", "E"];
-        } else if (tipo === "EMPRESA") {
-            opcionesPermitidas = ["J", "G"];
-        }
+        const opcionesPermitidas = tipo === "PERSONAL" || tipo === "NATURAL"
+            ? ["V", "E"]
+            : tipo === "EMPRESA"
+                ? ["J", "G"]
+                : [];
 
         opcionesPermitidas.forEach(valor => {
             const opcion = document.createElement("option");
+
             opcion.value = valor;
             opcion.textContent = opcionesIdentificador[valor];
+
             selectNacionalidad.appendChild(opcion);
         });
 
-        selectNacionalidad.value =
-            opcionesPermitidas.includes(valorAnterior)
-                ? valorAnterior
-                : "";
+        selectNacionalidad.value = opcionesPermitidas.includes(valorAnterior)
+            ? valorAnterior
+            : opcionesPermitidas[0] || "";
 
         longitudIdentidad();
     }
@@ -57,29 +51,31 @@ function configurarIdentificador(campoCedula, selectNacionalidad, tipo_cliente) 
 
         campoCedula.disabled = false;
         campoCedula.required = true;
+        campoCedula.removeAttribute("minlength");
+        campoCedula.removeAttribute("maxlength");
 
         switch (nacionalidad) {
             case "V":
-                campoCedula.minLength = 7;
                 campoCedula.maxLength = 8;
+                campoCedula.minLength = 7;
                 campoCedula.placeholder = "Cédula (7-8 números)";
                 break;
 
             case "E":
-                campoCedula.minLength = 8;
                 campoCedula.maxLength = 10;
+                campoCedula.minLength = 8;
                 campoCedula.placeholder = "Documento extranjero (8-10 números)";
                 break;
 
             case "J":
-                campoCedula.minLength = 9;
                 campoCedula.maxLength = 9;
+                campoCedula.minLength = 9;
                 campoCedula.placeholder = "RIF jurídico (9 números)";
                 break;
 
             case "G":
-                campoCedula.minLength = 9;
                 campoCedula.maxLength = 9;
+                campoCedula.minLength = 9;
                 campoCedula.placeholder = "RIF gubernamental (9 números)";
                 break;
         }

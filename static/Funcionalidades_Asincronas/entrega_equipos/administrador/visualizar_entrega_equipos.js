@@ -19,11 +19,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const input_fecha_entrega = document.getElementById("fecha_entrega");
     const textarea_observacion_entrega = document.getElementById("observacion_entrega");
 
-    const btn_lista_entrega_pdf = document.getElementById("lista_entrega_pdf");
-    const btn_datos_entrega_pdf = document.getElementById("datos_entrega_pdf");
-
-    const btn_retroceder = document.querySelector(".btn_retroceder");
-    const btn_avanzar = document.querySelector(".btn_avanzar");
+    const btn_retroceder = document.querySelector(".btn_ret");
+    const btn_avanzar = document.querySelector(".btn_av");
 
     let entregas_equipos = [];
     let pagina_actual = 1;
@@ -33,11 +30,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
     async function supervisores_registrados() {
         try {
-            const respuesta = await fetch("/supervisores_registrados/");
+            const respuesta = await fetch("/asignaciones/supervisores_registrados/");
             const resultado = await respuesta.json();
             console.log(resultado);
 
             select_supervisores_encargados.innerHTML = "<option value=''>Selecciona un Supervisor</option>"
+
+            if (resultado.estado == "fallo") {
+                await Swal.fire({
+                    title: resultado.title,
+                    text: resultado.descripcion,
+                    icon: resultado.icon
+                });
+                return;
+            }
 
             resultado.supervisores.forEach(supervisor => {
                 const option_supervisor = document.createElement("option");
@@ -123,20 +129,34 @@ document.addEventListener("DOMContentLoaded", () => {
         const fin = inicio + filas_por_pagina;
         const entregas_pagina = entregas_equipos.slice(inicio, fin);
 
-        entregas_pagina.forEach((entrega, index) => {
-            contenedor_entregas_equipos.innerHTML += `
-            <tr data-id_entrega="${entrega.id_entrega}">
-                <td>${inicio + index + 1}</td>
-                <td>${entrega.supervisor_encargado}</td>
-                <td>${entrega.turno}</td>
-                <td>${entrega.equipo}</td>
-                <td>${entrega.cantidad_entregada}</td>
-                <td>${entrega.fecha_entrega}</td>
+        const total_paginas = Math.ceil(
+            entregas_equipos.length / filas_por_pagina
+        );
+
+        if (entregas_pagina.length === 0) {
+            contenedor_entregas_equipos.innerHTML = `
+            <tr>
+                <td colspan="8" class="texto_sin_registros">
+                    No hay entregas de equipos registradas.
+                </td>
             </tr>
         `;
-        });
-
-        const total_paginas = Math.ceil(entregas_equipos.length / filas_por_pagina);
+        } else {
+            entregas_pagina.forEach((entrega, index) => {
+                contenedor_entregas_equipos.innerHTML += `
+                <tr data-id_entrega="${entrega.id_entrega}">
+                    <td>${inicio + index + 1}</td>
+                    <td>${entrega.supervisor_encargado}</td>
+                    <td>${entrega.turno}</td>
+                    <td>${entrega.equipo}</td>
+                    <td>${entrega.cantidad_entregada}</td>
+                    <td>${entrega.fecha_entrega}</td>
+                    <td>${entrega.estado}</td>
+                    <td>${entrega.motivo_incidencia}</td>
+                    </tr>
+            `;
+            });
+        }
 
         btn_retroceder.disabled = pagina_actual <= 1;
         btn_avanzar.disabled = pagina_actual >= total_paginas;
@@ -206,75 +226,5 @@ document.addEventListener("DOMContentLoaded", () => {
 
     btn_cerrar.addEventListener("click", () => {
         dialogo_entrega.close();
-    });
-
-    btn_lista_entrega_pdf.addEventListener("click", async () => {
-        const formulario = new FormData();
-        formulario.append("categoria", select_categoria_equipos.value);
-        formulario.append("supervisor", select_supervisores_encargados.value);
-        formulario.append("csrfmiddlewaretoken", document.querySelector("[name=csrfmiddlewaretoken]").value);
-
-        try {
-            const respuesta = await fetch("/asignaciones/lista_entrega_equipos_pdf/", {
-                method: "POST",
-                body: formulario
-            });
-
-            const contentType = respuesta.headers.get("content-type") || "";
-
-            if (!respuesta.ok || !contentType.includes("application/pdf")) {
-                const resultado = await respuesta.json();
-                Swal.fire({
-                    title: resultado.title || "Error",
-                    text: resultado.descripcion || "No se pudo generar el reporte.",
-                    icon: resultado.icon || "error"
-                });
-                return;
-            }
-
-            const blob = await respuesta.blob();
-            const url = URL.createObjectURL(blob);
-
-            window.open(url, "_blank");
-
-            setTimeout(() => URL.revokeObjectURL(url), 60000);
-
-        } catch (error) {
-            console.error(error);
-        }
-    });
-
-    btn_datos_entrega_pdf.addEventListener("click", async () => {
-        const formulario = new FormData();
-        formulario.append("id_entrega", input_id_entrega_equipo.value);
-        formulario.append("csrfmiddlewaretoken", document.querySelector("[name=csrfmiddlewaretoken]").value);
-
-        try {
-            const respuesta = await fetch("/asignaciones/datos_entrega_equipo_pdf/", {
-                method: "POST",
-                body: formulario
-            });
-            const contentType = respuesta.headers.get("content-type") || "";
-
-            if (!respuesta.ok || !contentType.includes("application/pdf")) {
-                const resultado = await respuesta.json();
-                Swal.fire({
-                    title: resultado.title || "Error",
-                    text: resultado.descripcion || "No se pudo generar el reporte PDF.",
-                    icon: resultado.icon || "error"
-                });
-                return;
-            }
-
-            const archivo = await respuesta.blob();
-            const url = URL.createObjectURL(archivo);
-
-            window.open(url, "_blank");
-
-            setTimeout(() => URL.revokeObjectURL(url), 60000);
-
-        } catch (error) {
-            console.error(error);
-        }
     });
 });

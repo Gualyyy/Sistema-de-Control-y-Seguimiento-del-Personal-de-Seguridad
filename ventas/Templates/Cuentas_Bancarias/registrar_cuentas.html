@@ -1,0 +1,79 @@
+{% extends 'Estructura/base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="contenedor_formulario">
+    <div class="contenedor_campos_amplio">
+        <h2>Cuentas Bancarias</h2>
+
+        <div class="modulo_cuenta_bancaria">
+            <form method="post" id="formulario_registrar" class="formulario_cuentas">
+                {% csrf_token %}
+
+                <div class="campo_formulario">
+                    <label for="bancos">Banco:</label>
+                    <select name="bancos" id="bancos"></select>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="metodos_pagos">Método de Pago:</label>
+                    <select name="metodos_pagos" id="metodos_pagos"></select>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="cedula_identidad">Cédula de Identidad:</label>
+                    <div class="grupo_doble">
+                        <select name="nacionalidad" id="nacionalidad" class="select_prefijo" required>
+                            <option value="V">V</option>
+                            <option value="E">E</option>
+                            <option value="J">J</option>
+                        </select>
+                        <input type="text" name="cedula_identidad" id="cedula_identidad" autocomplete="off" required>
+                    </div>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="num_telefono">Telefono:</label>
+                    <div class="grupo_doble">
+                        <select name="prefijo" id="prefijo" class="select_prefijo" required></select>
+                        <input type="text" name="num_telefono" id="num_telefono" minlength="7" maxlength="7"
+                            autocomplete="off" required>
+                    </div>
+                </div>
+
+                <div class="contenedor_transferencia" id="contenedor_transferencia" hidden>
+                    <div class="campo_formulario">
+                        <label for="numeros_cuenta">Números de Cuenta:</label>
+                        <input type="text" name="numeros_cuenta" id="numeros_cuenta" autocomplete="off" minlength="20"
+                            maxlength="20" placeholder="Ingrese el número de cuenta de 20 dígitos.">
+                        <small id="contenedor_mensaje_num_cuenta" class="mensaje-feedback"></small>
+                    </div>
+
+                    <div class="campo_formulario">
+                        <label for="tipo_cuenta">Tipo Cuenta:</label>
+                        <select name="tipo_cuenta" id="tipo_cuenta">
+                            <option value="CORRIENTE" selected>Corriente</option>
+                            <option value="AHORRO">Ahorro</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="contenedor_boton_submit">
+                    <button type="submit" class="btn_submit" id="btn_registrar">
+                        <i class="fa-regular fa-floppy-disk"></i>
+                        Registrar
+                    </button>
+                </div>
+            </form>
+        </div>
+
+    </div>
+</section>
+
+<script src="{% static 'Funcionalidades/cedula_identidad.js' %}"></script>
+<script src="{% static 'Funcionalidades/telefono.js' %}"></script>
+<script src="{% static 'Funcionalidades_Asincronas/ventas/cuentas_bancarias/registrar_cuenta.js' %}"></script>
+
+{% endblock %}

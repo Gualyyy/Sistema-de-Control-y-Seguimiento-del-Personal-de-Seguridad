@@ -1,0 +1,128 @@
+{% extends 'Estructura/Base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="pagina_cambiar_contrasenia">
+
+    <div class="contenedor_actualizar_contrasenia">
+        <img src="{% static 'Imagenes/modulo_cambiar_contrasenia.png' %}" alt="Cambiar contraseña del empleado">
+        <h2>Cambiar la Contraseña</h2>
+        <p>Ingrese la nueva contraseña y su confirmación</p>
+    </div>
+
+    <form method="post" id="formulario_actualizar">
+        {% csrf_token %}
+
+        <div class="campo_login">
+            <label for="clave">Contraseña:</label>
+
+            <div class="password_contenedor">
+                <input name="contrasenia" id="clave" type="password" placeholder="Ingrese su contraseña"
+                    autocomplete="new-password" maxlength="30" required>
+
+                <input type="checkbox" id="mostrar_contrasenia" class="checkbox_ojo" aria-label="Mostrar contraseña">
+
+                <label for="mostrar_contrasenia" class="icono_ojo" title="Mostrar u ocultar contraseña">
+                    <i class="fa-regular fa-eye icono_mostrar"></i>
+                    <i class="fa-regular fa-eye-slash icono_ocultar"></i>
+                </label>
+            </div>
+
+            <small id="contenedor_mensaje_password" class="mensaje-feedback"></small>
+        </div>
+
+        <div class="campo_login">
+            <label for="clave_confirmar">Contraseña Confirmar:</label>
+
+            <div class="password_contenedor_confirma">
+                <input name="contrasenia_confirmar" id="clave_confirmar" type="password"
+                    placeholder="Confirme su contraseña" autocomplete="new-password" maxlength="30" required>
+
+                <input type="checkbox" id="mostrar_contrasenia_confirmar" class="checkbox_ojo_confirmar"
+                    aria-label="Mostrar contraseña de confirmación">
+
+                <label for="mostrar_contrasenia_confirmar" class="icono_ojo_confirmar"
+                    title="Mostrar u ocultar contraseña de confirmación">
+                    <i class="fa-regular fa-eye icono_mostrar"></i>
+                    <i class="fa-regular fa-eye-slash icono_ocultar"></i>
+                </label>
+            </div>
+        </div>
+
+        <div class="indicadores_password" id="indicadores_password" aria-live="polite">
+            <p class="titulo_indicadores">La contraseña debe cumplir con:</p>
+
+            <ul class="lista_indicadores">
+                <li class="indicador_password" data-regla="longitud">
+                    <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>
+                    <span>Entre 8 y 15 caracteres.</span>
+                </li>
+
+                <li class="indicador_password" data-regla="alfabetico">
+                    <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>
+                    <span>Al menos un carácter alfabético válido.</span>
+                </li>
+
+                <li class="indicador_password" data-regla="especial">
+                    <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>
+                    <span>Al menos un carácter especial.</span>
+                </li>
+
+                <li class="indicador_password" data-regla="numero">
+                    <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>
+                    <span>Al menos un número.</span>
+                </li>
+
+                <li class="indicador_password" data-regla="repetidos">
+                    <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>
+                    <span>No incluir tres caracteres o números iguales consecutivos.</span>
+                </li>
+
+                <li class="indicador_password" data-regla="nacimiento">
+                    <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>
+                    <span>No contener una fecha de nacimiento.</span>
+                </li>
+
+                <li class="indicador_password" data-regla="telefono">
+                    <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>
+                    <span>No contener el número telefónico.</span>
+                </li>
+
+                <li class="indicador_password" data-regla="cedula">
+                    <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>
+                    <span>No contener la cédula de identidad.</span>
+                </li>
+
+                <li class="indicador_password" data-regla="nombre">
+                    <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>
+                    <span>No contener el nombre.</span>
+                </li>
+
+                <li class="indicador_password" data-regla="apellido">
+                    <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>
+                    <span>No contener el apellido.</span>
+                </li>
+
+                <li class="indicador_password" data-regla="coincide">
+                    <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>
+                    <span>La contraseña y su confirmación deben coincidir.</span>
+                </li>
+            </ul>
+        </div>
+
+        <div class="contenedor_boton_submit">
+            <button type="submit" class="boton_login" id="btn_actualizar">
+                <i class="fa-solid fa-user-lock"></i>
+                Actualizar
+            </button>
+        </div>
+    </form>
+
+</section>
+
+<script src="{% static 'Funcionalidades/contrasenia.js' %}"></script>
+<script src="{% static 'Funcionalidades_Asincronas/recuperar_credenciales/cambiar_contrasenia.js' %}"></script>
+
+{% endblock %}

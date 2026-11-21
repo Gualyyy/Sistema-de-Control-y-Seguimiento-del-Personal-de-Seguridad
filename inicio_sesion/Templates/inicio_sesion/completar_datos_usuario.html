@@ -5,39 +5,36 @@
 {% load static %}
 
 <section class="contenedor_formulario">
-    <div class="contenedor_campos">
-        <button type="button" id="btn_cerrar" class="btn_cerrar">
-            <i class="fa-solid fa-square-xmark" style="color: rgb(225, 225, 225);"></i>
-        </button>
-
+    <div class="contenedor_campos_intermedio">
         <h2>Completar Datos Empleado</h2>
 
-        <div class="progreso">
-            <div class="linea">
-                <div class="avance"></div>
-                <div class="pasos">
-                    <div class="paso_progreso activo">
-                        <span>1</span>
-                        <small>Datos Básicos</small>
-                    </div>
-                    <div class="paso_progreso">
-                        <span>2</span>
-                        <small>Contacto</small>
-                    </div>
-                    <div class="paso_progreso">
-                        <span>3</span>
-                        <small>Nacimiento</small>
-                    </div>
-                    <div class="paso_progreso">
-                        <span>4</span>
-                        <small>Residencia</small>
+        <div class="modulo_registro">
+
+            <div class="progreso">
+                <div class="linea">
+                    <div class="avance"></div>
+                    <div class="pasos">
+                        <div class="paso_progreso activo">
+                            <span>1</span>
+                            <small>Datos Básicos</small>
+                        </div>
+                        <div class="paso_progreso">
+                            <span>2</span>
+                            <small>Contacto</small>
+                        </div>
+                        <div class="paso_progreso">
+                            <span>3</span>
+                            <small>Nacimiento</small>
+                        </div>
+                        <div class="paso_progreso">
+                            <span>4</span>
+                            <small>Residencia</small>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <div class="wrapper_formulario">
-            <form method="post" id="formulario_completar_registrar" class="formulario_base">
+            <form method="post" id="formulario_completar_registrar" class="formulario_registro">
                 {% csrf_token %}
 
                 <article class="paso activo">
@@ -46,7 +43,7 @@
 
                         <div class="campo_formulario">
                             <label for="nombre_usuario_visualizar">Nombres:</label>
-                            <input type="text" name="nombre_usuario" id="nombre_usuario_visualizar" disabled>
+                            <input type="text" name="nombre_usuario" id="nombre_usuario_visualizar" readonly>
                         </div>
 
                         <div class="campo_formulario">
@@ -60,14 +57,21 @@
                         </div>
 
                         <div class="campo_formulario">
-                            <label for="genero_usuario_visualizar">Genero:</label>
-                            <input type="text" name="genero_usuario" id="genero_usuario_visualizar" readonly>
+                            <label for="genero_usuario">Genero:</label>
+                            <select name="genero" id="genero_usuario" required>
+                                <option value="Masculino" selected>Masculino</option>
+                                <option value="Femenino">Femenino</option>
+                            </select>
                         </div>
 
                         <div class="campo_formulario">
-                            <label for="estado_civil_usuario_visualizar">Estado Civil</label>
-                            <input type="text" name="estado_civil_usuario" id="estado_civil_usuario_visualizar"
-                                readonly>
+                            <label for="estado_civil_usuario">Estado Civil</label>
+                            <select name="estado_civil" id="estado_civil_usuario" required>
+                                <option value="Casado/a">Casado/a</option>
+                                <option value="Divorciado/a">Divorciado/a</option>
+                                <option value="Soltero/a" selected>Soltero/a</option>
+                                <option value="Viudo/a">Viudo/a</option>
+                            </select>
                         </div>
                     </div>
                 </article>
@@ -103,8 +107,8 @@
 
                             <div class="grupo_doble">
                                 <input type="text" name="correo_principal" id="correo_principal" minlength="5"
-                                    maxlength="20" placeholder="Correo Electronico Principal (5-20 caracteres máximo)"
-                                    autocomplete="off" required>
+                                    maxlength="20" placeholder="Correo Electronico (5-20 caracteres)" autocomplete="off"
+                                    required>
 
                                 <select name="dominio_principal" id="dominio_principal" class="select_dominio"
                                     required></select>
@@ -117,8 +121,8 @@
 
                             <div class="grupo_doble">
                                 <input type="text" name="correo_secundaria" id="correo_secundario" minlength="5"
-                                    maxlength="20" placeholder="Correo Electronico Secundario (5-20 caracteres máximo)"
-                                    autocomplete="off" class="campo_opcional" required>
+                                    maxlength="20" placeholder="Correo Electronico (5-20 caracteres)" autocomplete="off"
+                                    class="campo_opcional" required>
 
                                 <select name="dominio_secundaria" id="dominio_secundaria"
                                     class="campo_opcional select_dominio" required></select>
@@ -132,23 +136,26 @@
                 <article class="paso">
                     <div class="bloque_paso">
                         <h3>Nacimiento</h3>
-                        <div class="campo_nacimiento">
+
+                        <div class="campo_formulario campo_nacimiento">
                             <label for="pais_nacimiento">País:</label>
                             <select name="pais_nacimiento" id="pais_nacimiento" required></select>
                         </div>
 
-                        <div class="campo_nacimiento">
+                        <div class="campo_formulario campo_nacimiento">
                             <label for="estado_nacimiento">Estado:</label>
-                            <select name="estado_nacimiento" id="estado_nacimiento"></select>
+                            <select name="estado_nacimiento" id="estado_nacimiento" required>
+                                <option value="">Seleccione el Estado</option>
+                            </select>
 
                             <input type="text" name="estado_nacimiento_nvzla" id="estado_novzla"
                                 placeholder="Ingrese el estado (máximo 50 caracteres)" maxlength="50" autocomplete="off"
                                 hidden>
                         </div>
 
-                        <div class="campo_nacimiento">
+                        <div class="campo_formulario campo_nacimiento">
                             <label for="municipio_nacimiento">Municipio:</label>
-                            <select name="municipio_nacimiento" id="municipio_nacimiento">
+                            <select name="municipio_nacimiento" id="municipio_nacimiento" required>
                                 <option value="">Seleccione el Municipio</option>
                             </select>
 
@@ -157,9 +164,9 @@
                                 autocomplete="off" hidden>
                         </div>
 
-                        <div class="campo_nacimiento">
+                        <div class="campo_formulario campo_nacimiento">
                             <label for="parroquia_nacimiento">Parroquia:</label>
-                            <select name="parroquia_nacimiento" id="parroquia_nacimiento">
+                            <select name="parroquia_nacimiento" id="parroquia_nacimiento" required>
                                 <option value="">Seleccione el Parroquia</option>
                             </select>
 
@@ -168,7 +175,12 @@
                                 autocomplete="off" hidden>
                         </div>
 
-                        <div class="campo_nacimiento">
+                        <div class="campo_formulario campo_nacimiento">
+                            <label for="fecha_nacimiento_usuario">Fecha de Nacimiento:</label>
+                            <input type="date" name="fecha_nacimiento" id="fecha_nacimiento_usuario" required>
+                        </div>
+
+                        <div class="campo_formulario campo_nacimiento">
                             <label for="direccion_nacimiento">Dirección:</label>
                             <textarea name="direccion_nacimiento" id="direccion_nacimiento" maxlength="250"
                                 placeholder="Ingrese su dirección de nacimiento cuenta con (250 caracteres máximo)."
@@ -177,11 +189,6 @@
                             <div class="contador_caracteres">
                                 <span id="contador_nacimiento">0</span> / 250 caracteres
                             </div>
-                        </div>
-
-                        <div class="campo_nacimiento">
-                            <label for="fecha_nacimiento_usuario">Fecha de Nacimiento:</label>
-                            <input type="date" name="fecha_nacimiento" id="fecha_nacimiento_usuario" required>
                         </div>
                     </div>
                 </article>
@@ -193,8 +200,7 @@
                         <div class="campo_formulario">
                             <label for="condicion_residencia_usuario">Condición de Residencia:</label>
                             <select name="condicion_residencia" id="condicion_residencia_usuario" required>
-                                <option value="">Selecciona la condición de residencia</option>
-                                <option value="Propietario">Propietario</option>
+                                <option value="Propietario" selected>Propietario</option>
                                 <option value="Alquilado">Alquilado</option>
                                 <option value="Familiar">Familiar</option>
                                 <option value="Prestado">Prestado</option>
@@ -224,17 +230,21 @@
                         </div>
 
                         <div class="contenedor_boton_submit">
-                            <button type="submit" class="btn_primario btn_registro">Guardar Datos</button>
+                            <button type="submit" class="btn_submit" id="btn_registrar">
+                                <i class="fa-regular fa-floppy-disk"></i>
+                                Guardar Datos
+                            </button>
                         </div>
                     </div>
                 </article>
             </form>
+
+            <div class="botones_navegacion">
+                <button class="btn_secundario btn_retroceder" type="button">Retroceder</button>
+                <button class="btn_primario btn_avanzar" type="button">Avanzar</button>
+            </div>
         </div>
 
-        <div class="botones_navegacion">
-            <button class="btn_secundario btn_retroceder" type="button">Retroceder</button>
-            <button class="btn_primario btn_avanzar" type="button">Avanzar</button>
-        </div>
     </div>
 </section>
 
@@ -244,6 +254,6 @@
 <script src="{% static 'Funcionalidades/residencia.js' %}"></script>
 <script src="{% static 'Funcionalidades/nacimiento.js' %}"></script>
 <script src="{% static 'Funcionalidades/desplazamiento_controles.js' %}"></script>
-<script src="{% static 'Funcionalidades_Asincronas/empleados/administrador/completar_registrar.js' %}"></script>
+<script src="{% static 'Funcionalidades_Asincronas/inicio_sesion/completar_registrar.js' %}"></script>
 
 {% endblock %}

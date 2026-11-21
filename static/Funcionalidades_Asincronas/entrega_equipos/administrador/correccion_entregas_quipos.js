@@ -11,6 +11,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const input_cantidad_actualizar = document.getElementById("cantidad_actualizar");
 
     const contenedor_msg_cantidad = document.getElementById("contenedor_msg_cantidad");
+    const contenedor_msg_correccion = document.getElementById("contenedor_msg_correccion");
 
     const textarea_observacion_entrega = document.getElementById("observacion_entrega");
     const textarea_motivo_correccion = document.getElementById("motivo_correccion");
@@ -20,7 +21,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const btn_actualizar = document.getElementById("btn_actualizar");
 
-    let supervisor = "", categoria = "";
+    let supervisor = "", categoria = "", tipo_correccion = "", id_equipo = "";
 
     async function supervisores_registrados() {
         try {
@@ -106,10 +107,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
             const resultado = await respuesta.json();
 
-            select_equipos_entregados.innerHTML =
-                "<option value=''>Selecciona el Equipo</option>";
+            select_equipos_entregados.innerHTML = "<option value=''>Selecciona el Equipo</option>";
 
-            if (!respuesta.ok || resultado.estado !== "exito") {
+            if (resultado.estado !== "exito") {
                 await Swal.fire({
                     title: resultado.title || "Error",
                     text: resultado.descripcion || "No fue posible consultar los equipos.",
@@ -149,7 +149,7 @@ document.addEventListener("DOMContentLoaded", () => {
         contenedor_msg_cantidad.className = "mensaje-feedback";
 
         btn_actualizar.disabled = true;
-
+        id_equipo = select_equipos_entregados.value;
         const equipo = select_equipos_entregados.selectedOptions[0];
 
         if (!equipo || !equipo.value) {
@@ -192,14 +192,18 @@ document.addEventListener("DOMContentLoaded", () => {
             contador_observacion
         );
 
-        if (select_tipo_correccion.value === "ERROR_HUMANO") {
+        if (select_tipo_correccion.value === "ERROR_HUMANO" || select_tipo_correccion.value === "RETIRAR") {
             input_cantidad_actualizar.value = cantidad_entregada;
+
             input_cantidad_actualizar.dispatchEvent(
                 new Event("input", { bubbles: true })
             );
-        }
-    });
 
+            btn_actualizar.disabled = false;
+        }
+
+        tipo_correccion_validacion();
+    });
 
     input_cantidad_actualizar.addEventListener("input", () => {
         input_cantidad_actualizar.value =
@@ -292,11 +296,75 @@ document.addEventListener("DOMContentLoaded", () => {
         contador.textContent = textarea.value.length;
     }
 
+    async function tipo_correccion_validacion() {
+        try {
+            btn_actualizar.disabled = true;
+
+            contenedor_msg_correccion.textContent = "";
+            contenedor_msg_correccion.className = "mensaje-feedback";
+
+            const formulario = new FormData();
+            formulario.append("id_equipo", id_equipo);
+
+            const respuesta = await fetch("/asignaciones/tipo_correccion/", {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]").value
+                },
+                body: formulario
+            });
+
+            const resultado = await respuesta.json();
+
+            if (resultado.estado !== "exito") {
+                contenedor_msg_correccion.textContent =
+                    resultado.mensaje || "No fue posible verificar las asignaciones.";
+
+                contenedor_msg_correccion.className = "mensaje-feedback error";
+                return;
+            }
+
+            const requiere_verificacion = ["RETIRAR", "ERROR_HUMANO"
+            ].includes(select_tipo_correccion.value);
+
+            if (resultado.asignado && requiere_verificacion) {
+
+                contenedor_msg_correccion.textContent =
+                    "Este equipo tiene unidades asignadas al personal. No se puede retirar ni corregir por error humano hasta que sean devueltas.";
+
+                contenedor_msg_correccion.className = "mensaje-feedback error";
+
+                btn_actualizar.disabled = true;
+
+            } else {
+
+                contenedor_msg_correccion.textContent = resultado.asignado
+                    ? "Este equipo tiene unidades asignadas al personal."
+                    : "Este equipo no tiene unidades asignadas al personal.";
+
+                contenedor_msg_correccion.className = resultado.asignado
+                    ? "mensaje-feedback error"
+                    : "mensaje-feedback exito";
+
+                btn_actualizar.disabled = false;
+            }
+
+        } catch (error) {
+            console.error(error);
+
+            btn_actualizar.disabled = true;
+
+            contenedor_msg_correccion.textContent =
+                "Ocurrió un error al verificar las asignaciones del equipo.";
+
+            contenedor_msg_correccion.className = "mensaje-feedback error";
+        }
+    }
+
     select_tipo_correccion.addEventListener("change", () => {
-        const tipo_correccion = select_tipo_correccion.value;
-        const equipo = select_equipos_entregados.options[
-            select_equipos_entregados.selectedIndex
-        ];
+        tipo_correccion = select_tipo_correccion.value;
+
+        const equipo = select_equipos_entregados.selectedOptions[0];
 
         input_cantidad_actualizar.value = "";
         textarea_motivo_correccion.value = "";
@@ -304,7 +372,9 @@ document.addEventListener("DOMContentLoaded", () => {
         textarea_motivo_correccion.readOnly = false;
         textarea_motivo_correccion.required = Boolean(tipo_correccion);
 
-        if (tipo_correccion === "ERROR_HUMANO") {
+        if (tipo_correccion === "ERROR_HUMANO" ||
+            tipo_correccion === "RETIRAR") {
+
             input_cantidad_actualizar.readOnly = true;
             textarea_observacion_entrega.readOnly = true;
 
@@ -312,9 +382,8 @@ document.addEventListener("DOMContentLoaded", () => {
             textarea_observacion_entrega.required = false;
 
             if (equipo && equipo.value) {
-                const cantidad = equipo.dataset.cantidad_entregada;
-
-                input_cantidad_actualizar.value = cantidad;
+                input_cantidad_actualizar.value =
+                    equipo.dataset.cantidad_entregada;
 
                 btn_actualizar.disabled = false;
             } else {
@@ -322,6 +391,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
 
         } else if (tipo_correccion === "ACTUALIZAR") {
+
             input_cantidad_actualizar.readOnly = false;
             textarea_observacion_entrega.readOnly = false;
 
@@ -331,6 +401,7 @@ document.addEventListener("DOMContentLoaded", () => {
             btn_actualizar.disabled = true;
 
         } else {
+
             input_cantidad_actualizar.readOnly = true;
             textarea_observacion_entrega.readOnly = true;
 
@@ -370,6 +441,8 @@ document.addEventListener("DOMContentLoaded", () => {
             supervisor = "";
             categoria = "";
             formulario_correccion.reset();
+            contenedor_msg_cantidad.innerHTML = "";
+            contenedor_msg_correccion.innerHTML = "";
         } catch (error) {
             console.error(error);
         }

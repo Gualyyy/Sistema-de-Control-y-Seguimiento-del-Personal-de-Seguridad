@@ -1,0 +1,302 @@
+{% extends 'Estructura/base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="contenedor_formulario">
+    <div class="contenedor_campos_demasiado_amplio">
+        <h2>Compra de Productos</h2>
+
+        <div class="contenedor_compra">
+
+            <div class="contenedor_productos_disponibles">
+                <div class="contenedor_navegacion">
+                    <form method="post" class="formulario_navegacion">
+                        {% csrf_token %}
+
+                        <div class="campo_formulario">
+                            <label for="buscar_producto">Buscar Nombre:</label>
+                            <input type="text" name="buscar_producto" id="buscar_producto" autocomplete="offf"
+                                placeholder="Ingrese el nombre del producto.">
+                        </div>
+
+                        <div class="campo_formulario">
+                            <label for="categoria_producto">Buscar Categoría:</label>
+                            <select name="categoria_producto" id="categoria_producto"></select>
+                        </div>
+                    </form>
+                </div>
+
+                <div id="productos_disponibles" class="contenedor_productos"></div>
+            </div>
+
+            <div class="contenedor_carrito_compra" id="panel_carrito_compra"
+                role="region" aria-label="Carrito de compras" aria-hidden="true" inert>
+                <div class="encabezado_carrito">
+                    <h2>
+                        <i class="fa-solid fa-cart-shopping"></i>
+                        Mi Carrito
+                    </h2>
+                    <span id="cantidad_productos_carrito">0</span>
+                    <button type="button" class="btn_cerrar_carrito" id="btn_cerrar_carrito"
+                        aria-label="Cerrar carrito">
+                        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                    </button>
+                </div>
+
+                <div id="productos_carrito" class="productos_carrito">
+                    <div class="carrito_vacio">
+                        <i class="fa-solid fa-cart-shopping"></i>
+                        <p>Tu carrito está vacío.</p>
+                        <span>Agrega productos para comenzar tu compra.</span>
+                    </div>
+                </div>
+
+                <div class="resumen_compra">
+                    <div class="fila_resumen">
+                        <span>Subtotal:</span>
+                        <div class="montos_resumen">
+                            <strong id="subtotal_compra_ves">0,00 Bs.</strong>
+                            <small id="subtotal_compra_usd">$0.00</small>
+                        </div>
+                    </div>
+                    <div class="fila_resumen">
+                        <span>Descuento:</span>
+                        <div class="montos_resumen">
+                            <strong id="descuento_compra_ves">0,00 Bs.</strong>
+                            <small id="descuento_compra_usd">$0.00</small>
+                        </div>
+                    </div>
+                    <div class="fila_resumen">
+                        <span>IVA (16%):</span>
+                        <div class="montos_resumen">
+                            <strong id="iva_compra_ves">0,00 Bs.</strong>
+                            <small id="iva_compra_usd">$0.00</small>
+                        </div>
+                    </div>
+
+                    <div class="fila_total">
+                        <span>Total:</span>
+                        <div class="montos_resumen">
+                            <strong id="total_compra_ves">0,00 Bs.</strong>
+                            <small id="total_compra_usd">$0.00</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="acciones_carrito">
+                    <button type="button" id="btn_comprar">
+                        <i class="fa-solid fa-cart-shopping"></i>
+                        Comprar
+                    </button>
+                </div>
+            </div>
+
+            <div class="fondo_carrito" id="fondo_carrito" aria-hidden="true"></div>
+            <button type="button" class="btn_carrito_flotante" id="btn_carrito_flotante"
+                aria-controls="panel_carrito_compra" aria-expanded="false" aria-label="Abrir carrito">
+                <i class="fa-solid fa-cart-shopping" aria-hidden="true"></i>
+                <span id="cantidad_carrito_flotante">0</span>
+            </button>
+
+        </div>
+
+    </div>
+</section>
+
+<dialog id="dialogo_pago" class="dialogo">
+    <div class="contenedor_datos">
+        <button type="button" id="btn_cerrar_pago" class="btn_cerrar">
+            <i class="fa-solid fa-square-xmark"></i>
+        </button>
+
+        <h2>Finalizar compra</h2>
+
+        <div id="notificaciones_pago" class="notificaciones_pago" role="status" aria-live="polite" hidden>
+            <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+            <p id="mensaje_notificacion_pago"></p>
+        </div>
+
+        <nav class="progreso_pago" aria-label="Pasos para finalizar la compra">
+            <span class="paso_progreso activo" data-indicador-paso="0" aria-current="step">
+                1. Compra
+            </span>
+            <span class="paso_progreso" data-indicador-paso="1">
+                2. Método de pago
+            </span>
+            <span class="paso_progreso" data-indicador-paso="2">
+                3. Cuenta
+            </span>
+            <span class="paso_progreso" data-indicador-paso="3">
+                4. Confirmación
+            </span>
+        </nav>
+
+        <div class="contenedor_principal">
+            <section class="paso_pago" data-paso-pago="0">
+                <div class="contenedor_descripcion_compra">
+                    <h3>
+                        <i class="fa-solid fa-cart-shopping"></i>
+                        Resumen de compra
+                    </h3>
+
+                    <div id="detalle_productos_pago"></div>
+
+                    <div class="resumen_pago">
+                        <div>
+                            <span>Subtotal:</span>
+                            <div class="montos_pago">
+                                <strong id="pago_subtotal_ves">No disponible</strong>
+                                <small id="pago_subtotal_usd">$0.00</small>
+                            </div>
+                        </div>
+                        <div>
+                            <span>Descuento:</span>
+                            <div class="montos_pago">
+                                <strong id="pago_descuento_ves">No disponible</strong>
+                                <small id="pago_descuento_usd">$0.00</small>
+                            </div>
+                        </div>
+                        <div>
+                            <span>Impuesto:</span>
+                            <div class="montos_pago">
+                                <strong id="pago_impuesto_ves">No disponible</strong>
+                                <small id="pago_impuesto_usd">$0.00</small>
+                            </div>
+                        </div>
+                        <div class="total_pago">
+                            <span>Total a pagar:</span>
+                            <div class="montos_pago">
+                                <strong id="pago_total_ves">No disponible</strong>
+                                <small id="pago_total_usd">$0.00</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="acciones_paso_pago">
+                    <button type="button" class="btn_siguiente_pago" data-siguiente-paso="1">
+                        Continuar al método de pago
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+            </section>
+
+            <section class="paso_pago" data-paso-pago="1" hidden>
+                <div class="contenedor_metodo_pago">
+                    <h3>
+                        <i class="fa-solid fa-wallet"></i>
+                        Método de pago
+                    </h3>
+
+                    <div id="opciones_metodo_pago" class="opciones_metodo_pago"
+                        aria-label="Métodos de pago disponibles">
+                    </div>
+                </div>
+
+                <div class="acciones_paso_pago">
+                    <button type="button" class="btn_anterior_pago" data-paso-anterior="0">
+                        <i class="fa-solid fa-arrow-left"></i>
+                        Volver al resumen
+                    </button>
+                    <button type="button" class="btn_siguiente_pago" data-siguiente-paso="2">
+                        Continuar a la cuenta
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+            </section>
+
+            <section class="paso_pago" data-paso-pago="2" hidden>
+                <div class="contenedor_pagar">
+                    <h3>
+                        <i class="fa-solid fa-building-columns"></i>
+                        Selecciona la cuenta a la que realizaste el pago
+                    </h3>
+
+                    <div id="cuentas_destino_pago" aria-live="polite"></div>
+                </div>
+
+                <div class="acciones_paso_pago">
+                    <button type="button" class="btn_anterior_pago" data-paso-anterior="1">
+                        <i class="fa-solid fa-arrow-left"></i>
+                        Volver al método
+                    </button>
+                    <button type="button" class="btn_siguiente_pago" data-siguiente-paso="3">
+                        Continuar a la confirmación
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+            </section>
+
+            <section class="paso_pago" data-paso-pago="3" hidden>
+                <div class="contenedor_pagar">
+                    <h3>
+                        <i class="fa-solid fa-clock"></i>
+                        Confirmación de compra
+                    </h3>
+
+                    <div class="mensaje_confirmacion_pago">
+                        <i class="fa-solid fa-circle-info"></i>
+                        <p>
+                            La compra quedará pendiente de revisión.
+                            Atención al Cliente verificará el pago y la
+                            referencia bancaria para aprobarla o rechazarla.
+                        </p>
+                    </div>
+
+                    <div class="datos_transferencia_cliente">
+                        <div class="campo_referencia_pago">
+                            <label for="capture_pago">Capture del Pago</label>
+                            <input type="file" name="capture_pago" id="capture_pago" required>
+                        </div>
+
+                        <div class="campo_referencia_pago">
+                            <label for="referencia_bancaria">Referencia bancaria</label>
+                            <input type="text" id="referencia_bancaria" name="referencia_bancaria" inputmode="numeric"
+                                pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="off" required
+                                placeholder="6 dígitos">
+                        </div>
+
+                        <div class="campo_referencia_pago">
+                            <label for="telefono_origen_pago">Teléfono desde donde realizaste el pago</label>
+                            <div class="telefono_origen_pago">
+                                <select id="prefijo_telefono_pago" aria-label="Prefijo telefónico" required></select>
+                                <input type="text" id="telefono_origen_pago" inputmode="numeric" minlength="7"
+                                    maxlength="7" autocomplete="tel-national" required
+                                    placeholder="Número telefónico (7 dígitos)">
+                            </div>
+                        </div>
+
+                        <div class="campo_referencia_pago">
+                            <label for="fecha_pago_bancario">Fecha del pago</label>
+                            <input type="date" id="fecha_pago_bancario" name="fecha_pago_bancario" required>
+                        </div>
+
+                        <div class="campo_referencia_pago">
+                            <label for="banco_origen">Banco desde donde realizaste el pago</label>
+                            <select id="banco_origen" name="banco_origen" required></select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="acciones_paso_pago">
+                    <button type="button" class="btn_anterior_pago" data-paso-anterior="2">
+                        <i class="fa-solid fa-arrow-left"></i>
+                        Volver a la cuenta
+                    </button>
+                    <button type="button" id="btn_confirmar_compra">
+                        <i class="fa-solid fa-check"></i>
+                        Registrar compra
+                    </button>
+                </div>
+            </section>
+        </div>
+    </div>
+</dialog>
+
+<script src="{% static 'Funcionalidades/telefono.js' %}"></script>
+<script
+    src="{% static 'Funcionalidades_Asincronas/ventas/compras/clientes/registrar_compra.js' %}?v=20261113-client-cart-controls-1"></script>
+
+{% endblock %}

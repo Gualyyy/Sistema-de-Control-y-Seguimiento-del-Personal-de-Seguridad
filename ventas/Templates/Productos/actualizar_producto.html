@@ -28,8 +28,8 @@
             </form>
         </div>
 
-        <div class="modulo_ventas">
-            <form method="post" id="formulario_actualizar" class="formulario_venta">
+        <div class="modulo_productos">
+            <form method="post" id="formulario_actualizar" class="formulario_producto">
                 {% csrf_token %}
                 <input type="hidden" name="id_codigo" id="id_codigo">
 
@@ -43,12 +43,14 @@
                     <label for="precio_base">Precio Base (USD $):</label>
                     <input type="text" name="precio_base" id="precio_base" placeholder="Ingresa el precio en dólares"
                         autocomplete="off" inputmode="decimal" required>
+                    <small id="contenedor_mensaje_precio_base" class="mensaje-feedback"></small>
                 </div>
 
                 <div class="campo_formulario">
                     <label for="costo_base">Costo Base (USD $):</label>
                     <input type="text" name="costo_base" id="costo_base" placeholder="Ingresa el costo en dólares"
                         autocomplete="off" inputmode="decimal" required>
+                    <small id="contenedor_mensaje_costo_base" class="mensaje-feedback"></small>
                 </div>
 
                 <div class="campo_formulario">
@@ -67,7 +69,10 @@
                 </div>
 
                 <div class="contenedor_boton_submit">
-                    <input type="submit" class="btn_primario" id="btn_actualizar" value="Actualizar">
+                    <button type="submit" class="btn_submit" id="btn_actualizar">
+                        <i class="fa-regular fa-floppy-disk"></i>
+                        Actualizar
+                    </button>
                 </div>
             </form>
         </div>

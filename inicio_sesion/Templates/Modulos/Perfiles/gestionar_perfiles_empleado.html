@@ -5,7 +5,7 @@
 {% load static %}
 
 <section class="contenedor_formulario">
-    <div class="contenedor_campos_amplio">
+    <div class="contenedor_campos_intermedio">
         <h2>Gestionar Perfiles Asignados</h2>
 
         <div class="modulo_buqueda">
@@ -18,7 +18,6 @@
                     <label for="cedula_identidad">Cedula de Identidad:</label>
                     <div class="grupo_doble">
                         <select name="nacionalidad" id="nacionalidad" class="campo_select">
-                            <option value="">N</option>
                             <option value="V">V</option>
                             <option value="E">E</option>
                         </select>
@@ -27,7 +26,9 @@
                 </div>
 
                 <div class="contenedor_boton_submit">
-                    <button type="submit" class="btn_primario btn_registro">Buscar Datos</button>
+                    <button type="submit" class="btn_primario btn_registro">
+                        Buscar Datos
+                    </button>
                 </div>
             </form>
         </div>
@@ -50,63 +51,89 @@
             <div class="perfiles_registrados">
                 <div class="encabezado_registrados">
                     <h3>Lista de Perfiles Registrados</h3>
-
                     <button type="button" id="asignar_perfil" disabled>
                         + Asignar Perfil
                     </button>
                 </div>
 
-                <div class="contenedor_tabla">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>PERFIL</th>
-                                <th>TURNO</th>
-                                <th>ESTADO</th>
-                            </tr>
-                        </thead>
-                        <tbody id="contenedor_perfiles_registrados"></tbody>
-                    </table>
-                </div>
+                <div id="contenedor_perfiles_registrados"></div>
             </div>
-
         </div>
     </div>
 </section>
 
 <dialog id="dialogo_registro" class="dialogo">
-    <div class="contenedor_info">
+    <div class="contenedor_gestion_perfiles">
         <button type="button" id="btn_cerrar_registro" class="btn_cerrar">
             <i class="fa-solid fa-square-xmark"></i>
         </button>
 
         <h2>Asignar Perfil</h2>
 
-        <div class="modelo_datos">
-            <form method="post" id="formulario_registrar" class="formulario_base">
+        <div id="contenedor_mensajes_registrar" class="contenedor_mensajes">
+            <i class="fa-solid fa-hourglass-half reloj_procesamiento"></i>
+            <p>Realizar la acción del perfil.</p>
+        </div>
+
+        <div class="modulo_dialogo_perfiles">
+            <form method="post" id="formulario_registrar" class="formulario_dialogo_perfiles">
                 {% csrf_token %}
                 <input type="hidden" name="id_empleado" id="perfil_registrar">
 
                 <div class="campo_formulario">
                     <label for="turnos_registro">Turno Laboral:</label>
-                    <select name="turnos_registro" id="turnos_registro" required></select>
+                    <select name="turnos_registro" id="turnos_registro">
+                        <option value="">Seleccione un turno</option>
+                    </select>
                 </div>
 
-                <div id="contenedor_mensaje_turno" style="display: none;">
-                    <span id="contenedor_texto_mensaje_turno">
-                        Seleccione un turno para mostrar los perfiles disponibles.
-                    </span>
-                </div>
+                <div class="contenedor_perfiles">
+                    <div class="campo_perfil">
+                        <label for="atencion_cliente">
+                            Atención al Cliente:
+                            <span class="perfil_disponible"></span>
+                        </label>
+                        <input type="radio" name="perfil" id="atencion_cliente" value="ATENCION_CLIENTE" disabled>
+                    </div>
 
-                <div id="contenedor_asignacion_perfil">
-                    <p class="contenedor_vacio">
-                        Seleccione un turno para mostrar los perfiles disponibles.
-                    </p>
+                    <div class="campo_perfil">
+                        <label for="supervisor_encargado">
+                            Supervisor Encargado:
+                            <span class="perfil_disponible"></span>
+                        </label>
+                        <input type="radio" name="perfil" id="supervisor_encargado"
+                               value="SUPERVISOR_ENCARGADO" disabled>
+                    </div>
+
+                    <div class="campo_perfil">
+                        <label for="despachador">
+                            Despachador:
+                            <span class="perfil_disponible"></span>
+                        </label>
+                        <input type="radio" name="perfil" id="despachador" value="DESPACHADOR" disabled>
+                    </div>
+
+                    <div class="campo_perfil">
+                        <label for="obrero">
+                            Personal de Limpieza:
+                            <span class="perfil_disponible"></span>
+                        </label>
+                        <input type="radio" name="perfil" id="obrero" value="PERSONAL_LIMPIEZA" disabled>
+                    </div>
+
+                    <div class="campo_perfil">
+                        <label for="vigilante">
+                            Vigilante:
+                            <span class="perfil_disponible"></span>
+                        </label>
+                        <input type="radio" name="perfil" id="vigilante" value="VIGILANTE" disabled>
+                    </div>
                 </div>
 
                 <div class="contenedor_boton_submit">
-                    <button type="submit" class="btn_primario btn_registro">Registrar Asignación</button>
+                    <button type="submit" class="btn_primario btn_registro">
+                        Registrar Asignación
+                    </button>
                 </div>
             </form>
         </div>
@@ -114,21 +141,26 @@
 </dialog>
 
 <dialog id="dialogo_gestion" class="dialogo">
-    <div class="contenedor_info">
+    <div class="contenedor_gestion_perfiles">
         <button type="button" id="btn_cerrar_gestion" class="btn_cerrar">
             <i class="fa-solid fa-square-xmark"></i>
         </button>
 
         <h2>Gestión del Perfil</h2>
 
-        <div class="modelo_datos">
-            <form method="post" id="formulario_actualizar" class="formulario_base">
+        <div id="contenedor_mensajes_gestionar" class="contenedor_mensajes">
+            <i class="fa-solid fa-hourglass-half reloj_procesamiento"></i>
+            <p>Realizar la acción del perfil.</p>
+        </div>
+
+        <div class="modulo_dialogo_perfiles">
+            <form method="post" id="formulario_actualizar" class="formulario_dialogo_perfiles">
                 {% csrf_token %}
                 <input type="hidden" name="id_perfil_asignado" id="id_perfil_asignado">
 
                 <div class="campo_formulario">
                     <label for="actualizar_turno">Turno Laboral:</label>
-                    <select name="actualizar_turno" id="actualizar_turno" required></select>
+                    <select name="actualizar_turno" id="actualizar_turno"></select>
                 </div>
 
                 <div class="campo_formulario estado_perfil">
@@ -151,7 +183,6 @@
                 </div>
             </form>
         </div>
-
     </div>
 </dialog>
 

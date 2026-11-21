@@ -1,0 +1,37 @@
+{% extends 'Estructura/Base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="pagina_recuperar_user">
+    <div class="contenedor_recuperar_user">
+
+        <!-- Imagen del módulo -->
+        <div class="imagen_recuperar_user">
+            <img src="{% static 'Imagenes/modulo_recuperar_usuario.png' %}" alt="Recuperación del nombre de usuario">
+        </div>
+
+        <!-- Información y botón de navegación -->
+        <div class="contenido_recuperar_user">
+
+            <h2>Nombre de Usuario</h2>
+
+            <p>
+                Su nombre de usuario fue enviado a su correo electrónico.
+                Presione el botón para volver al inicio de sesión.
+            </p>
+
+            <div class="contenedor_button">
+                <a href="{% url 'inicio_sesion' %}" class="boton_inicio_sesion">
+                    <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
+                    <span>Inicio de Sesión</span>
+                </a>
+            </div>
+
+        </div>
+
+    </div>
+</section>
+
+{% endblock %}

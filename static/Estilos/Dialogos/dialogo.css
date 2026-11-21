@@ -1,6 +1,12 @@
-@import url('dialogo_devolucion.css');
-@import url('dialogo_visualizar.css');
-@import url('dialogo_detalle.css');
+@import url('dialogo_producto.css');
+@import url('dialogo_registro.css');
+@import url('dialogo_datos.css?v=20261114-dialogo-pasos-sin-progreso-1');
+@import url('dialogo_perfiles.css?v=20261113-radio-focus-circle-1');
+@import url('dialogo_correo.css');
+@import url('dialogo_gestion.css');
+@import url('dialogo_cuadriculado.css');
+@import url('dialogo_foro.css');
+@import url('dialogo_compra.css');
 @import url('mensaje_dialogo.css');
 
 dialog.dialogo {
@@ -20,9 +26,21 @@ dialog.dialogo {
     right: 0;
 }
 
-dialog.dialogo::backdrop {
-    background: rgba(0, 29, 45, 0.65);
-    backdrop-filter: blur(2px);
+dialog.dialogo_reducido {
+    border: 2px solid #00445f;
+    border-radius: 14px;
+    padding: 0;
+    max-width: 450px;
+    width: 90%;
+    background: #ffffff;
+    box-shadow: 0 10px 25px rgba(0, 29, 45, 0.3);
+
+    margin: auto;
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
 }
 
 dialog.dialogo_amplio {
@@ -44,10 +62,16 @@ dialog.dialogo_amplio {
     bottom: 0;
     left: 0;
     right: 0;
-
-    box-sizing: border-box;
 }
 
+dialog input,
+dialog select,
+dialog textarea {
+    font-weight: 700;
+}
+
+dialog.dialogo_reducido::backdrop,
+dialog.dialogo::backdrop,
 dialog.dialogo_amplio::backdrop {
     background: rgba(0, 29, 45, 0.65);
     backdrop-filter: blur(2px);

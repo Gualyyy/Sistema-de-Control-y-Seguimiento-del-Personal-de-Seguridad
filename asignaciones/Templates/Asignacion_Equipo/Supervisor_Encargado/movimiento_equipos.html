@@ -1,0 +1,59 @@
+{% extends 'Estructura/base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="contenedor_formulario">
+    <div class="contenedor_campos_amplio">
+        <h2>Movimiento de Equipos</h2>
+
+        <div class="modulo_buqueda">
+            <h3>Búsqueda</h3>
+
+            <form method="post" class="formulario_base">
+                {% csrf_token %}
+
+                <div class="campos_fila">
+                    <div class="campo_formulario">
+                        <label for="categoria_equipos">Categoria Equipo:</label>
+                        <select name="categoria_equipos" id="categoria_equipos"></select>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="modulo_visualizar">
+
+            <!-- Envoltorio para manejar el scroll y recortar bordes -->
+            <div class="contenedor_tabla">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Equipo</th>
+                            <th>Código</th>
+                            <th>Empleado</th>
+                            <th>Cédula</th>
+                            <th>Movimiento</th>
+                            <th>Cantidad</th>
+                            <th>Estado</th>
+                            <th>Fecha</th>
+                        </tr>
+                    </thead>
+                    <tbody id="contenedor_movimiento"></tbody>
+                </table>
+            </div>
+
+            <div class="botones_navegacion">
+                <button class="btn_secundario btn_ret" type="button">Retroceder</button>
+                <button class="btn_primario btn_av" type="button">Avanzar</button>
+            </div>
+        </div>
+
+    </div>
+</section>
+
+<script src="{% static 'Funcionalidades_Asincronas/asignacion_equipos/supervisor/movimiento_equipos.js' %}"></script>
+
+{% endblock %}¿

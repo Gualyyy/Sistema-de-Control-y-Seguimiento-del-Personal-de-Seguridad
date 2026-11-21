@@ -1,0 +1,75 @@
+{% extends 'Estructura/Base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="pagina_menu_acceso">
+
+    <div class="conetenedor_menu_acceso">
+
+        <div class="contenedor_retroceso">
+            <a href="{% url 'inicio_sesion' %}">
+                <i class="fa-solid fa-arrow-left"></i>
+                Regresar
+            </a>
+        </div>
+
+        <div class="encabezado_menu_acceso">
+            <h2>Menú de Registro</h2>
+            <p>Selecciona el módulo al que deseas acceder</p>
+        </div>
+
+        <div class="opciones_acceso">
+
+            <!-- Registrar credenciales -->
+            <div class="contenedor_registrar_credenciales">
+
+                <div class="imagen_acceso">
+                    <img src="{% static 'Imagenes/acceso_cliente.png' %}" alt="Registrar credenciales">
+                </div>
+
+                <h3>Registrar Credenciales</h3>
+
+                <p>
+                    Registra el nombre de usuario y la contraseña
+                    de los empleados para habilitar su acceso al sistema.
+                </p>
+
+                <a href="{% url 'registrar_credenciales' %}" class="boton_acceso">
+                    <i class="fa-solid fa-user-lock"></i>
+                    <span>Ir al módulo</span>
+                    <i class="fa-solid fa-arrow-right flecha_boton"></i>
+                </a>
+
+            </div>
+
+            <!-- Registrar cliente -->
+            <div class="contenedor_registrar_cliente">
+
+                <div class="imagen_acceso">
+                    <img src="{% static 'Imagenes/registrar_acceso.png' %}" alt="Registrar cliente">
+                </div>
+
+                <h3>Registrar Cliente</h3>
+
+                <p>
+                    Registra nuevos clientes en el sistema para
+                    gestionar su información y facilitar la atención.
+                </p>
+
+                <a href="{% url 'registrar_clientes_foro' %}" class="boton_acceso">
+                    <i class="fa-solid fa-user-plus"></i>
+                    <span>Ir al módulo</span>
+                    <i class="fa-solid fa-arrow-right flecha_boton"></i>
+                </a>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+{% endblock %}

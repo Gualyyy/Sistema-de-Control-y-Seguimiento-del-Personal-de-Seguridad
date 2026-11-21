@@ -8,14 +8,14 @@
     <div class="contenedor_campos_amplio">
         <h2>Registrar Productos</h2>
 
-        <div class="modulo_ventas">
-            <form method="post" id="formulario_registrar" class="formulario_venta" enctype="multipart/form-data">
+        <div class="modulo_productos">
+            <form method="post" id="formulario_registrar" class="formulario_producto" enctype="multipart/form-data">
                 {% csrf_token %}
 
                 <div class="campo_formulario">
                     <label for="nombre_producto">Nombre:</label>
-                    <input type="text" name="nombre_producto" id="nombre_producto" minlength="3" maxlength="20"
-                        placeholder="Ingresa el nombre del producto (3 - 20 caracteres)" autocomplete="off" required>
+                    <input type="text" name="nombre_producto" id="nombre_producto" minlength="3" maxlength="30"
+                        placeholder="Ingresa el nombre del producto (3 - 30 caracteres)" autocomplete="off" required>
                 </div>
 
                 <div class="campo_formulario">
@@ -33,6 +33,7 @@
                     <label for="costo_base">Costo Base (USD $):</label>
                     <input type="text" name="costo_base" id="costo_base" placeholder="Ingresa el costo en dólares"
                         autocomplete="off" inputmode="decimal" required>
+                    <small id="contenedor_mensaje_costo_base" class="mensaje-feedback"></small>
                 </div>
 
                 <div class="campo_formulario">
@@ -51,7 +52,10 @@
                 </div>
 
                 <div class="contenedor_boton_submit">
-                    <input type="submit" class="btn_primario" id="btn_registro" value="Registrar">
+                    <button type="submit" class="btn_submit" id="btn_registrar">
+                        <i class="fa-regular fa-floppy-disk"></i>
+                        Registrar
+                    </button>
                 </div>
             </form>
         </div>

@@ -1,0 +1,660 @@
+/* ==========================================
+   MÓDULO DE COMPRAS DEL CLIENTE
+========================================== */
+
+.modulo_compra_cliente {
+    width: 95%;
+    max-width: 1400px;
+    margin: 20px auto;
+    color: #102f4e;
+    font-family: inherit;
+    box-sizing: border-box;
+}
+
+.modulo_compra_cliente *,
+.modulo_compra_cliente *::before,
+.modulo_compra_cliente *::after {
+    box-sizing: border-box;
+}
+
+/* ==========================================
+   FILTROS DE NAVEGACIÓN
+========================================== */
+
+.modulo_compra_cliente .contenedor_facturas_realizadas {
+    width: 100%;
+}
+
+.modulo_compra_cliente .contenedor_navegacion {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    width: 100%;
+    padding: 14px;
+    margin-bottom: 15px;
+    background: #ffffff;
+    border: 1px solid #d6e3ed;
+    border-radius: 11px;
+    box-shadow: 0 3px 10px rgba(16, 47, 78, 0.04);
+}
+
+.modulo_compra_cliente .campo_formulario {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.modulo_compra_cliente .campo_formulario label {
+    color: #102f4e;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.modulo_compra_cliente .campo_formulario select,
+.modulo_compra_cliente .campo_formulario input {
+    width: 100%;
+    min-height: 38px;
+    padding: 8px 11px;
+    color: #1a4977;
+    background: #ffffff;
+    border: 1px solid #cbdce9;
+    border-radius: 7px;
+    outline: none;
+    font-family: inherit;
+    font-size: 12px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.modulo_compra_cliente .campo_formulario select:focus,
+.modulo_compra_cliente .campo_formulario input:focus {
+    border-color: #00779e;
+    box-shadow: 0 0 0 3px rgba(0, 119, 158, 0.10);
+}
+
+/* ==========================================
+   DISTRIBUCIÓN PRINCIPAL
+========================================== */
+
+.modulo_compra_cliente .distribucion_factura_cliente {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 15px;
+    align-items: stretch;
+    width: 100%;
+}
+
+/* ==========================================
+   PANELES GENERALES
+========================================== */
+
+.modulo_compra_cliente .panel_compras_cliente,
+.modulo_compra_cliente .panel_datos_generales,
+.modulo_compra_cliente .panel_productos_comprados,
+.modulo_compra_cliente .panel_resumen_compra,
+.modulo_compra_cliente .panel_informacion_pago {
+    min-width: 0;
+    padding: 16px;
+    background: #ffffff;
+    border: 1px solid #d6e3ed;
+    border-radius: 11px;
+    box-shadow: 0 3px 10px rgba(16, 47, 78, 0.05);
+}
+
+.modulo_compra_cliente .panel_compras_cliente,
+.modulo_compra_cliente .panel_datos_generales {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 260px;
+}
+
+/* Encabezados */
+
+.modulo_compra_cliente .panel_compras_cliente h3,
+.modulo_compra_cliente .panel_datos_generales h3,
+.modulo_compra_cliente .panel_productos_comprados h3,
+.modulo_compra_cliente .panel_resumen_compra h3,
+.modulo_compra_cliente .panel_informacion_pago h3 {
+    width: 100%;
+    padding-bottom: 9px;
+    margin: 0 0 12px;
+    color: #102f4e;
+    border-bottom: 1px solid #dce7ef;
+    font-size: 14px;
+    font-weight: 800;
+}
+
+/* ==========================================
+   LISTADO DE COMPRAS
+========================================== */
+
+.modulo_compra_cliente .compras {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-content: start;
+    gap: 10px;
+    width: 100%;
+    min-width: 0;
+
+    max-height: 420px;
+    overflow-y: auto;
+    overflow-x: hidden;
+
+    padding: 3px 7px 3px 0;
+}
+
+/* Personalizar barra de desplazamiento */
+
+.modulo_compra_cliente .compras::-webkit-scrollbar {
+    width: 6px;
+}
+
+.modulo_compra_cliente .compras::-webkit-scrollbar-track {
+    background: #edf3f7;
+    border-radius: 10px;
+}
+
+.modulo_compra_cliente .compras::-webkit-scrollbar-thumb {
+    background: #9bbdce;
+    border-radius: 10px;
+}
+
+.modulo_compra_cliente .compras::-webkit-scrollbar-thumb:hover {
+    background: #00779e;
+}
+
+.modulo_compra_cliente .compras>* {
+    min-width: 0;
+}
+
+/* ==========================================
+   TARJETAS DE COMPRAS
+========================================== */
+
+.modulo_compra_cliente .tarjeta_compra {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    width: 100%;
+    min-width: 0;
+    padding: 11px 12px;
+    background: #ffffff;
+    border: 1px solid #d6e3ed;
+    border-radius: 9px;
+    box-shadow: 0 2px 7px rgba(16, 47, 78, 0.04);
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.modulo_compra_cliente .tarjeta_compra:hover {
+    border-color: #9bbdce;
+    box-shadow: 0 3px 10px rgba(16, 47, 78, 0.08);
+}
+
+/* Identificación de la compra */
+
+.modulo_compra_cliente .compra_identificacion {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    width: 100%;
+    min-width: 0;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #e5edf3;
+}
+
+.modulo_compra_cliente .compra_identificacion>div {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+    color: #526b7f;
+    font-size: 11px;
+    line-height: 1.35;
+}
+
+.modulo_compra_cliente .compra_identificacion i {
+    width: 13px;
+    color: #00779e;
+    font-size: 11px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.modulo_compra_cliente .compra_identificacion .numero_comprobante {
+    color: #102f4e;
+    font-size: 12px;
+    font-weight: 800;
+    overflow-wrap: anywhere;
+}
+
+/* Estado y total */
+
+.modulo_compra_cliente .compra_estado_total {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 5px;
+    width: 100%;
+}
+
+.modulo_compra_cliente .estado_compra {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    padding: 4px 7px;
+    border-radius: 5px;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.modulo_compra_cliente .estado_compra.confirmada {
+    color: #187044;
+    background: #e6f5ed;
+}
+
+.modulo_compra_cliente .estado_compra.pendiente {
+    color: #956500;
+    background: #fff4d8;
+}
+
+.modulo_compra_cliente .estado_compra.rechazada {
+    color: #b52c38;
+    background: #fce9eb;
+}
+
+.modulo_compra_cliente .estado_compra.anulada {
+    color: #647585;
+    background: #edf1f4;
+}
+
+.modulo_compra_cliente .total_compra {
+    margin-left: auto;
+    color: #00779e;
+    font-size: 13px;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.modulo_compra_cliente .moneda_compra {
+    color: #718191;
+    font-size: 10px;
+}
+
+/* Productos */
+
+.modulo_compra_cliente .compra_productos {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    width: 100%;
+    min-width: 0;
+}
+
+.modulo_compra_cliente .compra_productos>strong {
+    color: #102f4e;
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.modulo_compra_cliente .compra_productos ul {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 100%;
+    padding-left: 15px;
+    margin: 0;
+}
+
+.modulo_compra_cliente .compra_productos li {
+    color: #526b7f;
+    font-size: 11px;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+}
+
+/* Botón ver detalle */
+
+.modulo_compra_cliente .compra_acciones {
+    display: flex;
+    justify-content: flex-start;
+    width: 100%;
+    padding-top: 3px;
+}
+
+.modulo_compra_cliente .btn_detalle_compra {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+    min-height: 27px;
+    padding: 5px 9px;
+    color: #00648b;
+    background: #edf6fa;
+    border: 1px solid #cbdfe9;
+    border-radius: 5px;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.modulo_compra_cliente .btn_detalle_compra:hover {
+    color: #ffffff;
+    background: #00779e;
+    border-color: #00779e;
+}
+
+/* Sin registros */
+
+.modulo_compra_cliente .texto_sin_registros {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100px;
+    padding: 15px;
+    color: #718191;
+    background: #f7fafc;
+    border: 1px dashed #cbdce9;
+    border-radius: 8px;
+    font-size: 12px;
+    text-align: center;
+}
+
+/* ==========================================
+   NAVEGACIÓN ENTRE COMPRAS
+========================================== */
+
+.modulo_compra_cliente .botones_navegacion {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding-top: 11px;
+    margin-top: auto;
+    border-top: 1px solid #dce7ef;
+}
+
+.modulo_compra_cliente .botones_navegacion button {
+    min-width: 100px;
+    min-height: 34px;
+    padding: 7px 12px;
+    border-radius: 7px;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, transform 0.2s;
+}
+
+/* Retroceder */
+
+.modulo_compra_cliente .btn_ret {
+    color: #1a4977;
+    background: #edf4f8;
+    border: 1px solid #cfdee9;
+}
+
+.modulo_compra_cliente .btn_ret:hover:not(:disabled) {
+    color: #102f4e;
+    background: #dceaf3;
+    border-color: #b9d0df;
+}
+
+/* Avanzar */
+
+.modulo_compra_cliente .btn_av {
+    color: #ffffff;
+    background: #00779e;
+    border: 1px solid #00779e;
+}
+
+.modulo_compra_cliente .btn_av:hover:not(:disabled) {
+    background: #00648b;
+    border-color: #00648b;
+}
+
+/* Deshabilitados */
+
+.modulo_compra_cliente .botones_navegacion button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* ==========================================
+   DATOS GENERALES DE LA COMPRA
+========================================== */
+
+.modulo_compra_cliente .datos_generales_factura,
+.modulo_compra_cliente .datos_informacion_pago {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+}
+
+.modulo_compra_cliente .campo_dato_factura {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.modulo_compra_cliente .campo_dato_factura label {
+    color: #718191;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.modulo_compra_cliente .campo_dato_factura span {
+    color: #102f4e;
+    font-size: 12px;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+
+/* ==========================================
+   PRODUCTOS COMPRADOS
+========================================== */
+
+.modulo_compra_cliente .panel_productos_comprados {
+    grid-column: 1 / -1;
+}
+
+.modulo_compra_cliente .tabla_productos_factura {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.modulo_compra_cliente .tabla_productos_factura table {
+    width: 100%;
+    min-width: 650px;
+    border-collapse: collapse;
+    border-spacing: 0;
+}
+
+.modulo_compra_cliente .tabla_productos_factura thead {
+    background: #102f4e;
+}
+
+.modulo_compra_cliente .tabla_productos_factura th {
+    padding: 10px;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 700;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.modulo_compra_cliente .tabla_productos_factura th:first-child {
+    border-radius: 6px 0 0 0;
+}
+
+.modulo_compra_cliente .tabla_productos_factura th:last-child {
+    border-radius: 0 6px 0 0;
+}
+
+.modulo_compra_cliente .tabla_productos_factura td {
+    padding: 10px;
+    color: #425b70;
+    border-bottom: 1px solid #e3ebf1;
+    font-size: 11px;
+    text-align: left;
+}
+
+.modulo_compra_cliente .tabla_productos_factura .factura_en_espera {
+    padding: 28px 16px;
+    color: #60758a;
+    background: #f5f8fb;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+    vertical-align: middle;
+}
+
+.modulo_compra_cliente .tabla_productos_factura tbody tr:hover {
+    background: #f3f8fb;
+}
+
+.modulo_compra_cliente .tabla_productos_factura tbody tr:has(.factura_en_espera):hover {
+    background: transparent;
+}
+
+.modulo_compra_cliente .tabla_productos_factura tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* ==========================================
+   RESUMEN E INFORMACIÓN DE PAGO
+========================================== */
+
+.modulo_compra_cliente .distribucion_resumen_pago {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 15px;
+    grid-column: 1 / -1;
+    width: 100%;
+    min-width: 0;
+}
+
+/* Resumen */
+
+.modulo_compra_cliente .datos_resumen_compra {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+}
+
+.modulo_compra_cliente .fila_resumen {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    color: #718191;
+    font-size: 12px;
+}
+
+.modulo_compra_cliente .fila_resumen strong {
+    color: #102f4e;
+    font-size: 12px;
+    font-weight: 700;
+    text-align: right;
+    overflow-wrap: anywhere;
+}
+
+/* Total */
+
+.modulo_compra_cliente .fila_resumen.total_compra {
+    padding-top: 10px;
+    margin-top: 3px;
+    color: #102f4e;
+    border-top: 1px solid #dce7ef;
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.modulo_compra_cliente .fila_resumen.total_compra strong {
+    color: #00779e;
+    font-size: 16px;
+    font-weight: 800;
+}
+
+/* ==========================================
+   RESPONSIVE
+========================================== */
+
+@media (max-width: 850px) {
+
+    .modulo_compra_cliente .distribucion_factura_cliente {
+        grid-template-columns: 1fr;
+    }
+
+    .modulo_compra_cliente .panel_compras_cliente,
+    .modulo_compra_cliente .panel_datos_generales {
+        height: auto;
+        min-height: 220px;
+    }
+
+    .modulo_compra_cliente .panel_productos_comprados,
+    .modulo_compra_cliente .distribucion_resumen_pago {
+        grid-column: 1 / -1;
+    }
+
+    .modulo_compra_cliente .distribucion_resumen_pago {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+}
+
+@media (max-width: 600px) {
+
+    .modulo_compra_cliente {
+        width: 96%;
+        margin: 12px auto;
+    }
+
+    .modulo_compra_cliente .contenedor_navegacion {
+        grid-template-columns: 1fr;
+        padding: 12px;
+    }
+
+    .modulo_compra_cliente .panel_compras_cliente,
+    .modulo_compra_cliente .panel_datos_generales,
+    .modulo_compra_cliente .panel_productos_comprados,
+    .modulo_compra_cliente .panel_resumen_compra,
+    .modulo_compra_cliente .panel_informacion_pago {
+        padding: 12px;
+    }
+
+    .modulo_compra_cliente .panel_compras_cliente,
+    .modulo_compra_cliente .panel_datos_generales {
+        min-height: 200px;
+    }
+
+    .modulo_compra_cliente .compras {
+        grid-template-columns: 1fr;
+    }
+
+    .modulo_compra_cliente .distribucion_resumen_pago {
+        grid-template-columns: 1fr;
+    }
+
+    .modulo_compra_cliente .botones_navegacion button {
+        min-width: 0;
+        flex: 1;
+    }
+
+    .modulo_compra_cliente .fila_resumen {
+        font-size: 11px;
+    }
+
+    .modulo_compra_cliente .fila_resumen.total_compra strong {
+        font-size: 15px;
+    }
+
+}

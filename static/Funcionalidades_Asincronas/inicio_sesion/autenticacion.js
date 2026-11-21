@@ -1,99 +1,89 @@
 document.addEventListener("DOMContentLoaded", () => {
-    const formulario = document.getElementById("formulario_autenticacion");
-    const boton = formulario.querySelector('button[type="submit"]');
-
-    const campo_contrasenia = formulario.querySelector(".password_contenedor");
+    const formulario_autenticacion = document.getElementById("formulario_autenticacion");
+    const campo_contrasenia = formulario_autenticacion.querySelector(".password_contenedor");
+    const boton = formulario_autenticacion.querySelector('button[type="submit"]');
     configurarContrasenia(campo_contrasenia);
 
-    const inicializarAutenticacion = () => {
-        const textoBoton = boton.textContent;
+    formulario_autenticacion.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const contenido_original_boton = boton.innerHTML;
+        boton.disabled = true;
+        boton.textContent = "Validando...";
 
-        const mostrarMensaje = (
-            texto,
-            tipo = "error",
-            titulo = tipo === "warning" ? "Aviso" : "No se pudo iniciar sesión"
-        ) => {
-            if (window.Swal) {
-                window.Swal.fire({
-                    title: titulo,
-                    text: texto,
-                    icon: tipo
-                });
+        if (window.Swal) {
+            window.Swal.fire({
+                title: "Iniciando sesión...",
+                html: "Espere un momento por favor.",
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                didOpen: () => window.Swal.showLoading()
+            });
+        }
+
+        try {
+            const identificador_pestania = document.body.dataset.tabId;
+
+            const formulario = new FormData(formulario_autenticacion);
+            formulario.set("tab_id", identificador_pestania);
+
+            const respuesta = await fetch("/inicio_sesion/", {
+                method: "POST",
+                body: formulario
+            });
+            const tipo_contenido = respuesta.headers.get("content-type") || "";
+            if (!tipo_contenido.includes("application/json")) {
+                throw new Error(
+                    `El servidor respondió con HTTP ${respuesta.status} en lugar de JSON.`
+                );
+            }
+
+            let resultado;
+            try {
+                resultado = await respuesta.json();
+            } catch {
+                throw new Error("El servidor devolvió una respuesta no válida.");
+            }
+
+            if (!respuesta.ok) {
+                throw new Error(
+                    resultado.descripcion
+                    || `No se pudo completar la solicitud (HTTP ${respuesta.status}).`
+                );
+            }
+
+            if (resultado.estado !== "exito" && resultado.estado !== "incompleto") {
+                if (window.Swal) {
+                    await window.Swal.fire({
+                        title: resultado.title || "No se pudo iniciar sesión",
+                        text: resultado.descripcion || "Verifique sus datos e intente nuevamente.",
+                        icon: resultado.icon || "error"
+                    });
+                } else {
+                    window.alert(resultado.descripcion || "No se pudo iniciar sesión.");
+                }
                 return;
             }
 
-            window.alert(texto);
-        };
-
-        formulario.addEventListener("submit", async (evento) => {
-            evento.preventDefault();
-            boton.disabled = true;
-            boton.textContent = "Validando...";
-
             if (window.Swal) {
-                window.Swal.fire({
-                    title: "Iniciando sesión...",
-                    html: "Espere un momento por favor.",
-                    allowOutsideClick: false,
-                    allowEscapeKey: false,
-                    didOpen: () => window.Swal.showLoading()
-                });
+                window.Swal.close();
             }
-
-            try {
-                const datosFormulario = new FormData(formulario);
-                let tabId = sessionStorage.getItem("tab_id");
-
-                if (!tabId) {
-                    tabId = crypto.randomUUID();
-                    sessionStorage.setItem("tab_id", tabId);
-                }
-
-                datosFormulario.set("tab_id", tabId);
-
-                const respuesta = await fetch("", {
-                    method: "POST",
-                    body: datosFormulario
+            window.vigilanciaReemplazar(resultado.url);
+        } catch (error) {
+            console.error(error);
+            if (window.Swal) {
+                window.Swal.close();
+                await window.Swal.fire({
+                    title: "Error al iniciar sesión",
+                    text: error.message
+                        || "Ocurrió un error de conexión. Intente nuevamente.",
+                    icon: "error"
                 });
-                const tipoContenido = respuesta.headers.get("content-type") || "";
-
-                if (!tipoContenido.includes("application/json")) {
-                    throw new Error(`El servidor respondió con HTTP ${respuesta.status}.`);
-                }
-
-                const resultado = await respuesta.json();
-
-                if (!respuesta.ok) {
-                    throw new Error(resultado.descripcion || `Error HTTP ${respuesta.status}.`);
-                }
-
-                if (resultado.estado === "exito" || resultado.estado === "incompleto") {
-                    if (window.Swal) {
-                        window.Swal.close();
-                    }
-                    window.vigilanciaReemplazar(resultado.url);
-                    return;
-                }
-
-                const descripcion = resultado.descripcion || "No se pudo iniciar sesión.";
-                mostrarMensaje(
-                    descripcion,
-                    resultado.icon || "error",
-                    resultado.title || "No se pudo iniciar sesión"
-                );
-            } catch (error) {
-                const descripcion = error.message || "Error de conexión al iniciar sesión.";
-                mostrarMensaje(descripcion, "error", "Error al iniciar sesión");
-            } finally {
-                boton.disabled = false;
-                boton.textContent = textoBoton;
+            } else {
+                window.alert(error.message || "Ocurrió un error de conexión. Intente nuevamente.");
             }
-        });
-    };
-
-    if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", inicializarAutenticacion, { once: true });
-    } else {
-        inicializarAutenticacion();
-    }
+        } finally {
+            boton.disabled = false;
+            boton.innerHTML = contenido_original_boton;
+        }
+    });
 });

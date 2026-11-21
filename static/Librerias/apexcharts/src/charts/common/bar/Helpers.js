@@ -1,0 +1,1717 @@
+// @ts-check
+import Graphics from '../../../modules/Graphics'
+import Series from '../../../modules/Series'
+import Fill from '../../../modules/Fill'
+import CoreUtils from '../../../modules/CoreUtils'
+import Utils from '../../../utils/Utils'
+
+/**
+ * Whether this chart is a histogram drawing its distributions on top of one
+ * another rather than side by side.
+ *
+ * A histogram renders through the bar pathway, so `chart.type` is 'bar' by the
+ * time it gets here and only `requestedType` still says histogram. With one
+ * series there is nothing to overlay and the ordinary grouped geometry is the
+ * same thing, so the check is cheap and self-limiting.
+ *
+ * @param {any} w
+ * @returns {boolean}
+ */
+export function isHistogramOverlay(w) {
+  if (w?.config?.chart?.requestedType !== 'histogram') return false
+  if (w.config.plotOptions?.histogram?.overlap === false) return false
+  return (w.seriesData?.series?.length ?? 0) > 1
+}
+
+export default class Helpers {
+  /**
+   * @param {Record<string, any>} barCtx
+   */
+  constructor(barCtx) {
+    this.w = barCtx.w
+    this.barCtx = barCtx
+  }
+
+  /**
+   * @param {any[]} series
+   * @param {any} [seriesIndex] a combo's real indices of `series`
+   */
+  initVariables(series, seriesIndex) {
+    const w = this.w
+    this.seriesIndex = seriesIndex
+    this.barCtx.series = series
+    this.barCtx.totalItems = 0
+    this.barCtx.seriesLen = 0
+    this.barCtx.visibleI = -1 // visible Series
+    this._bgOwner = undefined
+
+    for (let sl = 0; sl < series.length; sl++) {
+      if (series[sl].length > 0) {
+        this.barCtx.seriesLen = this.barCtx.seriesLen + 1
+        this.barCtx.totalItems += series[sl].length
+      }
+    }
+
+    // A horizontal bar on a numeric axis sits in the band labelled with its
+    // own x (Range.setXRange). Where every series has the bands' x at the
+    // same position, the band is the index, as on a category axis.
+    const labels = w.labelData.labels
+    this.rows =
+      w.globals.isBarHorizontal &&
+      w.axisFlags.isXNumeric &&
+      !this.barCtx.isRangeBar &&
+      w.seriesData.seriesX.some((s) => s?.some((x, j) => x !== labels[j]))
+        ? new Map(labels.map((x, r) => [x, r]))
+        : null
+
+    this.arrBorderRadius = this.createBorderRadiusArr(w.seriesData.series)
+
+    if (Utils.isSafari()) {
+      // https://github.com/apexcharts/apexcharts.js/issues/4996
+      // to temporarily fix the above issue, border radius is disabled
+      /**
+       * @param {any[]} brArr
+       */
+      this.arrBorderRadius = this.arrBorderRadius.map((/** @type {any} */ brArr) =>
+        /**
+         * @param {any} _
+         */
+        brArr.map((/** @type {any} */ _) => 'none')
+      )
+    }
+
+    if (this.barCtx.seriesLen === 0) {
+      // A small adjustment when combo charts are used
+      this.barCtx.seriesLen = 1
+    }
+  }
+
+  /**
+   * The x-span that one bar slot covers, in DATA units, on a numeric or
+   * datetime axis. Returns 0 when it cannot be resolved, which leaves the
+   * caller on its category-style fallback.
+   *
+   * `w.globals.minXDiff` cannot serve here on its own, for two reasons:
+   *
+   *  - It is the smallest gap WITHIN a series, minimised over series, so it
+   *    never sees the gaps BETWEEN two series' x values. Series A on the 1st
+   *    and the 4th plus series B on the 2nd gives minXDiff = 3 days while the
+   *    axis really has a 1 day gap, and every bar is drawn 3 days wide, so
+   *    neighbours overlap (#4885).
+   *  - With one data point there are no gaps to measure at all and it is set
+   *    to a 0.5 sentinel, so the slot fell back to the whole grid width and a
+   *    single bar covered most of the chart. Range._handleSingleDataPoint pads
+   *    the axis by ±2 units around a lone point (2 days for datetime, 2 for
+   *    numeric), so one unit is a quarter of the resulting span.
+   *
+   * Cached: the merge below is O(points × series) and every series in a draw
+   * pass asks the same question.
+   *
+   * @returns {number}
+   */
+  barSlotXSpan() {
+    const w = this.w
+
+    if (this._slotXSpan !== undefined) return this._slotXSpan
+
+    let slot = 0
+    if (w.globals.dataPoints <= 1) {
+      const span = w.globals.maxX - w.globals.minX
+      slot = span > 0 ? span / 4 : 0
+    } else {
+      slot = this._unionMinXGap()
+      if (!(slot > 0) || !isFinite(slot)) {
+        // nothing usable in the x arrays: keep what the axis worked out
+        const min = w.globals.minXDiff
+        slot = min > 0 && isFinite(min) && min !== 0.5 ? min : 0
+      }
+    }
+
+    this._slotXSpan = slot
+    return slot
+  }
+
+  /**
+   * Smallest positive gap between neighbouring x values once every series is
+   * merged onto one axis. A k-way merge over the series arrays, which needs
+   * each one ascending: a non-ascending array (newest-first data) is merged
+   * from a sorted copy, or every gap would read as one huge slot.
+   *
+   * Collapsed series count too, exactly as they did for `minXDiff`. Skipping
+   * them would widen every bar the moment someone hid the tightest-spaced
+   * series from the legend, so bar geometry would depend on legend state.
+   * In a combo only this renderer's own series count: a line's x values say
+   * nothing about how wide a column may be.
+   *
+   * @returns {number}
+   */
+  _unionMinXGap() {
+    const w = this.w
+    const seriesX = w.seriesData.seriesX || []
+    const own = this.seriesIndex
+
+    /** @type {any[][]} */
+    const arrays = []
+    for (let i = 0; i < seriesX.length; i++) {
+      const xs = seriesX[i]
+      if (own && own.indexOf(i) < 0) continue
+      if (Array.isArray(xs) && xs.length > 0) {
+        arrays.push(
+          xs.some((v, n) => v < xs[n - 1])
+            ? xs.filter((v) => v === +v).sort((a, b) => a - b)
+            : xs,
+        )
+      }
+    }
+    if (!arrays.length) return 0
+
+    const cursor = new Array(arrays.length).fill(0)
+    let prev = NaN
+    let min = Infinity
+
+    for (;;) {
+      let next = Infinity
+      let from = -1
+      for (let k = 0; k < arrays.length; k++) {
+        const xs = arrays[k]
+        // step over anything that is not a usable number
+        while (cursor[k] < xs.length && typeof xs[cursor[k]] !== 'number') {
+          cursor[k]++
+        }
+        if (cursor[k] >= xs.length) continue
+        const v = xs[cursor[k]]
+        if (v !== v) {
+          cursor[k]++
+          k--
+          continue
+        }
+        if (v < next) {
+          next = v
+          from = k
+        }
+      }
+      if (from === -1) break
+      cursor[from]++
+      if (prev === prev) {
+        const d = next - prev
+        if (d > 0 && d < min) min = d
+      }
+      prev = next
+    }
+
+    return isFinite(min) ? min : 0
+  }
+
+  /**
+   * How many bars a column slot is divided by: the data points on a category
+   * axis, and on a numeric one 1 plus every x strictly inside the axis range.
+   * Only read when a numeric axis has no slot span, so counted then.
+   * @returns {number}
+   */
+  visibleItems() {
+    const g = this.w.globals
+    if (!this.w.axisFlags.isXNumeric) return g.dataPoints
+    let n = 1
+    const xs = this.w.seriesData.seriesX
+    this.barCtx.series.forEach(
+      (/** @type {any[]} */ s, /** @type {number} */ sl) => {
+        for (let j = 0; j < s.length; j++) {
+          if (xs[sl][j] > g.minX && xs[sl][j] < g.maxX) n++
+        }
+      },
+    )
+    return n
+  }
+
+  /**
+   * The band a horizontal bar is drawn in: its x's band when the series do
+   * not line up by index (see initVariables), else its index.
+   * @param {number} realIndex @param {number} j
+   */
+  barRow(realIndex, j) {
+    return this.rows?.get(this.w.seriesData.seriesX[realIndex]?.[j]) ?? j
+  }
+
+  /**
+   * @param {number} realIndex
+   */
+  initialPositions(realIndex) {
+    const w = this.w
+    let x, y, yDivision, xDivision, barHeight, barWidth, zeroH, zeroW
+
+    let dataPoints = w.globals.dataPoints
+    if (this.barCtx.isRangeBar) {
+      // timeline rangebar chart
+      dataPoints = w.labelData.labels.length
+    }
+
+    let seriesLen = this.barCtx.seriesLen
+    // Both of these put every series in ONE slot rather than dividing the slot
+    // between them: rangeBar rows that share a track, and overlaid histogram
+    // distributions that share a bin.
+    if (w.config.plotOptions.bar.rangeBarGroupRows || isHistogramOverlay(w)) {
+      seriesLen = 1
+    }
+
+    if (this.barCtx.isHorizontal) {
+      // height divided into equal parts, one per row whatever the x type
+      yDivision = w.layout.gridHeight / dataPoints
+      barHeight = yDivision / seriesLen
+
+      barHeight =
+        (barHeight * parseInt(this.barCtx.barOptions.barHeight, 10)) / 100
+
+      if (String(this.barCtx.barOptions.barHeight).indexOf('%') === -1) {
+        barHeight = parseInt(this.barCtx.barOptions.barHeight, 10)
+      }
+
+      zeroW =
+        this.barCtx.baseLineInvertedY +
+        w.globals.padHorizontal +
+        (this.barCtx.isReversed ? w.layout.gridWidth : 0) -
+        (this.barCtx.isReversed ? this.barCtx.baseLineInvertedY * 2 : 0)
+
+      if (this.barCtx.isFunnel) {
+        zeroW = w.layout.gridWidth / 2
+      }
+      y = (yDivision - barHeight * this.barCtx.seriesLen) / 2
+    } else {
+      // width divided into equal parts. On a numeric axis the slot span
+      // replaces it below, so the visible bars are only counted without one.
+      const xRatio = this.barCtx.xRatio
+      const slotXSpan = w.axisFlags.isXNumeric ? this.barSlotXSpan() : 0
+      const bySlot = slotXSpan > 0 && slotXSpan / xRatio > 0
+      xDivision = w.config.xaxis.convertedCatToNumeric
+        ? w.layout.gridWidth / w.globals.dataPoints
+        : bySlot
+          ? 0
+          : w.layout.gridWidth / this.visibleItems()
+      barWidth =
+        ((xDivision / seriesLen) *
+          parseInt(this.barCtx.barOptions.columnWidth, 10)) /
+        100
+
+      if (w.axisFlags.isXNumeric) {
+        // one slot wide at most, so neighbouring bars cannot overlap
+        if (bySlot) {
+          xDivision = slotXSpan / xRatio
+        }
+
+        barWidth =
+          ((xDivision / seriesLen) *
+            parseInt(this.barCtx.barOptions.columnWidth, 10)) /
+          100
+
+        if (barWidth < 1) {
+          barWidth = 1
+        }
+      }
+      if (String(this.barCtx.barOptions.columnWidth).indexOf('%') === -1) {
+        barWidth = parseInt(this.barCtx.barOptions.columnWidth, 10)
+      }
+
+      zeroH =
+        w.layout.gridHeight -
+        this.barCtx.baseLineY[this.barCtx.translationsIndex] -
+        (this.barCtx.isReversed ? w.layout.gridHeight : 0) +
+        (this.barCtx.isReversed
+          ? this.barCtx.baseLineY[this.barCtx.translationsIndex] * 2
+          : 0)
+
+      if (w.axisFlags.isXNumeric) {
+        const xForNumericX = this.barCtx.getBarXForNumericXAxis({
+          x,
+          j: 0,
+          realIndex,
+          barWidth,
+        })
+        x = xForNumericX.x
+      } else {
+        x =
+          w.globals.padHorizontal +
+          Utils.noExponents(xDivision - barWidth * this.barCtx.seriesLen) / 2
+      }
+    }
+
+    w.globals.barHeight = barHeight
+    w.globals.barWidth = barWidth
+
+    return {
+      x,
+      y,
+      yDivision,
+      xDivision,
+      barHeight,
+      barWidth,
+      zeroH,
+      zeroW,
+    }
+  }
+
+  /**
+   * @param {Record<string, any>} ctx
+   */
+  initializeStackedPrevVars(ctx) {
+    // One stack state per series group, by index (groups may reuse names).
+    // `tops` is the running stack top per x, see drawStackedColumnPaths.
+    ctx.stacks = ctx.w.labelData.seriesGroups.map(() => ({
+      prevY: [],
+      prevX: [],
+      prevYF: [],
+      prevXF: [],
+      prevYVal: [],
+      prevXVal: [],
+      tops: new Map(),
+    }))
+  }
+
+  /**
+   * @param {Record<string, any>} ctx
+   */
+  initializeStackedXYVars(ctx) {
+    ctx.stacks.forEach((/** @type {any} */ g) => {
+      g.xArrj = []
+      g.xArrjF = []
+      g.xArrjVal = []
+      g.yArrj = []
+      g.yArrjF = []
+      g.yArrjVal = []
+    })
+  }
+
+  /**
+   * @param {any[]} series
+   * @param {number} i
+   * @param {number} j
+   * @param {number} realIndex
+   */
+  getPathFillColor(series, i, j, realIndex) {
+    const w = this.w
+    const fill = new Fill(this.barCtx.w)
+
+    let fillColor = null
+    const seriesNumber = this.barCtx.barOptions.distributed ? j : i
+    let useRangeColor = false
+
+    if (this.barCtx.barOptions.colors.ranges.length > 0) {
+      const colorRange = this.barCtx.barOptions.colors.ranges
+      /**
+       * @param {number} range
+       */
+      colorRange.map((/** @type {any} */ range) => {
+        if (series[i][j] >= range.from && series[i][j] <= range.to) {
+          fillColor = range.color
+          useRangeColor = true
+        }
+      })
+    }
+
+    // A dumbbell's connector is coloured by the two measures it joins, and
+    // which of them is on the left changes row by row (they cross). A per-datum
+    // fill is the seam that already exists for that: it overrides the chart's
+    // fill for this bar alone, so each row gets its own gradient rather than
+    // one chart-wide one pointing whichever way the first row happened to go.
+    const connectorFill = this.getDumbbellConnectorFill(i, j)
+    const datumFill = connectorFill || w.config.series[realIndex].data[j]?.fill
+
+    // A named connector colour is a plain join instead of that gradient. Its
+    // opacity rides with it and is NOT applied otherwise, so a range bar drawn
+    // with the bare `isDumbbell` flag keeps the solid connector it has always
+    // had.
+    const connector = this.barCtx.barOptions.isDumbbell
+      ? w.config.plotOptions.bar.dumbbell.connector
+      : null
+    let connectorOpacity
+    if (connector && connector.color) {
+      fillColor = connector.color
+      connectorOpacity = connector.opacity
+    }
+
+    const pathFill = fill.fillPath({
+      seriesNumber: this.barCtx.barOptions.distributed
+        ? seriesNumber
+        : realIndex,
+      dataPointIndex: j,
+      color: fillColor,
+      opacity: connectorOpacity,
+      value: series[i][j],
+      fillConfig: datumFill,
+      fillType: datumFill?.type
+        ? datumFill.type
+        : Array.isArray(w.config.fill.type)
+        ? w.config.fill.type[realIndex]
+        : w.config.fill.type,
+    })
+
+    return {
+      color: pathFill,
+      useRangeColor,
+    }
+  }
+
+  /**
+   * The connector's fill for one dumbbell row, or null to leave the fill alone.
+   *
+   * Returns a gradient running from the colour of the measure at the low end to
+   * the colour of the measure at the high end, which is the pair of dots the
+   * connector is between. `w.dumbbellData.order` is what makes it per-row: the
+   * merged interval is emitted low-to-high and no longer knows which measure
+   * was which, so a chart-wide gradient would point the wrong way on any row
+   * where the two cross.
+   *
+   * A user-set `connector.color` means a plain connector, and the `[lo, hi]`
+   * form names no measures to take colours from; both leave the fill alone.
+   *
+   * @param {number} i @param {number} j
+   * @returns {Record<string, any>|null}
+   */
+  getDumbbellConnectorFill(i, j) {
+    const w = this.w
+    if (!this.barCtx.barOptions.isDumbbell) return null
+
+    const dumbbell = w.dumbbellData
+    if (!dumbbell || dumbbell.form !== 'series') return null
+
+    const connector = w.config.plotOptions.bar.dumbbell.connector
+    if (connector.color) return null
+
+    const order = dumbbell.order[j]
+    if (!order) return null
+
+    const from = w.globals.colors[order[0]]
+    const to = w.globals.colors[order[1]]
+    if (!from || !to) return null
+
+    return {
+      type: 'gradient',
+      gradient: {
+        // Along the connector: the value axis is x when the rows are
+        // horizontal, y when they are columns.
+        type: this.barCtx.isHorizontal ? 'horizontal' : 'vertical',
+        gradientFrom: from,
+        gradientTo: to,
+        opacityFrom: connector.opacity,
+        opacityTo: connector.opacity,
+        stops: [0, 100],
+        // A column's y runs down the screen, so its low end is at the BOTTOM
+        // and the gradient has to be read the other way round to still start
+        // at the low end's colour.
+        inverseColors: !this.barCtx.isHorizontal,
+      },
+    }
+  }
+
+  /**
+   * @param {number} i
+   * @param {number} j
+   * @param {number} realIndex
+   */
+  getStrokeWidth(i, j, realIndex) {
+    let strokeWidth = 0
+    const w = this.w
+
+    if (
+      typeof this.barCtx.series[i][j] === 'undefined' ||
+      this.barCtx.series[i][j] === null ||
+      (w.config.chart.type === 'bar' && !this.barCtx.series[i][j])
+    ) {
+      this.barCtx.isNullValue = true
+    } else {
+      this.barCtx.isNullValue = false
+    }
+    if (w.config.stroke.show) {
+      if (!this.barCtx.isNullValue) {
+        strokeWidth = Array.isArray(this.barCtx.strokeWidth)
+          ? this.barCtx.strokeWidth[realIndex]
+          : this.barCtx.strokeWidth
+      }
+    }
+    return strokeWidth
+  }
+
+  /**
+   * Series indices bucketed into the stacks they actually draw in: one bucket
+   * per series group, or a single bucket holding every series when the chart is
+   * not grouped. Order within a bucket follows series order, which is stacking
+   * order.
+   *
+   * `w.globals.columnSeries` (when set) is the combo chart's own list of which
+   * series it draws as bars; a line or area series never occupies a stack
+   * segment, so it is filtered out here rather than left to compete for the
+   * outermost slot (#5296).
+   *
+   * @param {number} numSeries
+   * @returns {number[][]}
+   */
+  getStackedSeriesIndices(numSeries) {
+    const w = this.w
+    const groups = w.labelData.seriesGroups
+    const barIndices = w.globals.columnSeries
+      ? new Set(/** @type {any} */ (w.globals.columnSeries).i)
+      : null
+    const isBar = (/** @type {number} */ i) => !barIndices || barIndices.has(i)
+
+    if (!groups || groups.length < 2) {
+      const bucket = Array.from({ length: numSeries }, (_, i) => i).filter(isBar)
+      return bucket.length ? [bucket] : []
+    }
+
+    /** @type {number[][]} */
+    const buckets = Array.from({ length: groups.length }, () => [])
+    /** @type {number[]} */
+    const ungrouped = []
+    for (let i = 0; i < numSeries; i++) {
+      if (!isBar(i)) continue
+      const g = this.getSeriesGroupIndex(i)
+      if (g > -1) buckets[g].push(i)
+      else ungrouped.push(i)
+    }
+    // A series whose name matches no group still stacks somewhere; keep them
+    // together rather than dropping them out of the assignment entirely.
+    if (ungrouped.length) buckets.push(ungrouped)
+    return buckets.filter((b) => b.length > 0)
+  }
+
+  /**
+   * Which corners each bar rounds, as a [seriesIndex][dataPointIndex] grid of
+   * 'top' | 'bottom' | 'both' | 'none'.
+   *
+   * A rounded corner belongs to the OUTSIDE of a stack, so this resolves, per
+   * data point, the outermost segment on each side of the baseline; everything
+   * sandwiched between them stays square.
+   *
+   * Crucially a "stack" is a series GROUP, not the whole chart. A grouped
+   * stacked chart draws one independent stack per group, side by side, and each
+   * one needs its own outermost segments. Resolving chart-wide instead put the
+   * radius on the bottom of the first group's lowest series and the top of the
+   * last group's highest, leaving every stack in between completely square, 
+   * which is exactly how it looked: the first column rounded at the bottom, the
+   * second at the top, and nothing else touched. Stacked totals already resolve
+   * per group (see drawsStackedTotal, #4173); corners never got the same fix.
+   *
+   * plotOptions.bar.borderRadiusWhenStacked picks which ends round: 'all'
+   * caps both the baseline and the far end, 'last' only the far end (#4845).
+   *
+   * A single-data-point chart used to hand its baseline segment 'top' (and a
+   * solo segment 'top' instead of 'both'), which on a horizontal stack rounded
+   * the first segment on its INNER edge and left a pill in the middle of the
+   * bar (#4845). One data point is resolved like any other now.
+   *
+   * @param {any[]} series
+   * @returns {string[][]}
+   */
+  createBorderRadiusArr(series) {
+    const w = this.w
+
+    const alwaysApplyRadius =
+      !this.w.config.chart.stacked || w.config.plotOptions.bar.borderRadius <= 0
+
+    const numSeries = series.length
+    // the longest series: a short first one left later points unassigned
+    const numColumns = Math.max(0, ...series.map((s) => s?.length | 0))
+    const output = Array.from({ length: numSeries }, () =>
+      Array(numColumns).fill(alwaysApplyRadius ? 'top' : 'none')
+    )
+
+    if (alwaysApplyRadius) return output
+
+    // 'last' rounds only the far end of a stack and leaves the baseline end
+    // square (#4845); 'all' caps both ends. Corner names are screen-side:
+    // for a positive segment the far end is 'top', for a negative one it is
+    // 'bottom', so a lone positive drops from 'both' to 'top' and a lone
+    // negative from 'both' to 'bottom'.
+    const lastOnly =
+      w.config.plotOptions.bar.borderRadiusWhenStacked === 'last'
+    const soloPositive = lastOnly ? 'top' : 'both'
+    const soloNegative = lastOnly ? 'bottom' : 'both'
+    const positiveBase = lastOnly ? 'none' : 'bottom'
+    const negativeBase = lastOnly ? 'none' : 'top'
+
+    for (const stack of this.getStackedSeriesIndices(numSeries)) {
+      for (let j = 0; j < numColumns; j++) {
+        /** @type {number[]} */
+        const positiveIndices = []
+        /** @type {number[]} */
+        const negativeIndices = []
+
+        for (const i of stack) {
+          const value = series[i][j]
+          if (value > 0) positiveIndices.push(i)
+          else if (value < 0) negativeIndices.push(i)
+        }
+
+        if (positiveIndices.length > 0 && negativeIndices.length === 0) {
+          if (positiveIndices.length === 1) {
+            output[positiveIndices[0]][j] = soloPositive
+          } else {
+            const first = positiveIndices[0]
+            const last = positiveIndices[positiveIndices.length - 1]
+            for (const i of positiveIndices) {
+              output[i][j] =
+                i === first ? positiveBase : i === last ? 'top' : 'none'
+            }
+          }
+        } else if (negativeIndices.length > 0 && positiveIndices.length === 0) {
+          if (negativeIndices.length === 1) {
+            output[negativeIndices[0]][j] = soloNegative
+          } else {
+            // Negatives stack away from the axis in series order, so the
+            // first is at the baseline and the last is the far end.
+            const nearest = Math.min(...negativeIndices)
+            const farthest = Math.max(...negativeIndices)
+            for (const i of negativeIndices) {
+              output[i][j] =
+                i === nearest
+                  ? negativeBase
+                  : i === farthest
+                    ? 'bottom'
+                    : 'none'
+            }
+          }
+        } else if (positiveIndices.length > 0 && negativeIndices.length > 0) {
+          const lastPositive = positiveIndices[positiveIndices.length - 1]
+          for (const i of positiveIndices) {
+            output[i][j] = i === lastPositive ? 'top' : 'none'
+          }
+          const highestNegative = Math.max(...negativeIndices)
+          for (const i of negativeIndices) {
+            output[i][j] = i === highestNegative ? 'bottom' : 'none'
+          }
+        }
+      }
+    }
+
+    return output
+  }
+
+  /** @param {{ j?: any, i?: any, x1?: any, x2?: any, y1?: any, y2?: any, bc?: any, elSeries?: any }} opts */
+  barBackground({ j, i, x1, x2, y1, y2, elSeries }) {
+    const w = this.w
+    const colors = this.barCtx.barOptions.colors
+    // Called for every bar; without background colours there is nothing to
+    // draw, and the owning series is the same for the whole draw.
+    if (!colors.backgroundBarColors.length) return
+    if (this._bgOwner === undefined) {
+      this._bgOwner = new Series(w).getActiveConfigSeriesIndex()
+    }
+
+    if (this._bgOwner === i) {
+      const graphics = new Graphics(w)
+      if (j >= colors.backgroundBarColors.length) {
+        j %= colors.backgroundBarColors.length
+      }
+
+      const bcolor = colors.backgroundBarColors[j]
+      const rect = graphics.drawRect(
+        typeof x1 !== 'undefined' ? x1 : 0,
+        typeof y1 !== 'undefined' ? y1 : 0,
+        typeof x2 !== 'undefined' ? x2 : w.layout.gridWidth,
+        typeof y2 !== 'undefined' ? y2 : w.layout.gridHeight,
+        colors.backgroundBarRadius,
+        bcolor,
+        colors.backgroundBarOpacity
+      )
+      elSeries.add(rect)
+      rect.node.classList.add('apexcharts-backgroundBar')
+    }
+  }
+
+  /**
+   * The rect a column or bar is drawn as: its slot across the category axis
+   * (`a`, `len`) and its two ends on the value axis (`v1` the baseline, `v2`
+   * the value), with the stroke centred on the edges and the configured
+   * corners rounded. getColumnPaths and getBarpaths build their bars here, and
+   * so does the highlight filter's part, which is how a part lines up with its
+   * whole to the sub-pixel.
+   *
+   * `base` is the rect collapsed onto its baseline, padded to the command
+   * count of `pathTo` so the rise morphs cleanly.
+   *
+   * `insetWidth`, when given, is the stroke width used only for the sideways
+   * inset along the slot (`a`/`len`); the value axis keeps `strokeWidth`. It
+   * defaults to `strokeWidth`, so one width sets both directions. When
+   * `strokeWidth` is the smaller (an empty segment of a stroked series), the
+   * rect collapses onto its base edge inset by `insetWidth`, where its drawn
+   * self starts.
+   *
+   * @param {{a: number, len: number, v1: number, v2: number, strokeWidth: any, insetWidth?: any, realIndex: number, j: number, dir: number, horizontal?: boolean}} o
+   */
+  barRect({
+    a,
+    len,
+    v1,
+    v2,
+    strokeWidth,
+    insetWidth,
+    realIndex,
+    j,
+    dir,
+    horizontal,
+  }) {
+    const w = this.w
+    const graphics = new Graphics(w)
+    strokeWidth = Array.isArray(strokeWidth)
+      ? strokeWidth[realIndex]
+      : strokeWidth
+    if (!strokeWidth) strokeWidth = 0
+    if (insetWidth === undefined) {
+      insetWidth = strokeWidth
+    } else {
+      insetWidth = Array.isArray(insetWidth)
+        ? insetWidth[realIndex]
+        : insetWidth
+      if (!insetWidth) insetWidth = 0
+    }
+
+    const datum = /** @type {any} */ (w.config.series[realIndex]).data[j]
+    const offset = horizontal
+      ? datum?.barHeightOffset
+      : datum?.columnWidthOffset
+    if (offset) {
+      a -= offset / 2
+      len += offset
+    }
+
+    // Center the stroke on the coordinates
+    const strokeCenter = strokeWidth / 2
+    const insetCenter = insetWidth / 2
+    const direction = dir * (this.barCtx.isReversed ? -1 : 1)
+    // An empty segment (no stroke of its own in a stroked series) collapses
+    // onto the base edge its drawn self had, inset by the series' half
+    // stroke, not onto the bare baseline: a legend-hidden layer then leaves
+    // and re-enters on the line it grew from, where the stroke of the layer
+    // above already lies, instead of half a stroke past it (#5046).
+    const empty = strokeWidth < insetWidth
+    const baseCenter = empty ? insetCenter : strokeCenter
+    let tip
+    const closing =
+      w.config.plotOptions.bar.borderRadiusApplication === 'around' ||
+      this.arrBorderRadius[realIndex][j] === 'both'
+        ? ' Z'
+        : ' z'
+
+    // The 0.001 nudges avoid exponentials, which break border-radius.
+    let x1, x2, y1, y2, sl, squarePathTo
+    if (horizontal) {
+      y1 = a + insetCenter
+      y2 = a + len - insetCenter
+      x1 = v1 + 0.001 + baseCenter * direction
+      tip = v2 + 0.001 - strokeCenter * direction
+      x2 = empty ? x1 : tip
+      sl = graphics.line(x1, y2)
+      squarePathTo =
+        graphics.move(x1, y1) +
+        graphics.line(x2, y1) +
+        graphics.line(x2, y2) +
+        sl +
+        closing
+    } else {
+      x1 = a + insetCenter
+      x2 = a + len - insetCenter
+      y1 = v1 + 0.001 - baseCenter * direction
+      tip = v2 + 0.001 + strokeCenter * direction
+      y2 = empty ? y1 : tip
+      sl = graphics.line(x2, y1)
+      squarePathTo =
+        graphics.move(x1, y1) +
+        graphics.line(x1, y2) +
+        graphics.line(x2, y2) +
+        sl +
+        closing
+    }
+
+    // squarePathTo is kept because a bar that is GAINING a rounded corner has
+    // to travel to its new slot square and only round once it gets there, see
+    // Bar.getPreviousPath.
+    const radius = w.config.plotOptions.bar.borderRadius
+    let pathTo = squarePathTo
+    if (this.arrBorderRadius[realIndex][j] !== 'none') {
+      // At radius 0 rounding only pads each joined corner with a zero-length
+      // curve on itself, the command count the morphs are built around (all
+      // four when the path closes with Z, which joins the last edge to the
+      // first). Written in directly, it is exactly the string
+      // roundPathCorners returns, without parsing a path per bar.
+      pathTo =
+        radius === 0 && isFinite(x1 + x2 + y1 + y2)
+          ? squarePathTo
+              .replace(' Z', ` L ${x1} ${y1} Z`)
+              .replace(/ L (\S+ \S+)(?= [LZ])/g, ' L $1 C $1 $1 $1') + ' '
+          : graphics.roundPathCorners(squarePathTo, radius)
+    }
+
+    return {
+      x1,
+      x2,
+      y1,
+      y2,
+      sl,
+      closing,
+      squarePathTo,
+      pathTo,
+      base:
+        graphics.move(x1, y1) +
+        graphics.line(x1, y1) +
+        sl +
+        sl +
+        sl +
+        sl +
+        sl +
+        graphics.line(x1, y1) +
+        closing,
+      // the value end before an empty segment folds it onto its base edge
+      tip,
+      strokeWidth,
+      strokeCenter,
+      direction,
+    }
+  }
+
+  /**
+   * The sign a legend-hidden column had, read from the data its collapse
+   * stored (its values are all 0 while hidden): 1, -1, or 0 when the series
+   * is not hidden or the datum has no sign. A hidden layer then folds onto
+   * the base edge of the side it left, where its neighbours' strokes run.
+   * @param {number} realIndex @param {number} j
+   * @returns {number}
+   */
+  collapsedSign(realIndex, j) {
+    const gl = this.w.globals
+    const lists = [
+      [gl.collapsedSeriesIndices, gl.collapsedSeries],
+      [gl.ancillaryCollapsedSeriesIndices, gl.ancillaryCollapsedSeries],
+    ]
+    for (const [indices, entries] of lists) {
+      if (!indices || indices.indexOf(realIndex) < 0) continue
+      const c = (entries || []).find(
+        (/** @type {any} */ s) => s.index === realIndex,
+      )
+      const d = c?.data?.[j]
+      const v = Array.isArray(d) ? d[1] : d && typeof d === 'object' ? d.y : d
+      return typeof v === 'number' && v ? Math.sign(v) : 0
+    }
+    return 0
+  }
+
+  /** @param {{ barWidth?: any, barXPosition?: any, y1?: any, y2?: any, yRatio?: any, strokeWidth?: any, insetWidth?: any, isReversed?: any, series?: any, realIndex?: any, i?: any, j?: any, w?: any }} opts */
+  getColumnPaths({
+    barWidth,
+    barXPosition,
+    y1,
+    y2,
+    strokeWidth,
+    insetWidth,
+    series,
+    realIndex,
+    i,
+    j,
+    w,
+  }) {
+    const r = this.barRect({
+      a: barXPosition,
+      len: barWidth,
+      v1: y1,
+      v2: y2,
+      strokeWidth,
+      insetWidth,
+      realIndex,
+      j,
+      dir:
+        this.collapsedSign(realIndex, j) || (series[i][j] >= 0 ? 1 : -1),
+    })
+    const { pathTo, squarePathTo, strokeCenter, direction } = r
+    y1 = r.y1
+    y2 = r.y2
+
+    let pathFrom = null
+    // Cross-type morph: use the captured outgoing path as the start so the
+    // morphPaths engine bridges (pie/radial) → bar. No-op when the morph
+    // feature isn't registered or no snapshot is active.
+    const morphFrom = this.barCtx.ctx?.morphTypeChange?.getInitialPathFor(
+      realIndex,
+      j,
+    )
+    if (morphFrom) {
+      pathFrom = morphFrom
+    } else if (w.globals.previousPaths.length > 0) {
+      // Update: keyed survivor → its old geometry (reflow morph); survivor
+      // whose shape changed → pathTo (snap); ENTERING datum → null, which
+      // falls through to the baseline rise below.
+      pathFrom = this.barCtx.getPreviousPath(realIndex, j, pathTo, squarePathTo)
+    }
+    if (pathFrom == null) {
+      // Initial mount or entering datum: rise from the baseline of the final
+      // slot (command count padded to match pathTo, see barRect).
+      pathFrom = r.base
+    }
+
+    if (w.config.chart.stacked) {
+      // A point past the end of a short series is undefined, which reads as
+      // neither sign, so the layer above restarted at the axis. It stacks as
+      // a null, as the padded series would.
+      const _ctx = this.barCtx.groupCtx
+      // (the value's own y, which the layer above stacks on)
+      _ctx.yArrj.push(r.tip - strokeCenter * direction)
+      _ctx.yArrjF.push(Math.abs(y1 - y2 + r.strokeWidth * direction))
+      _ctx.yArrjVal.push(this.barCtx.series[i][j] ?? null)
+    }
+
+    return {
+      pathTo,
+      pathFrom,
+      // The box the path was built from, AFTER the stroke centering and the
+      // anti-exponential nudge above. Anything that has to line up with a drawn
+      // bar (the waterfall connectors) reads this rather than recomputing the
+      // edges, which is how it stays exact when a stroke width is set.
+      // `y1` is the lower value's edge and `y2` the upper one's.
+      drawnBox: { x1: r.x1, x2: r.x2, y1, y2 },
+    }
+  }
+
+  /**
+   * Build a trapezoidal funnel-stage path. Used when
+   * `plotOptions.funnel.shape === 'trapezoid'` is active alongside `isFunnel`.
+   *
+   * Each stage is a 4-corner polygon whose top width matches the current
+   * stage's value and bottom width matches the next stage's value, producing
+   * continuous sloped sides between consecutive stages.
+   *
+   * For the last stage, the bottom width is configurable:
+   * - `lastShape: 'flat'`  → bottom width = top width (parallel sides)
+   * - `lastShape: 'taper'` → bottom width = 0 (taper to a point)
+   *
+   * @param {{ barYPosition: number, barHeight: number, series: any[][], i: number, j: number, realIndex: number, strokeWidth: number, w: any }} opts
+   */
+  getFunnelTrapezoidPaths({
+    barYPosition,
+    barHeight,
+    series,
+    i,
+    j,
+    realIndex,
+    strokeWidth,
+    w,
+  }) {
+    const graphics = new Graphics(this.barCtx.w)
+    const center = w.layout.gridWidth / 2
+
+    /** @param {number} v */
+    const halfWidthFor = (v) => Math.abs(v / this.barCtx.invertedYRatio) / 2
+
+    const topHalf = halfWidthFor(series[i][j])
+
+    const lastIdx = series[i].length - 1
+    const isLast = j === lastIdx
+    const lastShape =
+      w.config.plotOptions.funnel.lastShape === 'taper' ? 'taper' : 'flat'
+
+    let bottomHalf
+    if (isLast) {
+      bottomHalf = lastShape === 'taper' ? 0 : topHalf
+    } else {
+      bottomHalf = halfWidthFor(series[i][j + 1])
+    }
+
+    const strokeCenter = strokeWidth / 2
+    const y1 = barYPosition + strokeCenter
+    const y2 = barYPosition + barHeight - strokeCenter
+
+    const topLeftX = center - topHalf
+    const topRightX = center + topHalf
+    const bottomLeftX = center - bottomHalf
+    const bottomRightX = center + bottomHalf
+
+    const pathTo =
+      graphics.move(topLeftX, y1) +
+      graphics.line(topRightX, y1) +
+      graphics.line(bottomRightX, y2) +
+      graphics.line(bottomLeftX, y2) +
+      ' Z'
+
+    let pathFrom = null
+    const morphFrom = this.barCtx.ctx?.morphTypeChange?.getInitialPathFor(
+      realIndex,
+      j,
+    )
+    if (morphFrom) {
+      pathFrom = morphFrom
+    } else if (w.globals.previousPaths.length > 0) {
+      // Update: keyed survivor → morph; shape-changed survivor → snap;
+      // entering datum → null (falls through to the centerline collapse).
+      pathFrom = this.barCtx.getPreviousPath(realIndex, j, pathTo)
+    }
+    if (pathFrom == null) {
+      // Initial mount or entering datum: collapsed at the centerline so the
+      // trapezoid expands outward.
+      pathFrom =
+        graphics.move(center, y1) +
+        graphics.line(center, y1) +
+        graphics.line(center, y2) +
+        graphics.line(center, y2) +
+        ' Z'
+    }
+
+    return {
+      pathTo,
+      pathFrom,
+      // x is the right edge of the wider (top) side — used by dataLabel
+      // positioning helpers that expect a "right" reference.
+      x: topRightX,
+      x1: topLeftX,
+      barXPosition: center,
+    }
+  }
+
+  /**
+   * Pre-compute the per-segment layout for a value-proportional pyramid.
+   *
+   * Each segment is a horizontal slice of a triangle whose apex sits at the
+   * top of the plot area (width = 0) and whose base spans `gridWidth` at the
+   * bottom. The vertical extent of each slice is its share of the total
+   * series value, so areas track value contribution and segments share
+   * edges (no gaps). The first data point is the apex, the last is the base.
+   *
+   * @param {any[]} seriesData - 1D array of values for a single series row
+   * @returns {{ y: number, height: number, topHalf: number, bottomHalf: number }[]}
+   */
+  computePyramidLayout(seriesData) {
+    const w = this.w
+    const gridHeight = w.layout.gridHeight
+    const gridWidth = w.layout.gridWidth
+
+    const values = seriesData.map(
+      /** @param {any} v */ (v) => Math.abs(Number(v) || 0),
+    )
+    const total = values.reduce(
+      /** @param {number} a @param {number} b */ (a, b) => a + b,
+      0,
+    )
+
+    if (total === 0 || gridHeight <= 0) {
+      return values.map(() => ({ y: 0, height: 0, topHalf: 0, bottomHalf: 0 }))
+    }
+
+    const halfWidth = gridWidth / 2
+    let cumulative = 0
+    const layout = []
+    for (let j = 0; j < values.length; j++) {
+      const topRatio = cumulative / total
+      cumulative += values[j]
+      const bottomRatio = cumulative / total
+      const topY = topRatio * gridHeight
+      const bottomY = bottomRatio * gridHeight
+      layout.push({
+        y: topY,
+        height: bottomY - topY,
+        topHalf: topRatio * halfWidth,
+        bottomHalf: bottomRatio * halfWidth,
+      })
+    }
+    return layout
+  }
+
+  /**
+   * Build a single pyramid stage path. Geometry is precomputed by
+   * `computePyramidLayout`; this method only renders that geometry into an
+   * SVG path string plus a `pathFrom` for entry/morph animations.
+   *
+   * @param {{ barYPosition: number, barHeight: number, topHalf: number, bottomHalf: number, realIndex: number, j: number, strokeWidth: number, w: any }} opts
+   */
+  getPyramidPaths({
+    barYPosition,
+    barHeight,
+    topHalf,
+    bottomHalf,
+    realIndex,
+    j,
+    strokeWidth,
+    w,
+  }) {
+    const graphics = new Graphics(this.barCtx.w)
+    const center = w.layout.gridWidth / 2
+
+    const strokeCenter = strokeWidth / 2
+    const y1 = barYPosition + strokeCenter
+    const y2 = barYPosition + barHeight - strokeCenter
+
+    const topLeftX = center - topHalf
+    const topRightX = center + topHalf
+    const bottomLeftX = center - bottomHalf
+    const bottomRightX = center + bottomHalf
+
+    const pathTo =
+      graphics.move(topLeftX, y1) +
+      graphics.line(topRightX, y1) +
+      graphics.line(bottomRightX, y2) +
+      graphics.line(bottomLeftX, y2) +
+      ' Z'
+
+    let pathFrom = null
+    const morphFrom = this.barCtx.ctx?.morphTypeChange?.getInitialPathFor(
+      realIndex,
+      j,
+    )
+    if (morphFrom) {
+      pathFrom = morphFrom
+    } else if (w.globals.previousPaths.length > 0) {
+      // Keyed survivor → morph; shape-changed → snap; entering → null.
+      pathFrom = this.barCtx.getPreviousPath(realIndex, j, pathTo)
+    }
+    if (pathFrom == null) {
+      pathFrom =
+        graphics.move(center, y1) +
+        graphics.line(center, y1) +
+        graphics.line(center, y2) +
+        graphics.line(center, y2) +
+        ' Z'
+    }
+
+    return {
+      pathTo,
+      pathFrom,
+      x: topRightX,
+      x1: topLeftX,
+      barXPosition: center,
+    }
+  }
+
+  /** @param {{ barYPosition?: any, barHeight?: any, x1?: any, x2?: any, strokeWidth?: any, isReversed?: any, series?: any, realIndex?: any, i?: any, j?: any, w?: any }} opts */
+  getBarpaths({
+    barYPosition,
+    barHeight,
+    x1,
+    x2,
+    strokeWidth,
+    series,
+    realIndex,
+    i,
+    j,
+    w,
+  }) {
+    const graphics = new Graphics(this.barCtx.w)
+    const r = this.barRect({
+      a: barYPosition,
+      len: barHeight,
+      v1: x1,
+      v2: x2,
+      strokeWidth,
+      realIndex,
+      j,
+      dir: series[i][j] >= 0 ? 1 : -1,
+      horizontal: true,
+    })
+    const { y1, y2, sl, closing, squarePathTo, pathTo, strokeCenter, direction } =
+      r
+    x1 = r.x1
+    x2 = r.x2
+
+    // Funnel / pyramid (non-trapezoid): the segment expands outward from the
+    // chart center rather than growing in from the left edge, matching the
+    // trapezoid funnel's natural metaphor of "filling a vessel".
+    const isFunnel = this.barCtx.isFunnel
+    const fromX = isFunnel ? (x1 + x2) / 2 : x1
+
+    let pathFrom = null
+    const morphFrom = this.barCtx.ctx?.morphTypeChange?.getInitialPathFor(
+      realIndex,
+      j,
+    )
+    if (morphFrom) {
+      pathFrom = morphFrom
+    } else if (w.globals.previousPaths.length > 0) {
+      // Update: keyed survivor → its old geometry (reflow morph); survivor
+      // whose shape changed → pathTo (snap); ENTERING datum → null, which
+      // falls through to the baseline rise below.
+      pathFrom = this.barCtx.getPreviousPath(realIndex, j, pathTo, squarePathTo)
+    }
+    if (pathFrom == null) {
+      // Initial mount or entering datum: rise from the baseline of the final
+      // slot; pad command count to match pathTo.
+      const slFrom = isFunnel ? graphics.line(fromX, y2) : sl
+      pathFrom =
+        graphics.move(fromX, y1) +
+        graphics.line(fromX, y1) +
+        slFrom +
+        slFrom +
+        slFrom +
+        slFrom +
+        slFrom +
+        graphics.line(fromX, y1) +
+        closing
+    }
+
+    if (w.config.chart.stacked) {
+      const _ctx = this.barCtx.groupCtx
+      _ctx.xArrj.push(x2 + strokeCenter * direction)
+      _ctx.xArrjF.push(Math.abs(x1 - x2 - r.strokeWidth * direction))
+      _ctx.xArrjVal.push(this.barCtx.series[i][j] ?? null)
+    }
+    return {
+      pathTo,
+      pathFrom,
+      // See getColumnPaths. Here `x1` is the start value's edge and `x2` the
+      // end value's, because a horizontal bar's two ends arrive unsorted.
+      drawnBox: { x1, x2, y1, y2 },
+    }
+  }
+
+  /**
+   * @param {number} value
+   * @param {number} zeroW
+   */
+  getXForValue(value, zeroW, zeroPositionForNull = true) {
+    let xForVal = zeroPositionForNull ? zeroW : null
+    if (typeof value !== 'undefined' && value !== null) {
+      xForVal =
+        zeroW +
+        value / this.barCtx.invertedYRatio -
+        (this.barCtx.isReversed ? value / this.barCtx.invertedYRatio : 0) * 2
+    }
+    return xForVal
+  }
+
+  /**
+   * @param {number} value
+   * @param {number} zeroH
+   * @param {number} translationsIndex
+   */
+  getYForValue(value, zeroH, translationsIndex, zeroPositionForNull = true) {
+    let yForVal = zeroPositionForNull ? zeroH : null
+    if (typeof value !== 'undefined' && value !== null) {
+      yForVal =
+        zeroH -
+        value / this.barCtx.yRatio[translationsIndex] +
+        (this.barCtx.isReversed
+          ? value / this.barCtx.yRatio[translationsIndex]
+          : 0) *
+          2
+    }
+    return yForVal
+  }
+
+  /**
+   * @param {string} type
+   * @param {number} zeroW
+   * @param {number} zeroH
+   * @param {number} i
+   * @param {number} j
+   * @param {number} translationsIndex
+   */
+  getGoalValues(type, zeroW, zeroH, i, j, translationsIndex) {
+    const w = this.w
+
+    /** @type {any[]} */
+    const goals = []
+
+    /**
+     * @param {number} value
+     * @param {Record<string, any>} attrs
+     */
+    const pushGoal = (value, attrs) => {
+      // the bars are drawn in log space on a logarithmic axis, so is the goal
+      if (!w.globals.invalidLogScale) {
+        value = new CoreUtils(w).getLogValAtSeriesIndex(value, i)
+      }
+      goals.push({
+        [type]:
+          type === 'x'
+            ? this.getXForValue(value, zeroW, false)
+            : this.getYForValue(value, zeroH, translationsIndex, false),
+        attrs,
+      })
+    }
+    if (
+      w.seriesData.seriesGoals[i] &&
+      w.seriesData.seriesGoals[i][j] &&
+      Array.isArray(w.seriesData.seriesGoals[i][j])
+    ) {
+      /**
+       * @param {Record<string, any>} goal
+       */
+      w.seriesData.seriesGoals[i][j].forEach((/** @type {any} */ goal) => {
+        pushGoal(goal.value, goal)
+      })
+    }
+    if (this.barCtx.barOptions.isDumbbell) {
+      const ends = this.getDumbbellEnds(i, j)
+      if (ends.length) {
+        const commonAttrs = {
+          strokeHeight: type === 'x' ? 0 : w.globals.markers.size[i],
+          strokeWidth: type === 'x' ? w.globals.markers.size[i] : 0,
+          strokeDashArray: 0,
+          strokeLineCap: 'round',
+        }
+
+        // Only the two extremes are labelled. Anything between them (a third
+        // measure) sits ON the connector, where a label has nowhere to go that
+        // is not over the line or over its neighbour.
+        let lo = 0
+        let hi = 0
+        for (let e = 1; e < ends.length; e++) {
+          if (ends[e].value < ends[lo].value) lo = e
+          if (ends[e].value > ends[hi].value) hi = e
+        }
+
+        const labelsCnf = w.config.plotOptions.bar.dumbbell.dataLabels
+        ends.forEach((end, e) => {
+          /** @type {Record<string, any>} */
+          const attrs = { ...commonAttrs, strokeColor: end.color }
+          if (labelsCnf.enabled && (e === lo || e === hi)) {
+            attrs.label = {
+              text: this.getDumbbellLabelText(end.value, i, j, end.index),
+              color: labelsCnf.colorFromMarker
+                ? end.color
+                : Array.isArray(labelsCnf.style.colors)
+                  ? labelsCnf.style.colors[end.index] ||
+                    labelsCnf.style.colors[0]
+                  : labelsCnf.style.colors,
+              // Away from the connector: the low end reads to its left (below,
+              // on a column), the high end to its right. A lone endpoint has no
+              // connector to be clear of, so it takes the outward side.
+              outward: e === lo && lo !== hi ? -1 : 1,
+            }
+          }
+          pushGoal(end.value, attrs)
+        })
+      }
+    }
+    return goals
+  }
+
+  /**
+   * The marked ends of one dumbbell row: a value and the colour that says which
+   * measure it belongs to.
+   *
+   * `chart.type: 'dumbbell'` merged N measures into one interval and left the
+   * endpoint identities on `w.dumbbellData`, so an end is coloured after the
+   * SERIES it came from. A row where the two measures cross therefore keeps its
+   * colours, which the interval alone could not say: it is emitted low-to-high
+   * and has forgotten which end was which.
+   *
+   * The `y: [lo, hi]` form names no measures, so it keeps the positional
+   * `dumbbellColors` pathway: colour 0 for the start, colour 1 for the end.
+   *
+   * @param {number} i @param {number} j
+   * @returns {Array<{ value: number, color: string, index: number }>}
+   */
+  getDumbbellEnds(i, j) {
+    const w = this.w
+    /** @type {Array<{ value: number, color: string, index: number }>} */
+    const ends = []
+    const dumbbell = w.dumbbellData
+
+    if (dumbbell && dumbbell.form === 'series') {
+      const values = dumbbell.values[j] || []
+      for (let k = 0; k < values.length; k++) {
+        const v = values[k]
+        if (v === null || dumbbell.hidden.indexOf(k) !== -1) continue
+        ends.push({ value: v, color: w.globals.colors[k], index: k })
+      }
+      return ends
+    }
+
+    if (!w.rangeData.seriesRange.length) return ends
+
+    const colors = this.barCtx.barOptions.dumbbellColors
+      ? this.barCtx.barOptions.dumbbellColors
+      : w.globals.colors
+    /** @param {number} n */
+    const pick = (n) => (Array.isArray(colors[i]) ? colors[i][n] : colors[i])
+
+    // A `y: null` row has no ends to mark. Its dots would get a null position,
+    // which draws them on the plot's top edge (left edge when horizontal).
+    return [
+      { value: w.rangeData.seriesRangeStart[i][j], color: pick(0), index: 0 },
+      { value: w.rangeData.seriesRangeEnd[i][j], color: pick(1), index: 1 },
+    ].filter((end) => end.value != null)
+  }
+
+  /**
+   * The text for one end label.
+   *
+   * Deliberately NOT `dataLabels.formatter`: on a range bar that one reads out
+   * `end - start`, so an endpoint run through it would print the gap twice and
+   * the values never. The value-axis formatter is the one that already knows
+   * these numbers are percentages, or dollars, or dates.
+   *
+   * @param {number} value @param {number} i @param {number} j @param {number} k
+   * @returns {string}
+   */
+  getDumbbellLabelText(value, i, j, k) {
+    const w = this.w
+    const cnf = w.config.plotOptions.bar.dumbbell.dataLabels
+
+    if (typeof cnf.formatter === 'function') {
+      return cnf.formatter(value, {
+        seriesIndex: i,
+        dataPointIndex: j,
+        endpointIndex: k,
+        w,
+      })
+    }
+
+    // A HORIZONTAL bar's value axis is the x axis: `yaxis.labels.formatter`
+    // there formats the CATEGORY names, so reading the value through it would
+    // put a row's own label through a formatter meant for "Frontend" and
+    // "Backend". Same split the axis renderer itself makes (YAxis.drawYaxisInversed
+    // formats with xLabelFormatter).
+    const axisFormatter = this.barCtx.isHorizontal
+      ? w.formatters.xLabelFormatter
+      : w.formatters.yLabelFormatters[0]
+    if (typeof axisFormatter === 'function') {
+      return axisFormatter(value, j, w)
+    }
+    return String(value)
+  }
+
+  /** @param {{barXPosition: any, barYPosition: any, goalX: any, goalY: any, barWidth: any, barHeight: any}} opts */
+  drawGoalLine({
+    barXPosition,
+    barYPosition,
+    goalX,
+    goalY,
+    barWidth,
+    barHeight,
+  }) {
+    // Only bars/candles that actually have a goal line need a group. Skipping
+    // the empty group (the common case) avoids one dead <g> per bar: negligible
+    // in SVG but the ENTIRE node count in canvas mode (bodies/wicks paint to the
+    // bitmap, so these empty groups are all that is left), and wasteful on large
+    // datasets either way.
+    const hasGoals =
+      (Array.isArray(goalX) && goalX.length > 0) ||
+      (Array.isArray(goalY) && goalY.length > 0)
+    if (!hasGoals) {
+      return null
+    }
+
+    const graphics = new Graphics(this.barCtx.w)
+    // `class`, not `className`: Graphics.group writes the attrs through
+    // verbatim, so the camelCase spelling shipped a <g className="..."> that no
+    // stylesheet and no querySelector could reach.
+    const lineGroup = graphics.group({
+      class: 'apexcharts-bar-goals-groups',
+    })
+
+    lineGroup.node.classList.add('apexcharts-element-hidden')
+    this.barCtx.w.globals.delayedElements.push({
+      el: lineGroup.node,
+    })
+
+    lineGroup.attr(
+      'clip-path',
+      `url(#gridRectMarkerMask${this.barCtx.w.globals.cuid})`
+    )
+
+    let line = null
+    if (this.barCtx.isHorizontal) {
+      if (Array.isArray(goalX)) {
+        goalX.forEach((goal) => {
+          // Need a tiny margin of 1 each side so goals don't disappear at extremeties
+          if (goal.x >= -1 && goal.x <= graphics.w.layout.gridWidth + 1) {
+            const sHeight =
+              typeof goal.attrs.strokeHeight !== 'undefined'
+                ? goal.attrs.strokeHeight
+                : barHeight / 2
+            const y = barYPosition + sHeight + barHeight / 2
+
+            line = graphics.drawLine(
+              goal.x,
+              y - sHeight * 2,
+              goal.x,
+              y,
+              goal.attrs.strokeColor ? goal.attrs.strokeColor : undefined,
+              goal.attrs.strokeDashArray,
+              goal.attrs.strokeWidth ? goal.attrs.strokeWidth : 2,
+              goal.attrs.strokeLineCap
+            )
+            lineGroup.add(line)
+
+            if (goal.attrs.label) {
+              lineGroup.add(
+                this.drawDumbbellLabel(goal.attrs, {
+                  x: goal.x,
+                  y: y - sHeight,
+                  horizontal: true,
+                  markerSize: goal.attrs.strokeWidth || 0,
+                })
+              )
+            }
+          }
+        })
+      }
+    } else {
+      if (Array.isArray(goalY)) {
+        goalY.forEach((goal) => {
+          // Need a tiny margin of 1 each side so goals don't disappear at extremeties
+          if (goal.y >= -1 && goal.y <= graphics.w.layout.gridHeight + 1) {
+            const sWidth =
+              typeof goal.attrs.strokeWidth !== 'undefined'
+                ? goal.attrs.strokeWidth
+                : barWidth / 2
+            const x = barXPosition + sWidth + barWidth / 2
+
+            line = graphics.drawLine(
+              x - sWidth * 2,
+              goal.y,
+              x,
+              goal.y,
+              goal.attrs.strokeColor ? goal.attrs.strokeColor : undefined,
+              goal.attrs.strokeDashArray,
+              goal.attrs.strokeHeight ? goal.attrs.strokeHeight : 2,
+              goal.attrs.strokeLineCap
+            )
+            lineGroup.add(line)
+
+            if (goal.attrs.label) {
+              lineGroup.add(
+                this.drawDumbbellLabel(goal.attrs, {
+                  x: x - sWidth,
+                  y: goal.y,
+                  horizontal: false,
+                  markerSize: goal.attrs.strokeHeight || 0,
+                })
+              )
+            }
+          }
+        })
+      }
+    }
+
+    return lineGroup
+  }
+
+  /**
+   * One dumbbell end label, placed clear of the marker it belongs to.
+   *
+   * Offset from the marker's EDGE rather than its centre, so growing
+   * `markers.size` never walks a label under its own dot. Vertically it is
+   * centred on the marker with `dominant-baseline`, which is exact whatever the
+   * font metrics are, where a dy fudge factor drifts with font size.
+   *
+   * @param {Record<string, any>} attrs the goal's attrs, carrying `label`
+   * @param {{x: number, y: number, horizontal: boolean, markerSize: number}} pos
+   */
+  drawDumbbellLabel(attrs, pos) {
+    const w = this.w
+    const graphics = new Graphics(w)
+    const cnf = w.config.plotOptions.bar.dumbbell.dataLabels
+    const gap = pos.markerSize / 2 + cnf.offset
+    const away = attrs.label.outward
+
+    return graphics.drawText({
+      x: pos.x + (pos.horizontal ? gap * away : 0),
+      y: pos.y - (pos.horizontal ? 0 : gap * away),
+      text: attrs.label.text,
+      textAnchor: pos.horizontal ? (away < 0 ? 'end' : 'start') : 'middle',
+      dominantBaseline: pos.horizontal
+        ? 'central'
+        : away < 0
+          ? 'hanging'
+          : 'auto',
+      foreColor: attrs.label.color,
+      fontSize: cnf.style.fontSize,
+      fontFamily: cnf.style.fontFamily,
+      fontWeight: cnf.style.fontWeight,
+      cssClass: 'apexcharts-dumbbell-label',
+    })
+  }
+
+  /** @param {{prevPaths: any, currPaths: any, color: any, realIndex: any, j: any}} opts */
+  drawBarShadow({ prevPaths, currPaths, color, realIndex, j }) {
+    const w = this.w
+    const { x: prevX2, x1: prevX1, barYPosition: prevY1 } = prevPaths
+    const { x: currX2, x1: currX1, barYPosition: currY1 } = currPaths
+
+    const prevY2 = prevY1 + currPaths.barHeight
+
+    const graphics = new Graphics(this.barCtx.w)
+    const utils = new Utils()
+
+    const shadowPath =
+      graphics.move(prevX1, prevY2) +
+      graphics.line(prevX2, prevY2) +
+      graphics.line(currX2, currY1) +
+      graphics.line(currX1, currY1) +
+      graphics.line(prevX1, prevY2) +
+      (w.config.plotOptions.bar.borderRadiusApplication === 'around' ||
+      this.arrBorderRadius[realIndex][j] === 'both'
+        ? ' Z'
+        : ' z')
+
+    return graphics.drawPath({
+      d: shadowPath,
+      // rgb2hex reads rgb()/rgba() only; shade any other colour as given
+      fill: utils.shadeColor(0.5, Utils.rgb2hex(color) || color),
+      stroke: 'none',
+      strokeWidth: 0,
+      fillOpacity: 1,
+      classes: 'apexcharts-bar-shadow apexcharts-decoration-element',
+    })
+  }
+
+  /** @param {{i: any, j: any}} opts */
+  getZeroValueEncounters({ i, j }) {
+    const w = this.w
+
+    let nonZeroColumns = 0
+    let zeroEncounters = 0
+    const seriesIndices = w.config.plotOptions.bar.horizontal
+      /**
+       * @param {any} _
+       * @param {number} _i
+       */
+      ? w.seriesData.series.map((/** @type {any} */ _, /** @type {any} */ _i) => _i)
+      /**
+       * @param {number} _i
+       */
+      : w.globals.columnSeries?.i.map((/** @type {any} */ _i) => _i) || []
+
+    /**
+     * @param {number} _si
+     */
+    seriesIndices.forEach((/** @type {any} */ _si) => {
+      const val = w.seriesData.series[_si][j]
+      if (val) {
+        nonZeroColumns++
+      }
+      if (_si < i && !val) {
+        zeroEncounters++
+      }
+    })
+
+    return {
+      nonZeroColumns,
+      zeroEncounters,
+    }
+  }
+
+  /**
+   * Index of the series group `seriesIndex` belongs to within
+   * `w.labelData.seriesGroups`, or -1 when the chart has no groups.
+   *
+   * Unlike `getGroupIndex` this is a pure lookup: it never appends to
+   * `columnGroupIndices`, so it is safe to call from positioning/label code
+   * that must not perturb the draw order bookkeeping.
+   * @param {number} seriesIndex
+   * @returns {number}
+   */
+  getSeriesGroupIndex(seriesIndex) {
+    return this.w.labelData.seriesGroupIndex[seriesIndex] ?? -1
+  }
+
+  /**
+   * @param {number} seriesIndex
+   */
+  getGroupIndex(seriesIndex) {
+    const groupIndex = this.getSeriesGroupIndex(seriesIndex)
+    // We need the column groups to be indexable as 0,1,2,... for their
+    // positioning relative to each other.
+    const cGI = this.barCtx.columnGroupIndices
+    let columnGroupIndex = cGI.indexOf(groupIndex)
+    if (columnGroupIndex < 0) {
+      cGI.push(groupIndex)
+      columnGroupIndex = cGI.length - 1
+    }
+    return { groupIndex, columnGroupIndex }
+  }
+}

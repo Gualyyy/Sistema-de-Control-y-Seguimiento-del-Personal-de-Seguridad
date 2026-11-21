@@ -1,0 +1,92 @@
+{% extends 'Estructura/base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<section class="contenedor_formulario">
+    <div class="contenedor_campos_amplio">
+        <h2>Registros de Gastos</h2>
+
+        <div class="modulo_gastos">
+            <form method="post" id="formulario_registrar" class="formulario_gastos">
+                {% csrf_token %}
+
+                <div class="campo_formulario">
+                    <label for="categoria_gastos">Categoría del Gasto:</label>
+                    <select name="categoria_gastos" id="categoria_gastos" required>
+                        <option value="">Seleccione una categoría</option>
+                    </select>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="descripcion">Descripción del Gasto:</label>
+                    <input type="text" name="descripcion" id="descripcion"
+                        placeholder="Ingrese la descripción del gasto" maxlength="200" autocomplete="off" required>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="monto_gasto">Monto (USD $):</label>
+                    <input type="text" name="monto_gasto" id="monto_gasto" placeholder="Ingrese el monto del gasto"
+                        autocomplete="off" required>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="fecha_gasto">Fecha del Gasto:</label>
+                    <input type="date" name="fecha_gasto" id="fecha_gasto" required>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="es_recurrente">¿Es un gasto recurrente?</label>
+                    <select name="es_recurrente" id="es_recurrente" required>
+                        <option value="false" selected>No</option>
+                        <option value="true">Sí</option>
+                    </select>
+                </div>
+
+                <div class="campo_formulario" id="contenedor_frecuencia" hidden>
+                    <label for="frecuencia">Frecuencia del Gasto:</label>
+                    <select name="frecuencia" id="frecuencia">
+                        <option value="SEMANAL" selected>Semanal</option>
+                        <option value="MENSUAL">Mensual</option>
+                        <option value="ANUAL">Anual</option>
+                    </select>
+                </div>
+
+                <div class="campo_formulario">
+                    <label for="referencia">Documento o referencia (opcional):</label>
+                    <input type="text" name="referencia" id="referencia"
+                        placeholder="Ej.: factura eléctrica, recibo o ref. bancaria"
+                        aria-describedby="ayuda_referencia"
+                        maxlength="100" autocomplete="off">
+                    <small id="ayuda_referencia">
+                        Indique el tipo de comprobante y su número, folio o código.
+                    </small>
+                </div>
+
+                <!-- Observaciones y Botón distribuidos de forma fluida en la retícula -->
+                <div class="campo_formulario campo_observacion">
+                    <label for="observacion">Observaciones:</label>
+                    <textarea name="observacion" id="observacion"
+                        placeholder="Ingrese información adicional sobre el gasto (250 caracteres)" autocomplete="off"
+                        maxlength="250"></textarea>
+                    <div class="contador_caracteres">
+                        <span id="contador_observacion">0</span> / 250 caracteres
+                    </div>
+                </div>
+
+                <div class="contenedor_boton_submit">
+                    <button type="submit" class="btn_submit">
+                        <i class="fa-regular fa-floppy-disk"></i>
+                        Registrar
+                    </button>
+                </div>
+            </form>
+        </div>
+
+    </div>
+</section>
+
+<script src="{% static 'Funcionalidades_Asincronas/gastos/registrar_gastos.js' %}"></script>
+
+{% endblock %}

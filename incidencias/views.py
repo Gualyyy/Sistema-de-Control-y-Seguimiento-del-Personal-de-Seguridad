@@ -283,6 +283,8 @@ def registrar_incidencias(request):
 
             bitacora.objects.create(
                 id_usuario=supervisor.id_usuario,
+                nombre_modulo="Registro de incidencias",
+                cargo_usuario=request.session.get("perfil", "No especificado"),
                 accion=(
                     f"Registró la incidencia N.º "
                     f"{nueva_incidencia.id_incidencia}: "
@@ -342,14 +344,6 @@ def gestionar_incidencias(request):
     return render(request, "Supervisor_Encargado/gestionar_incidencia.html")
 
 def incidencias_vigilante(request):
-    if request.method != "POST":
-        return JsonResponse({
-            "estado": "fallo",
-            "title": "Método no permitido",
-            "descripcion": "Esta consulta requiere una solicitud POST.",
-            "icon": "warning"
-        }, status=405)
-
     cedula = request.session.get("cedula_identidad")
 
     if not cedula:
@@ -378,15 +372,14 @@ def incidencias_vigilante(request):
             "icon": "error"
         })
 
-    tipo_incidencia_id = request.POST.get(
-        "tipo_incidencia", ""
+    tipo_incidencia_id = (
+        request.POST.get("tipo_incidencia") or ""
     ).strip()
 
-    fecha_incidencia = request.POST.get(
-        "fecha_incidencia", ""
+    fecha_incidencia = (
+        request.POST.get("fecha_incidencia") or ""
     ).strip()
 
-    # Obtener las incidencias del turno del supervisor
     incidencias = (
         incidencia.objects
         .select_related(
@@ -403,37 +396,22 @@ def incidencias_vigilante(request):
         )
     )
 
-    # Filtrar por tipo de incidencia
-    if tipo_incidencia_id:
-        if not tipo_incidencia_id.isdigit():
-            return JsonResponse({
-                "estado": "fallo",
-                "title": "Tipo de incidencia inválido",
-                "descripcion": "El tipo de incidencia seleccionado no es válido.",
-                "icon": "warning"
-            })
-
+    if tipo_incidencia_id.isdigit():
         incidencias = incidencias.filter(
             id_tipo_id=int(tipo_incidencia_id)
         )
 
-    # Filtrar por fecha
     if fecha_incidencia:
         try:
             fecha = datetime.strptime(
                 fecha_incidencia, "%Y-%m-%d"
             ).date()
-        except ValueError:
-            return JsonResponse({
-                "estado": "fallo",
-                "title": "Fecha inválida",
-                "descripcion": "La fecha seleccionada no tiene un formato válido.",
-                "icon": "warning"
-            })
 
-        incidencias = incidencias.filter(
-            fecha_hora__date=fecha
-        )
+            incidencias = incidencias.filter(
+                fecha_hora__date=fecha
+            )
+        except ValueError:
+            pass
 
     incidencias = incidencias.order_by("-fecha_hora")
 
@@ -464,26 +442,12 @@ def incidencias_vigilante(request):
             ),
             "tipo": registro.id_tipo.nombre,
             "fecha_hora": (
-                timezone.localtime(
-                    registro.fecha_hora
-                ).strftime("%d/%m/%Y %H:%M")
+                timezone.localtime(registro.fecha_hora).strftime("%d/%m/%Y %I:%M %p")
                 if registro.fecha_hora
                 else ""
             ),
             "titulo": registro.titulo,
             "descripcion": registro.descripcion or ""
-        })
-
-    if not datos:
-        return JsonResponse({
-            "estado": "vacio",
-            "title": "Sin incidencias",
-            "descripcion": (
-                "No existen incidencias que coincidan "
-                "con los filtros seleccionados para su turno."
-            ),
-            "icon": "warning",
-            "incidencias": []
         })
 
     return JsonResponse({
@@ -622,14 +586,6 @@ def buscar_datos_incidencia(request):
         })
     
 def modificar_datos_incidencia(request):
-    if request.method != "POST":
-        return JsonResponse({
-            "estado": "fallo",
-            "title": "Método no permitido",
-            "descripcion": "Esta operación requiere una solicitud POST.",
-            "icon": "warning"
-        })
-
     id_incidencia = request.POST.get("id", "").strip()
     tipo = request.POST.get("tipos", "").strip()
     titulo = request.POST.get("titulo_m", "").strip()
@@ -720,6 +676,8 @@ def modificar_datos_incidencia(request):
 
             bitacora.objects.create(
                 id_usuario=supervisor.id_usuario,
+                nombre_modulo="Actualización de incidencias",
+                cargo_usuario=request.session.get("perfil", "No especificado"),
                 accion=(
                     f"Modificó la incidencia "
                     f"'{incidencia_modificar.titulo}' - "
@@ -787,8 +745,8 @@ def gestion_incidencia_administrativo(request):
     return render(request, "Encargado_Administrativo/visualizar_incidencias.html")
 
 def incidencias_recibidos_vigilantes(request):
-    tipo_incidencia = request.POST.get("tipo_incidencia", "").strip()
-    turno_laboral = request.POST.get("turno_laboral", "").strip()
+    tipo_incidencia = (request.POST.get("tipo_incidencia") or "").strip()
+    turno_laboral = (request.POST.get("turno_laboral") or "").strip()
 
     incidencias = incidencia.objects.select_related(
         "id_tipo",
@@ -796,34 +754,12 @@ def incidencias_recibidos_vigilantes(request):
         "id_supervisor__id_usuario"
     )
 
-    if tipo_incidencia:
-        if not tipo_incidencia.isdigit():
-            return JsonResponse({
-                "estado": "fallo",
-                "title": "Tipo de incidencia inválido",
-                "descripcion": (
-                    "El tipo de incidencia seleccionado "
-                    "no es válido."
-                ),
-                "icon": "warning"
-            })
-
+    if tipo_incidencia.isdigit():
         incidencias = incidencias.filter(
             id_tipo_id=int(tipo_incidencia)
         )
 
-    if turno_laboral:
-        if not turno_laboral.isdigit():
-            return JsonResponse({
-                "estado": "fallo",
-                "title": "Turno inválido",
-                "descripcion": (
-                    "El turno laboral seleccionado "
-                    "no es válido."
-                ),
-                "icon": "warning"
-            })
-
+    if turno_laboral.isdigit():
         incidencias = incidencias.filter(
             id_turno_id=int(turno_laboral)
         )
@@ -831,6 +767,7 @@ def incidencias_recibidos_vigilantes(request):
     incidencias = incidencias.order_by("-fecha_hora")
 
     datos = []
+
     for item in incidencias:
         supervisor = item.id_supervisor
         usuario = supervisor.id_usuario if supervisor else None
@@ -848,9 +785,7 @@ def incidencias_recibidos_vigilantes(request):
         )
 
         fecha_hora = (
-            timezone.localtime(
-                item.fecha_hora
-            ).strftime("%d/%m/%Y %H:%M")
+            timezone.localtime(item.fecha_hora).strftime("%d/%m/%Y %H:%M")
             if item.fecha_hora
             else "No registrada"
         )
@@ -865,18 +800,6 @@ def incidencias_recibidos_vigilantes(request):
             "descripcion": item.descripcion or "Sin descripción"
         })
 
-    if not datos:
-        return JsonResponse({
-            "estado": "vacio",
-            "title": "Sin incidencias",
-            "descripcion": (
-                "No existen incidencias que coincidan "
-                "con los filtros seleccionados."
-            ),
-            "icon": "warning",
-            "incidencias": []
-        })
-
     return JsonResponse({
         "estado": "exito",
         "incidencias": datos
@@ -885,16 +808,6 @@ def incidencias_recibidos_vigilantes(request):
 def buscar_incidencia(request):
     if request.method == "POST":
         id_incidencia = request.POST.get("id_incidencia", "").strip()
-
-        if not id_incidencia:
-            return JsonResponse({
-                "estado": "fallo",
-                "title": "Incidencia no especificada",
-                "descripcion": (
-                    "No se recibió el identificador de la incidencia."
-                ),
-                "icon": "warning"
-            })
 
         try:
             registro = (
@@ -982,346 +895,6 @@ def buscar_incidencia(request):
     
 # REPORTE DE LAS LITAS INCIDENCIAS REGISTRADAS POR EL VIGILANTE
 
-def lista_incidencias_pdf(request):
-    if request.method == "POST":
-        fecha = request.POST.get("fecha_incidencia", "").strip()
-        tipo = request.POST.get("tipo_incidencia", "").strip()
-
-        cedula = request.session.get("cedula_identidad")
-
-        if not cedula:
-            return JsonResponse({
-                "estado": "fallo",
-                "title": "Sesión no válida",
-                "descripcion": "No se pudo identificar al usuario.",
-                "icon": "warning"
-            })
-
-        try:
-            supervisor = supervisores_encargados.objects.select_related(
-                "id_usuario",
-                "id_turno"
-            ).get(
-                id_usuario__cedula_identidad=cedula,
-                vigencia=True
-            )
-
-        except supervisores_encargados.DoesNotExist:
-            return JsonResponse({
-                "estado": "fallo",
-                "title": "Supervisor no encontrado",
-                "descripcion": (
-                    "No existe un supervisor encargado vigente "
-                    "asociado a la sesión."
-                ),
-                "icon": "warning"
-            })
-
-        registros = (
-            incidencia.objects
-            .filter(
-                id_turno_id=supervisor.id_turno_id
-            )
-            .select_related(
-                "id_tipo",
-                "id_turno",
-                "id_supervisor",
-                "id_supervisor__id_usuario"
-            )
-            .prefetch_related(
-                "vigilantes_asignados__id_vigilante__id_usuario"
-            )
-            .order_by("-fecha_hora")
-            .distinct()
-        )
-
-        if fecha:
-            registros = registros.filter(
-                fecha_hora__date=fecha
-            )
-
-        if tipo:
-            registros = registros.filter(
-                id_tipo_id=tipo
-            )
-
-        if not registros.exists():
-            return JsonResponse({
-                "estado": "fallo",
-                "title": "Sin incidencias",
-                "descripcion": (
-                    "No existen incidencias que coincidan "
-                    "con los filtros seleccionados."
-                ),
-                "icon": "warning"
-            })
-
-        response = HttpResponse(
-            content_type="application/pdf"
-        )
-
-        response["Content-Disposition"] = (
-            'inline; filename="lista_incidencias.pdf"'
-        )
-
-        documento = SimpleDocTemplate(
-            response,
-            pagesize=landscape(legal),
-            rightMargin=30,
-            leftMargin=30,
-            topMargin=160,
-            bottomMargin=35
-        )
-
-        estilos = getSampleStyleSheet()
-
-        estilo_titulo = ParagraphStyle(
-            "TituloIncidencias",
-            parent=estilos["Heading2"],
-            fontName="Times-Bold",
-            fontSize=16,
-            leading=20,
-            alignment=TA_CENTER,
-            textColor=colors.white
-        )
-
-        estilo_encabezado = ParagraphStyle(
-            "EncabezadoIncidencias",
-            parent=estilos["Normal"],
-            fontName="Times-Bold",
-            fontSize=12,
-            leading=15,
-            alignment=TA_CENTER,
-            textColor=colors.white
-        )
-
-        estilo_celda = ParagraphStyle(
-            "CeldaIncidencias",
-            parent=estilos["Normal"],
-            fontName="Times-Roman",
-            fontSize=12,
-            leading=13,
-            alignment=TA_CENTER,
-            textColor=colors.black,
-            wordWrap="CJK"
-        )
-
-        ruta_logo = os.path.join(
-            settings.BASE_DIR,
-            "static",
-            "Imagenes",
-            "logo_hielo_caipe.png"
-        )
-
-        datos_tabla = [
-            [
-                Paragraph(
-                    "LISTA DE INCIDENCIAS",
-                    estilo_titulo
-                ),
-                "",
-                "",
-                "",
-                "",
-                ""
-            ],
-            [
-                Paragraph("N.º", estilo_encabezado),
-                Paragraph("TÍTULO", estilo_encabezado),
-                Paragraph("TIPO DE INCIDENCIA", estilo_encabezado),
-                Paragraph("DESCRIPCIÓN", estilo_encabezado),
-                Paragraph("FECHA Y HORA", estilo_encabezado),
-                Paragraph("VIGILANTE", estilo_encabezado)
-            ]
-        ]
-
-        for numero, registro in enumerate(registros, start=1):
-            descripcion = (
-                registro.descripcion
-                if registro.descripcion
-                else "Sin descripción"
-            )
-
-            fecha_hora = (
-                timezone.localtime(
-                    registro.fecha_hora
-                ).strftime("%d/%m/%Y %H:%M:%S")
-                if registro.fecha_hora
-                else "No registrada"
-            )
-
-            nombres_vigilantes = [
-                (
-                    f"{asignacion.id_vigilante.id_usuario.nombres} "
-                    f"{asignacion.id_vigilante.id_usuario.apellidos}"
-                )
-                for asignacion in registro.vigilantes_asignados.all()
-            ]
-            vigilante = ", ".join(nombres_vigilantes) or "No asignado"
-
-            datos_tabla.append([
-                Paragraph(str(numero), estilo_celda),
-                Paragraph(
-                    str(registro.titulo),
-                    estilo_celda
-                ),
-                Paragraph(
-                    str(registro.id_tipo.nombre),
-                    estilo_celda
-                ),
-                Paragraph(
-                    str(descripcion),
-                    estilo_celda
-                ),
-                Paragraph(
-                    fecha_hora,
-                    estilo_celda
-                ),
-                Paragraph(
-                    str(vigilante),
-                    estilo_celda
-                )
-            ])
-
-        tabla = Table(
-            datos_tabla,
-            colWidths=[
-                35,
-                170,
-                130,
-                280,
-                120,
-                150
-            ],
-            repeatRows=2,
-            hAlign="CENTER"
-        )
-
-        tabla.setStyle(TableStyle([
-            ("SPAN", (0, 0), (-1, 0)),
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#00445F")),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-            ("FONTNAME", (0, 0), (-1, 0), "Times-Bold"),
-            ("ALIGN", (0, 0), (-1, 0), "CENTER"),
-            ("VALIGN", (0, 0), (-1, 0), "MIDDLE"),
-
-            ("LINEBELOW", (0, 0), (-1, 0), 1, colors.HexColor("#58A5C4")),
-
-            ("BACKGROUND", (0, 1), (-1, 1), colors.HexColor("#00445F")),
-            ("TEXTCOLOR", (0, 1), (-1, 1), colors.white),
-            ("FONTNAME", (0, 1), (-1, 1), "Times-Bold"),
-            ("ALIGN", (0, 1), (-1, 1), "CENTER"),
-            ("VALIGN", (0, 1), (-1, 1), "MIDDLE"),
-
-            ("FONTNAME", (0, 2), (-1, -1), "Times-Roman"),
-            ("ALIGN", (0, 2), (-1, -1), "CENTER"),
-            ("VALIGN", (0, 2), (-1, -1), "MIDDLE"),
-
-            ("BOX", (0, 0), (-1, -1), 1, colors.HexColor("#00445F")),
-            ("INNERGRID", (0, 1), (-1, -1), 0.4, colors.HexColor("#58A5C4")),
-
-            ("TOPPADDING", (0, 0), (-1, -1), 9),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 9),
-            ("LEFTPADDING", (0, 0), (-1, -1), 7),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 7)
-        ]))
-
-        elementos = [
-            Spacer(1, 15),
-            tabla
-        ]
-
-        documento.build(
-            elementos,
-            onFirstPage=lambda canvas, documento:
-                encabezado_incidencia_pdf(
-                    canvas,
-                    documento,
-                    ruta_logo
-                ),
-            onLaterPages=lambda canvas, documento:
-                encabezado_incidencia_pdf(
-                    canvas,
-                    documento,
-                    ruta_logo
-                )
-        )
-
-        return response
-
-def encabezado_incidencia_pdf(canvas, documento, ruta_logo):
-    canvas.saveState()
-        
-    ancho_pagina, alto_pagina = landscape(letter)
-
-    # LOGO (Dimensiones y posición original)
-    if os.path.exists(ruta_logo):
-        canvas.drawImage(
-            ruta_logo,
-            60,
-            alto_pagina - 210,
-            width=250,
-            height=250,
-            preserveAspectRatio=True,
-            mask="auto"
-        )
-
-    # TITULO EMPRESA (Dimensiones y posición original)
-    canvas.setFont(
-        "Times-Bold",
-        25
-    )
-
-    canvas.setFillColor(
-        colors.HexColor("#00445F")
-    )
-
-    canvas.drawString(
-        335,
-        alto_pagina - 110,
-        "EMPRESA HIELO CAIPE C.A"
-    )
-
-    # FECHA (Dimensiones y posición original)
-    meses = [
-        "Enero",
-        "Febrero",
-        "Marzo",
-        "Abril",
-        "Mayo",
-        "Junio",
-        "Julio",
-        "Agosto",
-        "Septiembre",
-        "Octubre",
-        "Noviembre",
-        "Diciembre"
-    ]
-
-    fecha = datetime.now()
-
-    fecha_actual = (
-        f"{fecha.day} de "
-        f"{meses[fecha.month - 1]} de "
-        f"{fecha.year}"
-    )
-
-    canvas.setFont(
-        "Times-Bold",
-        14
-    )
-
-    canvas.setFillColor(
-        colors.HexColor("#072F3F")
-    )
-
-    canvas.drawString(
-        390,
-        alto_pagina - 170,
-        f"Fecha Generado {fecha_actual}"
-    )
-
-    canvas.restoreState()
 
 def lista_incidencias_admin_pdf(request):
     if request.method != "POST":
